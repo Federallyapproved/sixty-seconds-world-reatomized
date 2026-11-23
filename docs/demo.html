@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>60 Seconds: World Reatomized — HD Gameplay Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #171a16;
+      color: #efe3c8;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 20px;
+    }
+    .topbar {
+      width: 100%;
+      max-width: 1120px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 10px 16px;
+      background: #232823;
+      border: 2px solid #f2b82e;
+      border-radius: 6px;
+    }
+    .title {
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: 0.04em;
+      color: #f2b82e;
+    }
+    .subtitle {
+      font-size: 12px;
+      color: #dccba6;
+      margin-top: 2px;
+    }
+    .play-btn {
+      display: inline-block;
+      background: #f2b82e;
+      color: #1d1a16;
+      font-weight: 800;
+      font-size: 14px;
+      text-decoration: none;
+      padding: 10px 18px;
+      border-radius: 5px;
+      border: 2px solid #1d1a16;
+      white-space: nowrap;
+      transition: transform 0.12s ease, background 0.12s ease;
+    }
+    .play-btn:hover {
+      background: #ffd15c;
+      transform: translateY(-1px);
+    }
+    .video-wrap {
+      width: 100%;
+      max-width: 1120px;
+      background: #0d0e0c;
+      border: 2px solid #6b634b;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+    }
+    video {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .chapters {
+      width: 100%;
+      max-width: 1120px;
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      background: #262b25;
+      color: #efe3c8;
+      border: 1px solid #6b634b;
+      border-radius: 4px;
+      padding: 6px 11px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .chip:hover {
+      border-color: #f2b82e;
+      color: #f2b82e;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <div class="title">60 SECONDS: WORLD REATOMIZED — FULL 1280x720 DEMO VIDEO</div>
+      <div class="subtitle">Recorded directly from Godot 4.3 with stereo procedural Civil Defense audio (1m 07s)</div>
+    </div>
+    <a class="play-btn" href="./">▶ PLAY INTERACTIVE GAME</a>
+  </div>
+  <div class="video-wrap">
+    <video id="demoVid" controls autoplay playsinline src="./demo_showcase.mp4"></video>
+  </div>
+  <div class="chapters">
+    <button class="chip" onclick="seekTo(0)">0:00 Title Broadcast</button>
+    <button class="chip" onclick="seekTo(2.5)">0:02 Family Creator (Ages, Cyan Hair, Looks)</button>
+    <button class="chip" onclick="seekTo(6.5)">0:06 Live OpenStreetMap House & Churches/Groceries</button>
+    <button class="chip" onclick="seekTo(11.0)">0:11 Global & Regional Nuke Selector</button>
+    <button class="chip" onclick="seekTo(15.0)">0:15 60-Second House Scavenge</button>
+    <button class="chip" onclick="seekTo(50.0)">0:50 Fallout Bunker + Real-World Church Expedition</button>
+  </div>
+  <script>
+    function seekTo(sec) {
+      const v = document.getElementById('demoVid');
+      v.currentTime = sec;
+      v.play();
+    }
+  </script>
+</body>
+</html>

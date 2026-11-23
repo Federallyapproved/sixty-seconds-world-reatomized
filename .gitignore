@@ -1,0 +1,9 @@
+# Godot 4+ local editor cache
+.godot/
+
+# Local scratch / build artifacts (docs/ holds the clean GitHub Pages WebAssembly build)
+web_build/
+serve_web.py
+screenshots/
+*.avi
+/demo_showcase.mp4
