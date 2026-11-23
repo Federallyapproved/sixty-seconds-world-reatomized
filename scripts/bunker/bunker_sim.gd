@@ -1,15 +1,25 @@
 class_name BunkerSim
 extends RefCounted
 
-## Authentic "60 Seconds! Reatomized" Bunker Survival Simulation Engine.
-## Governs Day 1 blast aftermath, fractional soup/water rationing, exact dehydration/starvation
-## curves, temperature & fallout decay, sickness/injury/mutation, morale items & pets,
-## OpenStreetMap wasteland expeditions, and Rescue / Game-Over endings.
+## Authentic "60 Seconds: World Reatomized" (V2) Bunker Survival Simulation Engine.
+## Governs Day 1 blast aftermath & Survival/Challenge loadouts, fractional soup/water rationing,
+## exact dehydration/starvation curves, temperature & fallout decay, sickness/injury/mutation,
+## specialty supplies (Antibiotics, Anti-Rad Pills, Scrap), pairwise family relationships,
+## Multi-Ring OpenStreetMap wasteland expeditions, and all 5 Rescue / Vehicle Escape endings.
 
 const ITEM_LABELS: Dictionary = {
 	"soup": "Soup",
 	"water": "Water",
 	"medkit": "Medkit",
+	"antibiotics": "Prescription Antibiotics",
+	"antirad": "Anti-Rad Pills",
+	"scrap": "Salvaged Scrap",
+	"fuel": "Gasoline Jerrycan",
+	"battery": "Car Battery",
+	"alternator": "Alternator",
+	"spark_plugs": "Spark Plugs",
+	"radiator_hose": "Radiator Hose",
+	"vehicle_part": "Engine Part",
 	"gas_mask": "Gas Mask",
 	"radio": "CONELRAD Radio",
 	"flashlight": "Flashlight",
@@ -29,9 +39,14 @@ const ITEM_LABELS: Dictionary = {
 
 
 static func start_bunker_run() -> void:
+	var is_direct_mode: bool = (GameState.game_mode == "survival_only" or GameState.game_mode == "challenge")
+	if is_direct_mode and GameState.soup_quarters == 0 and GameState.water_quarters == 0 and GameState.day == 1:
+		_seed_mode_or_challenge_loadout()
+
 	GameState.day = 1
 	GameState.game_over = false
 	GameState.victory = false
+	GameState.ending_route = ""
 	GameState.ending_title = ""
 	GameState.ending_description = ""
 	GameState.active_expedition = {}
@@ -50,8 +65,11 @@ static func start_bunker_run() -> void:
 			poi_entry["depleted"] = false
 			GameState.nearby_pois[i] = poi_entry
 
+	var diff_cfg: Dictionary = GameState.get_difficulty_config()
+	var rad_mult: float = float(diff_cfg.get("radiation_mult", 1.0))
+
 	var nuke: Dictionary = GameState.nuke_config
-	var init_sv: float = maxf(0.15, float(nuke.get("initial_sv_hr", GameState.surface_radiation_sv)))
+	var init_sv: float = maxf(0.15, float(nuke.get("initial_sv_hr", GameState.surface_radiation_sv)) * rad_mult)
 	var init_temp: float = float(nuke.get("bunker_temp_c", GameState.bunker_temp_c))
 	var struct_dmg: float = clampf(float(nuke.get("structural_damage", 0.25)), 0.0, 1.0)
 	var dist_km: float = float(nuke.get("distance_km", 3.5))
@@ -97,6 +115,7 @@ static func start_bunker_run() -> void:
 		var made_it: bool = bool(m.get("in_bunker", false)) and bool(m.get("alive", true))
 		if made_it:
 			m["alive"] = true
+			m["betrayed"] = false
 			m["on_expedition"] = false
 			m["days_away"] = 0
 			m["sick_days"] = 0
@@ -105,9 +124,15 @@ static func start_bunker_run() -> void:
 			m["mutant_fast_tick"] = 0
 			m["heat_thirst_ticked"] = false
 			m["iron_grace_used"] = false
+			m["soot_days"] = int(m.get("soot_days", 0))
+			m["breakdown_days"] = int(m.get("breakdown_days", 0))
+			m["sepsis_protected_days"] = 0
+			m["antirad_shield_days"] = 0
+			m["last_bubble"] = ""
 			if bool(m.get("is_mutant", false)):
 				m["sickness"] = 0
 				m["sick_days"] = 0
+				GameState.unlock_achievement("mutant_awakening")
 			survivors_names.append(m_name)
 		else:
 			m["in_bunker"] = false
@@ -118,16 +143,8 @@ static func start_bunker_run() -> void:
 			m["status_note"] = str(m["death_reason"])
 			lost_names.append(m_name)
 
-	# Initial grief if family members were left outside
-	if not lost_names.is_empty() and not survivors_names.is_empty():
-		for raw_m in GameState.family_members:
-			if not (raw_m is Dictionary):
-				continue
-			var m: Dictionary = raw_m
-			if bool(m.get("alive", false)) and bool(m.get("in_bunker", false)):
-				var tr: String = str(m.get("trait", "")).to_lower()
-				if tr != "optimist" and tr != "calm" and tr != "bookworm":
-					m["sanity"] = mini(3, int(m.get("sanity", 0)) + 1)
+	if not lost_names.is_empty() and GameState.left_behind_members.is_empty():
+		GameState.left_behind_members = lost_names.duplicate()
 
 	var lines: Array[String] = []
 	if survivors_names.is_empty():
@@ -159,6 +176,7 @@ static func start_bunker_run() -> void:
 	if living_start.is_empty():
 		GameState.game_over = true
 		GameState.victory = false
+		GameState.ending_route = "silent_shelter"
 		GameState.ending_title = "SILENT SHELTER"
 		GameState.ending_description = "Nobody made it inside the fallout shelter beneath %s before the warhead struck %.2f km away. Only the battery-powered CONELRAD dial glowed in the dark." % [
 			house_addr, dist_km
@@ -167,9 +185,17 @@ static func start_bunker_run() -> void:
 	elif not _has_living_guardian(living_start):
 		GameState.game_over = true
 		GameState.victory = false
+		GameState.ending_route = "no_guardian"
 		GameState.ending_title = "NO ADULT GUARDIAN IN SHELTER"
 		GameState.ending_description = "Only young children made it inside without an adult or teenager to operate shelter life support."
 		lines.append("Only young children made it inside without an adult or teenager to operate shelter life support.")
+	else:
+		GameState.unlock_achievement("first_seal")
+		if GameState.get_vehicle_parts_owned_count() >= 2:
+			GameState.unlock_achievement("road_warrior_parts")
+		var trauma_or_relief_lines: Array[String] = RelationshipSystem.apply_scavenge_trauma_or_relief()
+		for rel_l in trauma_or_relief_lines:
+			lines.append(rel_l)
 
 	_refresh_all_status_notes()
 	var day1_title: String = "DAY 1 — SEALED BENEATH %s" % house_addr.to_upper()
@@ -183,11 +209,400 @@ static func start_bunker_run() -> void:
 	GameState.family_changed.emit()
 
 
+static func _seed_mode_or_challenge_loadout() -> void:
+	var diff_cfg: Dictionary = GameState.get_difficulty_config()
+	var soup_bonus: int = int(diff_cfg.get("spawn_soup_bonus", 0))
+	var water_bonus: int = int(diff_cfg.get("spawn_water_bonus", 0))
+	var rng: RandomNumberGenerator = GameState.rng
+
+	if GameState.family_members.is_empty():
+		GameState.init_default_family()
+
+	GameState.left_behind_members = []
+
+	if GameState.game_mode == "challenge":
+		var ch_id: String = GameState.active_challenge_id.strip_edges().to_lower()
+		match ch_id:
+			"cul_de_sac_odyssey":
+				for raw_m in GameState.family_members:
+					if raw_m is Dictionary:
+						var m: Dictionary = raw_m
+						m["in_bunker"] = true
+						m["alive"] = true
+				GameState.soup_quarters = maxi(8, (3 + soup_bonus) * 4)
+				GameState.water_quarters = maxi(8, (3 + water_bonus) * 4)
+				GameState.medkit_count = 1
+				GameState.ammo_count = 4
+				GameState.scrap_count = 1
+				GameState.fuel_cans = maxi(GameState.fuel_cans, 1)
+				for gid in ["suitcase", "gas_mask", "map", "flashlight", "rifle", "toolbox"]:
+					_grant_working_bunker_gear(gid)
+				return
+
+			"nuclear_winter_zero":
+				for raw_m in GameState.family_members:
+					if raw_m is Dictionary:
+						var m: Dictionary = raw_m
+						m["in_bunker"] = true
+						m["alive"] = true
+				GameState.soup_quarters = maxi(12, (4 + soup_bonus) * 4)
+				GameState.water_quarters = maxi(12, (4 + water_bonus) * 4)
+				GameState.medkit_count = 1
+				GameState.antibiotics_count = 1
+				GameState.scrap_count = 1
+				GameState.bunker_temp_c = -4.5
+				GameState.nuke_config["bunker_temp_c"] = -4.5
+				GameState.nuke_config["zone"] = "nuclear_winter"
+				for gid in ["axe", "book", "radio", "gas_mask", "harmonica"]:
+					_grant_working_bunker_gear(gid)
+				return
+
+			"lone_wolf_pets":
+				var lone_leader: Dictionary = _pick_lone_wolf_survivor()
+				if not lone_leader.is_empty():
+					lone_leader["is_leader"] = true
+					lone_leader["in_bunker"] = true
+					lone_leader["alive"] = true
+					GameState.family_members = [lone_leader]
+					GameState.init_relationships(20)
+				GameState.has_cat_sharikov = true
+				GameState.has_dog_pancake = true
+				GameState.soup_quarters = maxi(12, (4 + soup_bonus) * 4)
+				GameState.water_quarters = maxi(8, (3 + water_bonus) * 4)
+				GameState.medkit_count = 1
+				GameState.antirad_count = 1
+				GameState.ammo_count = 4
+				for gid in ["rifle", "gas_mask", "suitcase", "radio", "flashlight"]:
+					_grant_working_bunker_gear(gid)
+				return
+
+	# Default "survival_only" (or custom challenge fallback)
+	for raw_m in GameState.family_members:
+		if raw_m is Dictionary:
+			var m: Dictionary = raw_m
+			m["in_bunker"] = true
+			m["alive"] = true
+
+	var soup_cans: int = maxi(3, 5 + soup_bonus)
+	var water_bottles: int = maxi(3, 5 + water_bonus)
+	GameState.soup_quarters = soup_cans * 4
+	GameState.water_quarters = water_bottles * 4
+	GameState.medkit_count = 1
+	GameState.bug_spray_count = 1
+	GameState.ammo_count = 2
+	GameState.scrap_count = 1
+
+	for base_gid in ["gas_mask", "radio", "map", "flashlight"]:
+		_grant_working_bunker_gear(base_gid)
+	var weapon_pick: String = "rifle" if rng.randf() < 0.5 else "axe"
+	_grant_working_bunker_gear(weapon_pick)
+	var extra_pool: Array[String] = ["suitcase", "book", "toolbox", "cards", "checkers", "harmonica"]
+	var extra_pick: String = extra_pool[rng.randi_range(0, extra_pool.size() - 1)]
+	_grant_working_bunker_gear(extra_pick)
+
+
+static func _grant_working_bunker_gear(gid: String) -> void:
+	if GameState.bunker_items.has(gid) and GameState.bunker_items[gid] is Dictionary:
+		var entry: Dictionary = GameState.bunker_items[gid]
+		entry["owned"] = true
+		entry["broken"] = false
+		entry["checked_out"] = false
+		entry["count"] = maxi(1, int(entry.get("count", 0)))
+
+
+static func _pick_lone_wolf_survivor() -> Dictionary:
+	for raw_m in GameState.family_members:
+		if raw_m is Dictionary:
+			var m: Dictionary = raw_m
+			if bool(m.get("is_leader", false)) and str(m.get("role", "adult")).to_lower() != "child" and int(m.get("age", 30)) >= 13:
+				return m
+	for raw_m2 in GameState.family_members:
+		if raw_m2 is Dictionary:
+			var m2: Dictionary = raw_m2
+			if str(m2.get("role", "adult")).to_lower() != "child" and int(m2.get("age", 30)) >= 13:
+				return m2
+	if not GameState.family_members.is_empty() and GameState.family_members[0] is Dictionary:
+		var fallback_m: Dictionary = GameState.family_members[0]
+		fallback_m["role"] = "adult"
+		fallback_m["age"] = maxi(25, int(fallback_m.get("age", 25)))
+		return fallback_m
+	return {}
+
+
+# --- Specialty Supplies, Repairs & Vehicle Escape Helpers ---
+
+static func use_medkit_on(target_id: String) -> String:
+	if target_id == "" or GameState.medkit_count <= 0:
+		return ""
+	var med_member: Dictionary = _find_living_bunker_member(target_id)
+	if med_member.is_empty():
+		return ""
+	var m_name: String = str(med_member.get("name", "Survivor"))
+	var had_sick: int = int(med_member.get("sickness", 0))
+	var had_inj: int = int(med_member.get("injury", 0))
+	GameState.break_or_consume_item("medkit")
+	med_member["sickness"] = 0
+	med_member["injury"] = 0
+	med_member["sick_days"] = 0
+	med_member["injury_days"] = 0
+
+	var leader_id: String = _get_leader_id()
+	RelationshipSystem.on_medical_care_given(leader_id, target_id, "medkit")
+	GameState.family_changed.emit()
+
+	if had_sick > 0 and had_inj > 0:
+		return "We cracked open a First Aid Medkit for %s—antiseptic, bandages, and medicine cleared up both fever and wounds!" % m_name
+	elif had_sick > 0:
+		return "A dose of medicine from our Medkit broke %s's fever and restored healthy color!" % m_name
+	elif had_inj > 0:
+		return "Clean gauze and stitches from a Medkit patched %s's injuries right up!" % m_name
+	return "We used a First Aid Medkit on %s for a thorough Civil Defense checkup." % m_name
+
+
+static func use_antibiotics_on(target_id: String) -> String:
+	if target_id == "" or GameState.antibiotics_count <= 0:
+		return ""
+	var member: Dictionary = _find_living_bunker_member(target_id)
+	if member.is_empty():
+		return ""
+	var m_name: String = str(member.get("name", "Survivor"))
+	var had_sick: int = int(member.get("sickness", 0))
+	var had_inj: int = int(member.get("injury", 0))
+
+	GameState.break_or_consume_item("antibiotics")
+	member["sickness"] = 0
+	member["sick_days"] = 0
+	member["sepsis_protected_days"] = 3
+	if had_inj >= 2:
+		member["injury"] = had_inj - 1
+		member["injury_days"] = 0
+
+	var leader_id: String = _get_leader_id()
+	RelationshipSystem.on_medical_care_given(leader_id, target_id, "antibiotics")
+	GameState.family_changed.emit()
+
+	if had_sick > 0:
+		return "Prescription Antibiotics knocked out %s's infection overnight and protected against wound sepsis (+16 gratitude ♥)!" % m_name
+	elif had_inj > 0:
+		return "Prescription Antibiotics sterilized %s's wounds from the inside out, preventing fever and sepsis (+16 gratitude ♥)!" % m_name
+	return "We gave %s a prophylactic course of Prescription Antibiotics (+16 gratitude ♥)." % m_name
+
+
+static func use_antirad_on(target_id: String) -> String:
+	if target_id == "" or GameState.antirad_count <= 0:
+		return ""
+	var member: Dictionary = _find_living_bunker_member(target_id)
+	if member.is_empty():
+		return ""
+	var m_name: String = str(member.get("name", "Survivor"))
+	var prev_rad: float = float(member.get("radiation", 0.0))
+	var new_rad: float = maxf(0.0, prev_rad - 35.0)
+
+	GameState.break_or_consume_item("antirad")
+	member["radiation"] = new_rad
+	member["antirad_shield_days"] = 2
+	if prev_rad >= 35.0 and int(member.get("sickness", 0)) > 0:
+		member["sickness"] = maxi(0, int(member.get("sickness", 0)) - 1)
+		if int(member.get("sickness", 0)) == 0:
+			member["sick_days"] = 0
+
+	var leader_id: String = _get_leader_id()
+	RelationshipSystem.on_medical_care_given(leader_id, target_id, "antirad")
+	GameState.family_changed.emit()
+
+	return "Potassium Iodide Anti-Rad Pills purged %.0f rads from %s (now %.0f rads) and shielded their thyroid from fallout sickness (+16 gratitude ♥)!" % [
+		prev_rad - new_rad, m_name, new_rad
+	]
+
+
+static func reinforce_hull_with_scrap() -> String:
+	if GameState.scrap_count <= 0:
+		return ""
+	if GameState.bunker_structural_integrity >= 100.0:
+		return "Shelter structural integrity is already at 100%."
+
+	GameState.break_or_consume_item("scrap")
+	var coop_bonus: float = RelationshipSystem.get_repair_cooperation_bonus()
+	var hull_gain: float = 12.0 * (1.0 + coop_bonus)
+	GameState.bunker_structural_integrity = clampf(GameState.bunker_structural_integrity + hull_gain, 0.0, 100.0)
+	GameState.inventory_changed.emit()
+
+	if coop_bonus > 0.0:
+		return "Working as a bonded team, we welded Salvaged Scrap across the blast seams (+%.0f%% hull -> %.0f%% structural integrity)!" % [
+			hull_gain, GameState.bunker_structural_integrity
+		]
+	return "We bolted Salvaged Scrap plates over cracked concrete seams (+%.0f%% hull -> %.0f%% structural integrity)!" % [
+		hull_gain, GameState.bunker_structural_integrity
+	]
+
+
+static func repair_item_with_scrap(item_id: String) -> String:
+	if item_id == "" or GameState.scrap_count <= 0:
+		return ""
+	if not GameState.bunker_items.has(item_id) or not (GameState.bunker_items[item_id] is Dictionary):
+		return ""
+	var entry: Dictionary = GameState.bunker_items[item_id]
+	if not bool(entry.get("owned", false)) or not bool(entry.get("broken", false)):
+		return ""
+
+	GameState.break_or_consume_item("scrap")
+	GameState.repair_item(item_id)
+	var label: String = str(ITEM_LABELS.get(item_id, item_id.capitalize()))
+	return "Using Salvaged Scrap and spare fasteners, we repaired our broken %s good as new!" % label
+
+
+static func tune_escape_vehicle() -> String:
+	if GameState.vehicle_tuned:
+		return "The Station Wagon engine is already tuned and ready to crank."
+	if GameState.has_working_item("toolbox") or GameState.has_working_item("book") or _any_bunker_member_has_trait("handy"):
+		GameState.vehicle_tuned = true
+		GameState.inventory_changed.emit()
+		return "We gapped the plugs, set the timing, and tuned the Station Wagon carburetor to purr on the first crank!"
+	if GameState.scrap_count > 0:
+		GameState.break_or_consume_item("scrap")
+		GameState.vehicle_tuned = true
+		GameState.inventory_changed.emit()
+		return "Improvising shims and clamps from Salvaged Scrap, we tuned the Station Wagon engine block!"
+	return ""
+
+
+static func execute_vehicle_escape() -> bool:
+	var all_living: Array = _get_all_living_household_members()
+	if all_living.is_empty() or not _has_living_guardian(all_living):
+		return false
+	if not GameState.can_escape_by_vehicle():
+		return false
+
+	var survivor_names: Array[String] = []
+	for raw_m in all_living:
+		if raw_m is Dictionary:
+			survivor_names.append(str((raw_m as Dictionary).get("name", "Survivor")))
+	var names_str: String = _join_names_naturally(survivor_names)
+	var house_addr: String = str(GameState.selected_house.get("address", "our shelter"))
+
+	GameState.vehicle_tuned = true
+	GameState.victory = true
+	GameState.game_over = true
+	GameState.ending_route = "vehicle_breakout"
+	GameState.ending_title = "HIGHWAY BREAKOUT — STATION WAGON ESCAPE!"
+	GameState.ending_description = "Day %d: four salvaged engine parts bolted in and %d jerrycans in the tank, %s flung open the garage at %s. The Station Wagon roared out past the rubble toward clean skies." % [
+		GameState.day, GameState.fuel_cans, names_str, house_addr
+	]
+
+	GameState.unlock_achievement("road_warrior_parts")
+	GameState.unlock_achievement("highway_breakout")
+	if GameState.difficulty == "tsar_bomba":
+		GameState.unlock_achievement("tsar_survivor")
+
+	var escape_line: String = "VICTORY — HIGHWAY BREAKOUT! %s fired up the rebuilt Station Wagon beneath %s and thundered down the highway to freedom!" % [
+		names_str, house_addr
+	]
+	var esc_title: String = "DAY %d — HIGHWAY BREAKOUT!" % GameState.day
+	GameState.daily_log_entries.append({
+		"day": GameState.day,
+		"title": esc_title,
+		"lines": [escape_line],
+		"text": esc_title + "\n" + escape_line
+	})
+
+	_refresh_all_status_notes()
+	GameState.inventory_changed.emit()
+	GameState.family_changed.emit()
+	return true
+
+
+static func apply_specialty_actions(actions: Dictionary) -> Array[String]:
+	var notes: Array[String] = []
+	if actions.is_empty():
+		return notes
+
+	# 1. Medkit target(s)
+	var med_v: Variant = actions.get("medkit_target_id", actions.get("medkit_target", ""))
+	if med_v is Array:
+		for tid_v in (med_v as Array):
+			var l: String = use_medkit_on(str(tid_v))
+			if l != "":
+				notes.append(l)
+	elif str(med_v) != "":
+		var l_med: String = use_medkit_on(str(med_v))
+		if l_med != "":
+			notes.append(l_med)
+
+	# 2. Antibiotics target(s)
+	var abx_v: Variant = actions.get("antibiotics_target_id", actions.get("antibiotics_target", ""))
+	if abx_v is Array:
+		for tid_v2 in (abx_v as Array):
+			var l2: String = use_antibiotics_on(str(tid_v2))
+			if l2 != "":
+				notes.append(l2)
+	elif str(abx_v) != "":
+		var l_abx: String = use_antibiotics_on(str(abx_v))
+		if l_abx != "":
+			notes.append(l_abx)
+
+	# 3. Anti-Rad target(s)
+	var ar_v: Variant = actions.get("antirad_target_id", actions.get("antirad_target", ""))
+	if ar_v is Array:
+		for tid_v3 in (ar_v as Array):
+			var l3: String = use_antirad_on(str(tid_v3))
+			if l3 != "":
+				notes.append(l3)
+	elif str(ar_v) != "":
+		var l_ar: String = use_antirad_on(str(ar_v))
+		if l_ar != "":
+			notes.append(l_ar)
+
+	# 4. Optional comfort action for emotional breakdown
+	var comf_id: String = str(actions.get("comfort_target_id", actions.get("comfort_target", "")))
+	if comf_id != "":
+		var l_comf: String = RelationshipSystem.comfort_member(comf_id)
+		if l_comf != "":
+			notes.append(l_comf)
+
+	# 5. Scrap hull reinforcement
+	var hull_v: Variant = actions.get("use_scrap_hull", false)
+	var hull_uses: int = (1 if bool(hull_v) else 0) if (hull_v is bool) else int(hull_v)
+	for _i in range(maxi(0, hull_uses)):
+		if GameState.bunker_structural_integrity >= 100.0 or GameState.scrap_count <= 0:
+			break
+		var l_hull: String = reinforce_hull_with_scrap()
+		if l_hull != "":
+			notes.append(l_hull)
+
+	# 6. Scrap item repair
+	var rep_v: Variant = actions.get("use_scrap_repair_id", actions.get("repair_item_id", ""))
+	if rep_v is Array:
+		for rid_v in (rep_v as Array):
+			var l_rep: String = repair_item_with_scrap(str(rid_v))
+			if l_rep != "":
+				notes.append(l_rep)
+	elif str(rep_v) != "":
+		var l_rep_single: String = repair_item_with_scrap(str(rep_v))
+		if l_rep_single != "":
+			notes.append(l_rep_single)
+
+	# 7. Tune escape vehicle
+	if bool(actions.get("tune_vehicle", false)):
+		var l_tune: String = tune_escape_vehicle()
+		if l_tune != "":
+			notes.append(l_tune)
+
+	# 8. Immediate Vehicle Breakout Escape
+	if bool(actions.get("escape_vehicle", actions.get("vehicle_escape", false))):
+		if execute_vehicle_escape():
+			notes.append("HIGHWAY BREAKOUT! We launched our rebuilt Station Wagon out of the shelter!")
+
+	return notes
+
+
+# --- Core Daily Bunker Turn Simulation ---
+
 static func advance_day(
 	ration_plan: Dictionary = {},
 	medkit_target_id: String = "",
 	event_notes: Variant = null,
-	expedition_launch: Dictionary = {}
+	expedition_launch: Dictionary = {},
+	specialty_actions: Dictionary = {}
 ) -> Array[String]:
 	var day_lines: Array[String] = []
 	var house_addr: String = str(GameState.selected_house.get("address", "our shelter"))
@@ -238,10 +653,13 @@ static func advance_day(
 		int(GameState.rescue_chains.get("military", 0)) >= 3
 		or int(GameState.rescue_chains.get("sanctuary", 0)) >= 3
 		or int(GameState.rescue_chains.get("scientist", 0)) >= 3
+		or int(GameState.rescue_chains.get("raider_pact", 0)) >= 3
 	)
 	if (GameState.victory or any_rescue_stage_3) and not GameState.get_all_living_members().is_empty():
 		GameState.day += 1
 		var vic_day: int = GameState.day
+		if vic_day >= 20:
+			GameState.unlock_achievement("survivor_20")
 		for ev_line in extracted_event_lines:
 			day_lines.append(ev_line)
 		GameState.victory = true
@@ -270,7 +688,25 @@ static func advance_day(
 	var rng: RandomNumberGenerator = GameState.rng
 	GameState.day += 1
 	var cur_day: int = GameState.day
+	if cur_day >= 20 and not GameState.get_all_living_members().is_empty():
+		GameState.unlock_achievement("survivor_20")
+
 	var pre_weather_temp_c: float = GameState.bunker_temp_c
+
+	# Decrement daily visual/emotional/medical timers at the start of the new day
+	for raw_m_timer in GameState.family_members:
+		if not (raw_m_timer is Dictionary):
+			continue
+		var mt: Dictionary = raw_m_timer
+		mt["last_bubble"] = ""
+		if int(mt.get("soot_days", 0)) > 0:
+			mt["soot_days"] = maxi(0, int(mt.get("soot_days", 0)) - 1)
+		if int(mt.get("breakdown_days", 0)) > 0:
+			mt["breakdown_days"] = maxi(0, int(mt.get("breakdown_days", 0)) - 1)
+		if int(mt.get("sepsis_protected_days", 0)) > 0:
+			mt["sepsis_protected_days"] = maxi(0, int(mt.get("sepsis_protected_days", 0)) - 1)
+		if int(mt.get("antirad_shield_days", 0)) > 0:
+			mt["antirad_shield_days"] = maxi(0, int(mt.get("antirad_shield_days", 0)) - 1)
 
 	# Pre-count living bunker members & total soup assigned today (for Nuclear Winter warmth check)
 	var bunker_members_start: Array = GameState.get_living_bunker_members()
@@ -286,30 +722,28 @@ static func advance_day(
 	if weather_note != "":
 		day_lines.append(weather_note)
 
-	# 2. Previous Event Resolution Notes (accepts Array, Dictionary, or String; "**" already stripped)
+	# 2. Previous Event Resolution Notes
 	for ev_line in extracted_event_lines:
 		day_lines.append(ev_line)
 
-	# 3. Medical Care
+	# 3. Medical Care & Specialty Actions (Medkit, Antibiotics, Anti-Rad, Scrap, Vehicle Tuning)
 	if medkit_target_id != "" and GameState.medkit_count > 0:
-		var med_member: Dictionary = _find_living_bunker_member(medkit_target_id)
-		if not med_member.is_empty():
-			var m_name: String = str(med_member.get("name", "Survivor"))
-			var had_sick: int = int(med_member.get("sickness", 0))
-			var had_inj: int = int(med_member.get("injury", 0))
-			GameState.break_or_consume_item("medkit")
-			med_member["sickness"] = 0
-			med_member["injury"] = 0
-			med_member["sick_days"] = 0
-			med_member["injury_days"] = 0
-			if had_sick > 0 and had_inj > 0:
-				day_lines.append("We cracked open a First Aid Medkit for %s—antiseptic, bandages, and antibiotics cleared up both fever and wounds!" % m_name)
-			elif had_sick > 0:
-				day_lines.append("A dose of antibiotics from our Medkit broke %s's fever and restored healthy color!" % m_name)
-			elif had_inj > 0:
-				day_lines.append("Clean gauze and stitches from a Medkit patched %s's injuries right up!" % m_name)
-			else:
-				day_lines.append("We used a First Aid Medkit on %s for a thorough Civil Defense checkup." % m_name)
+		var med_line: String = use_medkit_on(medkit_target_id)
+		if med_line != "":
+			day_lines.append(med_line)
+
+	var embedded_spec: Dictionary = _extract_embedded_specialty_actions(ration_plan, specialty_actions)
+	if not embedded_spec.is_empty():
+		var spec_lines: Array[String] = apply_specialty_actions(embedded_spec)
+		for sl in spec_lines:
+			day_lines.append(sl)
+		if GameState.victory and GameState.game_over:
+			return day_lines
+
+	# 3.5. Evaluate Ration Fairness BEFORE ration consumption alters hunger/thirst tiers
+	var fairness_lines: Array[String] = RelationshipSystem.evaluate_ration_fairness(ration_plan)
+	for fl in fairness_lines:
+		day_lines.append(fl)
 
 	# 4. Fractional Soup & Water Rationing (Exact 60 Seconds! Thresholds)
 	var deaths_today: Array[String] = []
@@ -345,6 +779,7 @@ static func advance_day(
 			m["injury"] = 0
 			m["injury_days"] = 0
 			m["radiation"] = 0.0
+			GameState.unlock_achievement("mutant_awakening")
 			if soup_q >= 1:
 				m["days_without_food"] = 0
 				m["mutant_fast_tick"] = 0
@@ -382,7 +817,7 @@ static func advance_day(
 				m["heat_thirst_ticked"] = true
 				day_lines.append("Stifling %.1f °C blast heat in the shelter left %s sweating heavily, accelerating thirst!" % [peak_temp_today_c, m_name])
 			m["days_without_water"] = dww
-			if dww >= 6:
+			if dww >= 6 + _ration_grace():
 				m["alive"] = false
 				m["death_reason"] = "Perished from severe dehydration."
 				deaths_today.append(m_name)
@@ -407,13 +842,12 @@ static func advance_day(
 		else:
 			var dwf: int = int(m.get("days_without_food", 0))
 			if stretches_food and not bool(m.get("iron_grace_used", false)) and dwf == 2:
-				# Iron stomach / child stretches rations slightly before hunger sets in
 				m["iron_grace_used"] = true
 			else:
 				dwf += 1
 				m["days_without_food"] = dwf
 
-			if dwf >= 12:
+			if dwf >= 12 + _ration_grace():
 				m["alive"] = false
 				m["death_reason"] = "Succumbed to starvation in the bunker."
 				deaths_today.append(m_name)
@@ -464,9 +898,11 @@ static func advance_day(
 				m["radiation"] = 0.0
 				m["sick_days"] = 0
 				m["injury_days"] = 0
+				GameState.unlock_achievement("mutant_awakening")
 				day_lines.append("ATOMIC MIRACLE! High radiation triggered an extraordinary mutation in %s—glowing emerald skin cured all sickness and thirst forever!" % m_name)
 			else:
-				if int(m.get("sickness", 0)) < 2 and rng.randf() < (0.45 * iron_resist_mult):
+				var shielded: bool = int(m.get("antirad_shield_days", 0)) > 0
+				if not shielded and int(m.get("sickness", 0)) < 2 and rng.randf() < (0.45 * iron_resist_mult):
 					m["sickness"] = maxi(int(m.get("sickness", 0)), 2)
 					day_lines.append("Heavy absorbed fallout (%.0f rads) made %s violently feverish with radiation sickness!" % [rad_val, m_name])
 				m["radiation"] = maxf(48.0, rad_val - 12.0)
@@ -479,6 +915,7 @@ static func advance_day(
 			m["thirst"] = 0
 			m["days_without_water"] = 0
 			m["radiation"] = 0.0
+			GameState.unlock_achievement("mutant_awakening")
 			continue
 
 		# Extreme Cold (< 0.0 C from Nuclear Winter) sickness risk if hungry
@@ -494,12 +931,23 @@ static func advance_day(
 				m["sickness"] = 1
 				day_lines.append("Shivering in the sub-zero shelter air (%.1f °C) on an empty stomach, %s caught a rattling chest cold." % [GameState.bunker_temp_c, m_name])
 
+		# Tsar Bomba: fallout seeps through the vents and grey ash fouls the water drum
+		var is_tsar: bool = str(GameState.difficulty) == "tsar_bomba"
+		if is_tsar:
+			if int(m.get("antirad_shield_days", 0)) <= 0:
+				m["radiation"] = float(m.get("radiation", 0.0)) + clampf(GameState.surface_radiation_sv * 0.9, 0.4, 4.0)
+			if int(m.get("sickness", 0)) == 0 and rng.randf() < 0.08 * iron_resist_mult:
+				m["sickness"] = 1
+				day_lines.append("Grey ash in the water drum left %s doubled over with stomach cramps." % m_name)
+
 		# Sickness & Injury Natural Recovery vs Fatal Escalation
 		var sick_lvl: int = int(m.get("sickness", 0))
 		var inj_lvl: int = int(m.get("injury", 0))
 
 		if hunger_now == 0 and thirst_now == 0 and (sick_lvl > 0 or inj_lvl > 0):
 			var rec_chance: float = 0.32 + (0.15 if has_medic_or_book else 0.0)
+			if is_tsar:
+				rec_chance *= 0.65
 			if sick_lvl > 0 and rng.randf() < rec_chance:
 				sick_lvl = maxi(0, sick_lvl - 1)
 				m["sickness"] = sick_lvl
@@ -541,7 +989,8 @@ static func advance_day(
 		if inj_lvl > 0:
 			var i_days: int = int(m.get("injury_days", 0)) + 1
 			m["injury_days"] = i_days
-			if inj_lvl == 1 and malnourished and i_days >= 3 and rng.randf() < 0.25:
+			var sepsis_blocked: bool = int(m.get("sepsis_protected_days", 0)) > 0
+			if not sepsis_blocked and inj_lvl == 1 and malnourished and i_days >= 3 and rng.randf() < 0.25:
 				inj_lvl = 2
 				m["injury"] = 2
 				day_lines.append("%s's untreated cuts grew inflamed and infected!" % m_name)
@@ -639,6 +1088,15 @@ static func advance_day(
 		else:
 			m["insane_days"] = 0
 
+	# 5.5. Daily Family Relationships Tick (Devoted Cooperation, Resentful Arguments, Breakdowns, Betrayal)
+	var rel_outcome: Dictionary = RelationshipSystem.tick_daily_relationships(rng)
+	var rel_lines_v: Variant = rel_outcome.get("lines", [])
+	if rel_lines_v is Array:
+		for raw_rl in (rel_lines_v as Array):
+			var rl_s: String = str(raw_rl)
+			if rl_s != "":
+				day_lines.append(rl_s)
+
 	# 6. Pet Upkeep & Bonus Moments (Sharikov & Pancake)
 	var pet_line: String = _tick_companions(cur_day, rng)
 	if pet_line != "":
@@ -660,7 +1118,7 @@ static func advance_day(
 			if depart_line != "":
 				day_lines.append(depart_line)
 
-	# 8. Win / Loss Evaluation
+	# 8. Win / Loss Evaluation (including all 5 rescue/escape routes + achievements)
 	var end_line: String = _evaluate_win_or_loss(house_addr)
 	if end_line != "":
 		day_lines.append(end_line)
@@ -693,12 +1151,17 @@ static func get_latest_day_report() -> String:
 static func get_condition_labels(member: Dictionary) -> Array[String]:
 	var badges: Array[String] = []
 	if not bool(member.get("alive", false)):
-		badges.append("Deceased")
+		if bool(member.get("betrayed", false)):
+			badges.append("Betrayed")
+		else:
+			badges.append("Deceased")
 		return badges
 	if bool(member.get("on_expedition", false)):
 		badges.append("On Expedition (%dd)" % int(member.get("days_away", 1)))
 	if bool(member.get("is_mutant", false)):
 		badges.append("Mutant")
+	if int(member.get("breakdown_days", 0)) > 0:
+		badges.append("Breakdown (%dd)" % int(member.get("breakdown_days", 1)))
 
 	var t: int = int(member.get("thirst", 0))
 	if t == 1:
@@ -811,6 +1274,36 @@ static func _hunger_tier_for_days(days_without_food: int) -> int:
 	elif days_without_food <= 9:
 		return 2
 	return 3
+
+
+static func _extract_embedded_specialty_actions(ration_plan: Dictionary, explicit_actions: Dictionary) -> Dictionary:
+	var merged: Dictionary = explicit_actions.duplicate(true)
+	if ration_plan.has("_specialty") and ration_plan["_specialty"] is Dictionary:
+		var sub_spec: Dictionary = ration_plan["_specialty"]
+		for k in sub_spec.keys():
+			if not merged.has(k):
+				merged[k] = sub_spec[k]
+
+	var abx_list: Array = []
+	var ar_list: Array = []
+	for k in ration_plan.keys():
+		var m_key: String = str(k)
+		if m_key.begins_with("_"):
+			continue
+		var v: Variant = ration_plan[k]
+		if v is Dictionary:
+			var md: Dictionary = v
+			if bool(md.get("antibiotics", false)):
+				abx_list.append(m_key)
+			if bool(md.get("antirad", false)):
+				ar_list.append(m_key)
+
+	if not abx_list.is_empty() and not merged.has("antibiotics_target_id") and not merged.has("antibiotics_target"):
+		merged["antibiotics_target_id"] = abx_list
+	if not ar_list.is_empty() and not merged.has("antirad_target_id") and not merged.has("antirad_target"):
+		merged["antirad_target_id"] = ar_list
+
+	return merged
 
 
 static func _extract_member_ration_quarters(ration_plan: Dictionary, member_id: String) -> Vector2i:
@@ -973,6 +1466,8 @@ static func _evaluate_win_or_loss(house_addr: String) -> String:
 	if GameState.bunker_structural_integrity <= 0.0:
 		GameState.game_over = true
 		GameState.victory = false
+		if GameState.ending_route == "":
+			GameState.ending_route = "breached"
 		if GameState.ending_title.strip_edges() == "":
 			GameState.ending_title = "DEFEAT: Shelter Overrun & Breached"
 		if GameState.ending_description.strip_edges() == "":
@@ -984,6 +1479,8 @@ static func _evaluate_win_or_loss(house_addr: String) -> String:
 	if all_living.is_empty():
 		GameState.game_over = true
 		GameState.victory = false
+		if GameState.ending_route == "":
+			GameState.ending_route = "perished"
 		if GameState.ending_title.strip_edges() == "":
 			GameState.ending_title = "CLAIMED BY THE WASTELAND"
 		if GameState.ending_description.strip_edges() == "":
@@ -995,6 +1492,8 @@ static func _evaluate_win_or_loss(house_addr: String) -> String:
 	if not _has_living_guardian(all_living):
 		GameState.game_over = true
 		GameState.victory = false
+		if GameState.ending_route == "":
+			GameState.ending_route = "no_guardian"
 		if GameState.ending_title.strip_edges() == "":
 			GameState.ending_title = "NO ADULT GUARDIAN IN SHELTER"
 		if GameState.ending_description.strip_edges() == "":
@@ -1004,10 +1503,15 @@ static func _evaluate_win_or_loss(house_addr: String) -> String:
 	var mil_stage: int = int(GameState.rescue_chains.get("military", 0))
 	var sanc_stage: int = int(GameState.rescue_chains.get("sanctuary", 0))
 	var sci_stage: int = int(GameState.rescue_chains.get("scientist", 0))
+	var raider_stage: int = int(GameState.rescue_chains.get("raider_pact", 0))
 
 	if mil_stage >= 3:
 		GameState.victory = true
 		GameState.game_over = true
+		GameState.ending_route = "military"
+		GameState.unlock_achievement("military_evac")
+		if GameState.difficulty == "tsar_bomba":
+			GameState.unlock_achievement("tsar_survivor")
 		if GameState.ending_title.strip_edges() == "":
 			GameState.ending_title = "CIVIL DEFENSE EXTRACTION!"
 		if GameState.ending_description.strip_edges() == "":
@@ -1019,6 +1523,10 @@ static func _evaluate_win_or_loss(house_addr: String) -> String:
 	if sanc_stage >= 3:
 		GameState.victory = true
 		GameState.game_over = true
+		GameState.ending_route = "sanctuary"
+		GameState.unlock_achievement("parish_alliance")
+		if GameState.difficulty == "tsar_bomba":
+			GameState.unlock_achievement("tsar_survivor")
 		if GameState.ending_title.strip_edges() == "":
 			GameState.ending_title = "NEIGHBORHOOD SANCTUARY!"
 		if GameState.ending_description.strip_edges() == "":
@@ -1030,6 +1538,10 @@ static func _evaluate_win_or_loss(house_addr: String) -> String:
 	if sci_stage >= 3:
 		GameState.victory = true
 		GameState.game_over = true
+		GameState.ending_route = "scientist"
+		GameState.unlock_achievement("vault_agent")
+		if GameState.difficulty == "tsar_bomba":
+			GameState.unlock_achievement("tsar_survivor")
 		if GameState.ending_title.strip_edges() == "":
 			GameState.ending_title = "VAULT INSTITUTE RECLAMATION!"
 		if GameState.ending_description.strip_edges() == "":
@@ -1039,8 +1551,27 @@ static func _evaluate_win_or_loss(house_addr: String) -> String:
 			]
 		return "VICTORY! Vault Institute scientists arrived with radiation-shielded transports beneath %s to welcome %s into their underground biodome!" % [house_addr, names_str]
 
+	if raider_stage >= 3:
+		GameState.victory = true
+		GameState.game_over = true
+		GameState.ending_route = "raider_pact"
+		GameState.unlock_achievement("convoy_pact")
+		if GameState.difficulty == "tsar_bomba":
+			GameState.unlock_achievement("tsar_survivor")
+		if GameState.ending_title.strip_edges() == "":
+			GameState.ending_title = "SMUGGLER'S HIGHWAY — CONVOY ALLIANCE!"
+		if GameState.ending_description.strip_edges() == "":
+			GameState.ending_description = "On Day %d, twin diesel air-horns echoed outside %s! Honoring our hard-forged Wasteland Convoy pact, armored smuggler rigs idled beside our hatch, handed %s road goggles, and escorted our family down the interstate to a booming frontier settlement!" % [
+				GameState.day, house_addr, names_str
+			]
+		return "VICTORY! Wasteland Convoy allies rolled up to %s and escorted %s safely down the Smuggler's Highway!" % [house_addr, names_str]
+
 	if GameState.victory:
 		GameState.game_over = true
+		if GameState.ending_route == "vehicle_breakout":
+			GameState.unlock_achievement("highway_breakout")
+		if GameState.difficulty == "tsar_bomba":
+			GameState.unlock_achievement("tsar_survivor")
 		if GameState.ending_title.strip_edges() == "":
 			GameState.ending_title = "SURVIVAL VICTORY!"
 		if GameState.ending_description.strip_edges() == "":
@@ -1058,6 +1589,9 @@ static func _evaluate_win_or_loss(house_addr: String) -> String:
 
 
 static func _refresh_all_status_notes() -> void:
+	if GameState.get_vehicle_parts_owned_count() >= 2:
+		GameState.unlock_achievement("road_warrior_parts")
+
 	for raw_m in GameState.family_members:
 		if not (raw_m is Dictionary):
 			continue
@@ -1065,6 +1599,7 @@ static func _refresh_all_status_notes() -> void:
 		if bool(m.get("is_mutant", false)):
 			m["sickness"] = 0
 			m["sick_days"] = 0
+			GameState.unlock_achievement("mutant_awakening")
 		if not bool(m.get("alive", false)):
 			var reason: String = str(m.get("death_reason", "Deceased."))
 			m["status_note"] = reason if reason != "" else "Deceased."
@@ -1078,6 +1613,8 @@ static func _refresh_all_status_notes() -> void:
 		var notes: Array[String] = []
 		if bool(m.get("is_mutant", false)):
 			notes.append("Mutated (no water needed)")
+		if int(m.get("breakdown_days", 0)) > 0:
+			notes.append("Emotional breakdown (%dd)" % int(m.get("breakdown_days", 1)))
 
 		var t: int = int(m.get("thirst", 0))
 		if t >= 3:
@@ -1097,7 +1634,7 @@ static func _refresh_all_status_notes() -> void:
 
 		var s: int = int(m.get("sickness", 0))
 		if s >= 2:
-			notes.append("Feverish — needs Medkit!")
+			notes.append("Feverish — needs Medkit/Antibiotics!")
 		elif s == 1:
 			notes.append("Sniffles")
 
@@ -1125,6 +1662,18 @@ static func _refresh_all_status_notes() -> void:
 			m["status_note"] = "Healthy and holding steady."
 		else:
 			m["status_note"] = ", ".join(notes) + "."
+
+
+static func _get_leader_id() -> String:
+	for raw_m in GameState.family_members:
+		if raw_m is Dictionary:
+			var m: Dictionary = raw_m
+			if bool(m.get("is_leader", false)) and bool(m.get("alive", false)) and bool(m.get("in_bunker", false)):
+				return str(m.get("id", ""))
+	for raw_m2 in GameState.get_living_bunker_members():
+		if raw_m2 is Dictionary:
+			return str((raw_m2 as Dictionary).get("id", ""))
+	return ""
 
 
 static func _get_all_living_household_members() -> Array:
@@ -1191,3 +1740,8 @@ static func _join_names_naturally(names: Array[String]) -> String:
 	for i in range(names.size() - 1):
 		head.append(names[i])
 	return "%s, and %s" % [", ".join(head), names[names.size() - 1]]
+
+
+## Difficulty grace: extra days a survivor can endure without food/water before dying (Little Boy = +1).
+static func _ration_grace() -> int:
+	return maxi(0, int(GameState.get_difficulty_config().get("ration_grace", 0)))

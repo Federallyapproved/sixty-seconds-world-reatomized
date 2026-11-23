@@ -82,6 +82,25 @@ const OUTFIT_COLOR_SWATCHES: Array[String] = [
 	"#6e5039"  # Bomber Brown
 ]
 
+const HAT_IDS: Array[String] = [
+	"none",
+	"cd_helmet",
+	"ushanka",
+	"medic_cap",
+	"aviator"
+]
+
+const HAT_NAMES: Dictionary = {
+	"none": "No Headgear",
+	"cd_helmet": "CD Brodie Helmet",
+	"ushanka": "Winter Fur Ushanka",
+	"medic_cap": "Field Medic Cap",
+	"aviator": "Aviator Bomber Cap"
+}
+
+static func get_hat_name(hat_id: String) -> String:
+	return str(HAT_NAMES.get(hat_id, "No Headgear"))
+
 static func get_skin_color(member: Dictionary) -> Color:
 	var is_mutant: bool = bool(member.get("is_mutant", false))
 	if is_mutant:
@@ -134,19 +153,21 @@ static func _draw_poly_outlined(canvas: CanvasItem, pts: PackedVector2Array, fil
 # ==============================================================================
 static func draw_portrait(canvas: CanvasItem, rect: Rect2, member: Dictionary, show_frame: bool = true) -> void:
 	var alive: bool = bool(member.get("alive", true))
+	var betrayed: bool = bool(member.get("betrayed", false))
 	var on_expedition: bool = bool(member.get("on_expedition", false))
 
 	if show_frame:
 		# Shadow + aged dossier card background
 		canvas.draw_rect(Rect2(rect.position + Vector2(3, 4), rect.size), Color(0, 0, 0, 0.35), true)
-		var bg_col: Color = Color("#d5ccb8") if not alive else PARCHMENT_LIGHT
+		var bg_col: Color = Color("#c8bcb0") if betrayed else (Color("#d5ccb8") if not alive else PARCHMENT_LIGHT)
 		canvas.draw_rect(rect, bg_col, true)
 		var inner_rect := rect.grow(-4.0)
-		canvas.draw_rect(inner_rect, Color("#cfc3ab") if not alive else PARCHMENT_DARK.lerp(PARCHMENT_LIGHT, 0.45), true)
+		var in_col: Color = Color("#bfb2a5") if betrayed else (Color("#cfc3ab") if not alive else PARCHMENT_DARK.lerp(PARCHMENT_LIGHT, 0.45))
+		canvas.draw_rect(inner_rect, in_col, true)
 
 		# Subtle 1950s CONELRAD sunburst rays inside frame
 		var burst_center := Vector2(rect.position.x + rect.size.x * 0.5, rect.position.y + rect.size.y * 0.58)
-		var ray_col: Color = Color(1.0, 0.94, 0.78, 0.26) if alive else Color(0.5, 0.46, 0.4, 0.16)
+		var ray_col: Color = Color(0.55, 0.25, 0.22, 0.14) if betrayed else (Color(1.0, 0.94, 0.78, 0.26) if alive else Color(0.5, 0.46, 0.4, 0.16))
 		var max_r: float = minf(rect.size.x, rect.size.y) * 0.46
 		for r_idx in range(8):
 			var a0: float = float(r_idx) * (TAU / 8.0)
@@ -158,6 +179,13 @@ static func draw_portrait(canvas: CanvasItem, rect: Rect2, member: Dictionary, s
 			])
 			canvas.draw_colored_polygon(ray_pts, ray_col)
 
+	if betrayed:
+		_draw_betrayed_portrait(canvas, rect, member)
+		if show_frame:
+			canvas.draw_rect(rect, INK_COLOR, false, 2.5)
+			canvas.draw_rect(rect.grow(-4.0), Color(0.72, 0.12, 0.10, 0.65), false, 1.2)
+		return
+
 	if not alive:
 		_draw_deceased_memorial(canvas, rect, member)
 		if show_frame:
@@ -168,6 +196,7 @@ static func draw_portrait(canvas: CanvasItem, rect: Rect2, member: Dictionary, s
 	var u: float = minf(rect.size.x, rect.size.y) / 160.0
 	var age: int = int(member.get("age", 35))
 	var role: String = str(member.get("role", get_role_for_age(age)))
+	var fatigue: int = int(member.get("fatigue", 0))
 
 	# Proportions driven by age & role
 	var head_scale: float = 1.0
@@ -190,10 +219,11 @@ static func draw_portrait(canvas: CanvasItem, rect: Rect2, member: Dictionary, s
 		y_shift = 5.0 * u
 		jaw_round = 0.95
 
+	var fatigue_slump: float = minf(float(fatigue), 2.0) * 2.8 * u if fatigue >= 1 else 0.0
 	var center_x: float = rect.position.x + rect.size.x * 0.5
 	var bottom_y: float = rect.position.y + rect.size.y - (5.0 * u if show_frame else 0.0)
-	var shoulder_y: float = rect.position.y + rect.size.y * 0.72 + y_shift * 0.45
-	var head_center := Vector2(center_x, rect.position.y + rect.size.y * 0.43 + y_shift)
+	var shoulder_y: float = rect.position.y + rect.size.y * 0.72 + y_shift * 0.45 + fatigue_slump
+	var head_center := Vector2(center_x, rect.position.y + rect.size.y * 0.43 + y_shift + fatigue_slump * 0.55)
 
 	_draw_character_upper_body(
 		canvas,
@@ -222,6 +252,101 @@ static func draw_portrait(canvas: CanvasItem, rect: Rect2, member: Dictionary, s
 			rect.end - Vector2(c_off, c_off)
 		]:
 			canvas.draw_circle(corner, 2.0, INK_COLOR)
+
+static func _draw_betrayed_portrait(canvas: CanvasItem, rect: Rect2, member: Dictionary) -> void:
+	var u: float = minf(rect.size.x, rect.size.y) / 160.0
+	var cx: float = rect.position.x + rect.size.x * 0.5
+	var bottom_y: float = rect.end.y - 5.0 * u
+	var shoulder_y: float = rect.position.y + rect.size.y * 0.74
+	var head_center := Vector2(cx, rect.position.y + rect.size.y * 0.45)
+
+	# Darkened traitor silhouette in background
+	var hair_style: int = clampi(int(member.get("hair_style", 0)), 0, 7)
+	var shirt_style: int = clampi(int(member.get("shirt_style", 0)), 0, 4)
+	var sil_col := Color("#3d3330")
+	var sil_rim := Color("#66554e")
+	_draw_hair_back(canvas, head_center, u * 0.95, hair_style, sil_col, sil_rim)
+	_draw_torso_shirt(canvas, Vector2(cx, shoulder_y), bottom_y, 44.0 * u, u * 0.95, shirt_style, sil_col, sil_col.lightened(0.06), sil_rim)
+	_draw_ellipse(canvas, head_center, 25.5 * u, 31.0 * u, sil_col)
+	_draw_ellipse_outline(canvas, head_center, 25.5 * u, 31.0 * u, sil_rim, 1.8)
+	_draw_hair_front(canvas, head_center, u * 0.95, hair_style, sil_col, sil_rim)
+
+	# Jagged diagonal torn portrait slash across the dossier card
+	var s_top := Vector2(rect.end.x - 14.0 * u, rect.position.y + 12.0 * u)
+	var s_bot := Vector2(rect.position.x + 14.0 * u, rect.end.y - 24.0 * u)
+	var slash_dir: Vector2 = (s_bot - s_top).normalized()
+	var slash_perp := Vector2(-slash_dir.y, slash_dir.x)
+
+	var tear_outer := PackedVector2Array([
+		s_top - slash_perp * (3.5 * u),
+		s_top.lerp(s_bot, 0.28) - slash_perp * (9.5 * u),
+		s_top.lerp(s_bot, 0.52) - slash_perp * (5.5 * u),
+		s_top.lerp(s_bot, 0.78) - slash_perp * (10.0 * u),
+		s_bot - slash_perp * (3.0 * u),
+		s_bot + slash_perp * (3.0 * u),
+		s_top.lerp(s_bot, 0.72) + slash_perp * (9.0 * u),
+		s_top.lerp(s_bot, 0.48) + slash_perp * (5.0 * u),
+		s_top.lerp(s_bot, 0.22) + slash_perp * (8.5 * u),
+		s_top + slash_perp * (3.5 * u)
+	])
+	canvas.draw_colored_polygon(tear_outer, PARCHMENT_LIGHT)
+
+	var tear_gap := PackedVector2Array([
+		s_top,
+		s_top.lerp(s_bot, 0.30) - slash_perp * (5.2 * u),
+		s_top.lerp(s_bot, 0.50) - slash_perp * (2.2 * u),
+		s_top.lerp(s_bot, 0.76) - slash_perp * (5.6 * u),
+		s_bot,
+		s_top.lerp(s_bot, 0.74) + slash_perp * (4.8 * u),
+		s_top.lerp(s_bot, 0.50) + slash_perp * (2.0 * u),
+		s_top.lerp(s_bot, 0.24) + slash_perp * (4.6 * u)
+	])
+	_draw_poly_outlined(canvas, tear_gap, Color("#171110"), Color("#a61b1b"), 1.6)
+
+	# Crimson angled "DESERTED" rubber stamp
+	var crimson := Color("#b81b1a")
+	var stamp_bg := Color(0.96, 0.89, 0.84, 0.92)
+	var st_c := Vector2(cx, rect.position.y + rect.size.y * 0.48)
+	var st_ang: float = -0.20
+	var cr: float = cos(st_ang)
+	var sr: float = sin(st_ang)
+	var hw: float = minf(rect.size.x * 0.44, 64.0 * u)
+	var hh: float = maxf(11.0, 14.5 * u)
+	var st_pts := PackedVector2Array([
+		st_c + Vector2(-hw * cr + hh * sr, -hw * sr - hh * cr),
+		st_c + Vector2(hw * cr + hh * sr, hw * sr - hh * cr),
+		st_c + Vector2(hw * cr - hh * sr, hw * sr + hh * cr),
+		st_c + Vector2(-hw * cr - hh * sr, -hw * sr + hh * cr)
+	])
+	_draw_poly_outlined(canvas, st_pts, stamp_bg, crimson, maxf(2.0, 2.4 * u))
+
+	var font: Font = ThemeDB.fallback_font
+	if font != null:
+		var st_fsize: int = maxi(9, int(round(13.0 * u)))
+		var st_txt: String = "DESERTED"
+		var st_sz: Vector2 = font.get_string_size(st_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, st_fsize)
+		canvas.draw_set_transform(st_c, st_ang, Vector2.ONE)
+		canvas.draw_string(
+			font,
+			Vector2(-st_sz.x * 0.5, (font.get_ascent(st_fsize) - font.get_descent(st_fsize)) * 0.5),
+			st_txt,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			st_fsize,
+			crimson
+		)
+		canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+		# Bottom traitor tag
+		var tag_h: float = maxf(15.0, 18.0 * u)
+		var tag_rect := Rect2(rect.position.x + rect.size.x * 0.05, rect.end.y - tag_h - maxf(5.0, 7.0 * u), rect.size.x * 0.90, tag_h)
+		canvas.draw_rect(tag_rect, crimson.darkened(0.22), true)
+		canvas.draw_rect(tag_rect, INK_COLOR, false, 1.5)
+		var nm: String = str(member.get("name", "SURVIVOR")).strip_edges().to_upper()
+		var lbl: String = nm + " • FLED"
+		var fsz: int = maxi(8, int(round(10.0 * u)))
+		var base_y: float = tag_rect.position.y + (tag_rect.size.y + font.get_ascent(fsz) - font.get_descent(fsz)) * 0.5
+		canvas.draw_string(font, Vector2(tag_rect.position.x + 3.0, base_y), lbl, HORIZONTAL_ALIGNMENT_CENTER, tag_rect.size.x - 6.0, fsz, PARCHMENT_LIGHT)
 
 static func _draw_deceased_memorial(canvas: CanvasItem, rect: Rect2, member: Dictionary) -> void:
 	var u: float = minf(rect.size.x, rect.size.y) / 160.0
@@ -350,6 +475,10 @@ static func _draw_character_upper_body(
 	var sanity: int = int(member.get("sanity", 0))
 	var sickness: int = int(member.get("sickness", 0))
 	var injury: int = int(member.get("injury", 0))
+	var fatigue: int = int(member.get("fatigue", 0))
+	var soot_days: int = int(member.get("soot_days", 0))
+	var breakdown_days: int = int(member.get("breakdown_days", 0))
+	var hat_id: String = str(member.get("hat_id", "none"))
 
 	var skin_col: Color = get_skin_color(member)
 	if sickness >= 1 and not is_mutant:
@@ -371,14 +500,14 @@ static func _draw_character_upper_body(
 	# 1. Back hair layer
 	_draw_hair_back(canvas, head_center, hu, hair_style, hair_col, INK_COLOR)
 
-	# 2. Neck + Shoulders/Shirt
+	# 2. Neck + Shoulders/Shirt (with fatigue droop & expedition soot/strap)
 	var neck_w: float = (8.5 if (role == "child" or age <= 12) else 11.0) * hu
 	var neck_rect := Rect2(head_center.x - neck_w, head_center.y + 22.0 * hu, neck_w * 2.0, maxf(12.0 * hu, shoulder_y - head_center.y - 16.0 * hu))
 	canvas.draw_rect(neck_rect, skin_col.darkened(0.1), true)
 	canvas.draw_line(neck_rect.position, Vector2(neck_rect.position.x, neck_rect.end.y), INK_COLOR, 2.0)
 	canvas.draw_line(Vector2(neck_rect.end.x, neck_rect.position.y), neck_rect.end, INK_COLOR, 2.0)
 
-	_draw_torso_shirt(canvas, Vector2(head_center.x, shoulder_y), bottom_y, shoulder_w, hu, shirt_style, outfit_col, skin_col, INK_COLOR)
+	_draw_torso_shirt(canvas, Vector2(head_center.x, shoulder_y), bottom_y, shoulder_w, hu, shirt_style, outfit_col, skin_col, INK_COLOR, soot_days, fatigue)
 
 	# 3. Mutant Antennae (behind upper head rim)
 	if is_mutant:
@@ -414,7 +543,7 @@ static func _draw_character_upper_body(
 		_draw_ellipse(canvas, head_center + Vector2(14.0 * hu, 9.0 * hu), 7.0 * hu, 5.5 * hu, Color(MUTANT_PURPLE.r, MUTANT_PURPLE.g, MUTANT_PURPLE.b, 0.5))
 		canvas.draw_line(head_center + Vector2(-17.0 * hu, -12.0 * hu), head_center + Vector2(-10.0 * hu, -6.0 * hu), MUTANT_PURPLE.lightened(0.15), 1.5)
 
-	# 6. Condition overlays on cheeks/skin: Hunger gaunt hollows, Sickness green blush, Youthful rosy blush, Elder wrinkles
+	# 6. Condition overlays on cheeks/skin: Hunger gaunt hollows, Sickness green blush, Wasteland Soot, Youthful rosy blush, Elder wrinkles
 	if hunger >= 2:
 		var gaunt_col := Color(0.12, 0.09, 0.08, 0.34 if hunger == 2 else 0.48)
 		for side in [-1.0, 1.0]:
@@ -437,6 +566,17 @@ static func _draw_character_upper_body(
 		_draw_ellipse(canvas, head_center + Vector2(-13.5 * hu, 6.5 * hu), 6.5 * hu, 3.8 * hu, warm_blush)
 		_draw_ellipse(canvas, head_center + Vector2(13.5 * hu, 6.5 * hu), 6.5 * hu, 3.8 * hu, warm_blush)
 
+	# Wasteland Expedition Wear: charcoal ash & soot smudges across cheeks, nose & brow
+	if soot_days > 0:
+		var soot_soft := Color(0.12, 0.11, 0.10, 0.42)
+		var soot_streak := Color(0.10, 0.09, 0.08, 0.56)
+		_draw_ellipse(canvas, head_center + Vector2(-15.0 * hu, 8.8 * hu), 7.2 * hu, 3.8 * hu, soot_soft)
+		_draw_ellipse(canvas, head_center + Vector2(14.5 * hu, 10.5 * hu), 6.8 * hu, 3.5 * hu, soot_soft)
+		_draw_ellipse(canvas, head_center + Vector2(1.0 * hu, 2.5 * hu), 4.6 * hu, 2.2 * hu, soot_soft)
+		canvas.draw_line(head_center + Vector2(-19.5 * hu, 8.0 * hu), head_center + Vector2(-11.0 * hu, 10.2 * hu), soot_streak, 1.6 * maxf(hu, 0.65))
+		canvas.draw_line(head_center + Vector2(11.5 * hu, 11.8 * hu), head_center + Vector2(19.0 * hu, 9.5 * hu), soot_streak, 1.5 * maxf(hu, 0.65))
+		canvas.draw_line(head_center + Vector2(-11.0 * hu, -15.0 * hu), head_center + Vector2(-4.0 * hu, -13.5 * hu), soot_streak, 1.4 * maxf(hu, 0.65))
+
 	if role == "elder" or age >= 60:
 		var wr_col := Color(INK_COLOR.r, INK_COLOR.g, INK_COLOR.b, 0.42)
 		canvas.draw_line(head_center + Vector2(-10.0 * hu, -17.5 * hu), head_center + Vector2(10.0 * hu, -17.5 * hu), wr_col, 1.3)
@@ -447,7 +587,7 @@ static func _draw_character_upper_body(
 			canvas.draw_line(head_center + Vector2(side * 17.5 * hu, -1.5 * hu), head_center + Vector2(side * 21.5 * hu, -1.0 * hu), wr_col, 1.2)
 			canvas.draw_line(head_center + Vector2(side * 7.5 * hu, 8.0 * hu), head_center + Vector2(side * 11.5 * hu, 16.5 * hu), wr_col, 1.3)
 
-	# 7. Eyes & Eyebrows
+	# 7. Eyes, Under-Eye Fatigue Bags, Drooped Eyelids & Eyebrows
 	var eye_y: float = head_center.y - 2.5 * hu
 	var eye_sep: float = (9.5 if (role == "child" or age <= 12) else 10.5) * hu
 	var base_eye_r: float = (5.3 if (role == "child" or age <= 12) else 4.6) * hu
@@ -458,6 +598,15 @@ static func _draw_character_upper_body(
 		var er: float = base_eye_r
 		if sanity >= 2:
 			er = base_eye_r * (1.32 if idx == 0 else 0.92)
+
+		# Heavy dark under-eye bags when fatigued (drawn slightly beneath sclera rim)
+		if fatigue >= 1:
+			var bag_alpha: float = 0.46 if fatigue == 1 else 0.60
+			_draw_ellipse(canvas, epos + Vector2(0.0, er * 0.78), er * 1.15, er * 0.62, Color(0.17, 0.10, 0.17, bag_alpha))
+			canvas.draw_arc(epos + Vector2(0.0, 0.8 * hu), er + 1.6 * hu, 0.20, PI - 0.20, 10, Color(0.15, 0.09, 0.14, 0.62), 1.5 * maxf(hu, 0.65))
+			if fatigue >= 2:
+				canvas.draw_arc(epos + Vector2(0.0, 2.2 * hu), er + 2.4 * hu, 0.30, PI - 0.30, 8, Color(0.15, 0.09, 0.14, 0.44), 1.2 * maxf(hu, 0.65))
+
 		var sclera_col: Color = Color("#e8ff7a") if is_mutant else Color("#fbf8f1")
 		canvas.draw_circle(epos, er, sclera_col)
 		canvas.draw_arc(epos, er, 0.0, TAU, 18, INK_COLOR, 1.6)
@@ -477,16 +626,80 @@ static func _draw_character_upper_body(
 			canvas.draw_circle(epos, er * 0.32, INK_COLOR)
 			canvas.draw_circle(epos + Vector2(-1.2 * hu, -1.3 * hu), 1.2 * hu, Color.WHITE)
 
-		# Eyebrows
+		# Slightly drooped upper eyelids when fatigued
+		if fatigue >= 1 and sanity < 2:
+			var lid_col: Color = skin_col.darkened(0.12)
+			var lid_pts := PackedVector2Array([
+				epos + Vector2(-er * 1.02, -er * 0.16),
+				epos + Vector2(-er * 0.72, -er * 0.92),
+				epos + Vector2(0.0, -er * 1.04),
+				epos + Vector2(er * 0.72, -er * 0.92),
+				epos + Vector2(er * 1.02, -er * 0.10 + side * 0.35 * hu)
+			])
+			canvas.draw_colored_polygon(lid_pts, lid_col)
+			canvas.draw_arc(epos, er, PI, TAU, 10, INK_COLOR, 1.4)
+			canvas.draw_line(
+				epos + Vector2(-er * 1.02, -er * 0.14),
+				epos + Vector2(er * 1.02, -er * 0.08 + side * 0.35 * hu),
+				INK_COLOR,
+				1.7 * maxf(hu, 0.65)
+			)
+
+		# Eyebrows (distressed anguish angle during emotional breakdown!)
 		var brow_col: Color = Color("#ececec") if (role == "elder" and hair_col.get_luminance() > 0.55) else hair_col.darkened(0.18)
-		var brow_y0: float = eye_y - er - 3.2 * hu + ( -2.5 * hu if (sanity >= 2 and idx == 0) else 0.0 )
-		var brow_y1: float = eye_y - er - 2.2 * hu + ( 2.0 * hu if (sanity >= 2 and idx == 1) else 0.0 )
-		canvas.draw_line(
-			Vector2(epos.x - 5.5 * hu, brow_y0),
-			Vector2(epos.x + 5.5 * hu, brow_y1),
-			brow_col,
-			2.3 * maxf(hu, 0.65)
-		)
+		var left_pt: Vector2
+		var right_pt: Vector2
+		if breakdown_days > 0:
+			# Inner corner raised sharply, outer corner dropped in distress
+			var inner_y: float = eye_y - er - 5.4 * hu
+			var outer_y: float = eye_y - er - 0.6 * hu
+			if idx == 0:
+				left_pt = Vector2(epos.x - 5.8 * hu, outer_y)
+				right_pt = Vector2(epos.x + 5.6 * hu, inner_y)
+			else:
+				left_pt = Vector2(epos.x - 5.6 * hu, inner_y)
+				right_pt = Vector2(epos.x + 5.8 * hu, outer_y)
+		else:
+			var brow_y0: float = eye_y - er - 3.2 * hu + (-2.5 * hu if (sanity >= 2 and idx == 0) else 0.0)
+			var brow_y1: float = eye_y - er - 2.2 * hu + (2.0 * hu if (sanity >= 2 and idx == 1) else 0.0)
+			if fatigue >= 1 and sanity < 2:
+				if idx == 0:
+					brow_y0 += 1.5 * hu
+				else:
+					brow_y1 += 1.5 * hu
+			left_pt = Vector2(epos.x - 5.5 * hu, brow_y0)
+			right_pt = Vector2(epos.x + 5.5 * hu, brow_y1)
+		canvas.draw_line(left_pt, right_pt, brow_col, 2.3 * maxf(hu, 0.65))
+
+		# Emotional Breakdown: trembling tear droplets welling & trickling down cheeks
+		if breakdown_days > 0:
+			var tear_fill := Color("#6ec8f7")
+			var well_p := epos + Vector2(side * er * 0.72, er * 0.85)
+			canvas.draw_circle(well_p, 1.9 * hu, tear_fill)
+			var t1 := epos + Vector2(side * (er * 0.55 + 1.0 * hu), er + 5.4 * hu)
+			var td1 := PackedVector2Array([
+				t1 + Vector2(0.0, -3.6 * hu),
+				t1 + Vector2(2.3 * hu, 1.2 * hu),
+				t1 + Vector2(0.0, 3.0 * hu),
+				t1 + Vector2(-2.3 * hu, 1.2 * hu)
+			])
+			_draw_poly_outlined(canvas, td1, tear_fill, INK_COLOR, 1.1)
+			canvas.draw_circle(t1 + Vector2(-0.5 * hu, 0.6 * hu), maxf(0.8 * hu, 0.7), Color.WHITE)
+			if idx == 1 or breakdown_days >= 2:
+				var t2 := epos + Vector2(side * (er * 0.85 + 2.2 * hu), er + 12.6 * hu)
+				var td2 := PackedVector2Array([
+					t2 + Vector2(0.0, -2.8 * hu),
+					t2 + Vector2(1.8 * hu, 1.0 * hu),
+					t2 + Vector2(0.0, 2.4 * hu),
+					t2 + Vector2(-1.8 * hu, 1.0 * hu)
+				])
+				_draw_poly_outlined(canvas, td2, tear_fill, INK_COLOR, 1.0)
+
+	if breakdown_days > 0:
+		# Furrowed grief lines between eyebrows
+		var fur_col := Color(INK_COLOR.r, INK_COLOR.g, INK_COLOR.b, 0.50)
+		canvas.draw_line(head_center + Vector2(-2.0 * hu, -12.0 * hu), head_center + Vector2(-1.4 * hu, -7.8 * hu), fur_col, 1.3)
+		canvas.draw_line(head_center + Vector2(2.0 * hu, -12.0 * hu), head_center + Vector2(1.4 * hu, -7.8 * hu), fur_col, 1.3)
 
 	# 8. Nose
 	var nose_pts := PackedVector2Array([
@@ -521,7 +734,7 @@ static func _draw_character_upper_body(
 		])
 		_draw_poly_outlined(canvas, beard_pts, hair_col, INK_COLOR, 1.9)
 
-	# 10. Mouth + Parched Thirst Lips + Mutant Smirk + Sickness Thermometer
+	# 10. Mouth + Parched Thirst Lips + Mutant Smirk + Breakdown Tremble + Sickness Thermometer
 	if thirst >= 2:
 		# Pale cracked parched lips + brow sweat drop
 		var lip_col := Color("#dfd4c8")
@@ -552,7 +765,17 @@ static func _draw_character_upper_body(
 			Vector2(head_center.x + 9.5 * hu, mouth_y - 2.0 * hu)
 		])
 		canvas.draw_polyline(grin, INK_COLOR, 2.0)
-	elif hunger >= 2 or sickness >= 1:
+	elif breakdown_days > 0:
+		# Quivering distressed sobbing frown
+		var sob := PackedVector2Array([
+			Vector2(head_center.x - 7.8 * hu, mouth_y + 3.2 * hu),
+			Vector2(head_center.x - 3.5 * hu, mouth_y + 0.2 * hu),
+			Vector2(head_center.x, mouth_y + 1.4 * hu),
+			Vector2(head_center.x + 3.5 * hu, mouth_y + 0.2 * hu),
+			Vector2(head_center.x + 7.8 * hu, mouth_y + 3.2 * hu)
+		])
+		canvas.draw_polyline(sob, Color("#f5eee6") if facial_hair == 2 else INK_COLOR, 2.0)
+	elif hunger >= 2 or sickness >= 1 or fatigue >= 2:
 		# Weak downturn frown
 		canvas.draw_arc(Vector2(head_center.x, mouth_y + 5.5 * hu), 7.5 * hu, PI + 0.35, TAU - 0.35, 12, INK_COLOR, 2.0)
 	else:
@@ -609,9 +832,11 @@ static func _draw_character_upper_body(
 		canvas.draw_line(head_center + Vector2(-16.0 * hu, -10.0 * hu), head_center + Vector2(16.0 * hu, -14.0 * hu), Color("#d8d0c0"), 1.2)
 		canvas.draw_circle(head_center + Vector2(9.0 * hu, -13.0 * hu), 3.4 * hu, Color("#d63629"))
 
-	# 14. Sanity >= 3 Crooked Aluminum Tinfoil Hat!
+	# 14. Sanity >= 3 Crooked Aluminum Tinfoil Hat OR Unlockable Survivor Hat!
 	if sanity >= 3:
 		_draw_tinfoil_hat(canvas, head_center, hu)
+	elif hat_id != "" and hat_id != "none":
+		_draw_survivor_hat(canvas, head_center, hu, jaw_round, hat_id)
 
 static func _draw_mutant_antennae(canvas: CanvasItem, head_center: Vector2, hu: float) -> void:
 	for side in [-1.0, 1.0]:
@@ -678,6 +903,151 @@ static func _draw_tinfoil_hat(canvas: CanvasItem, head_center: Vector2, hu: floa
 	canvas.draw_line(peak, spire, Color("#eef3f7"), 1.6 * hu)
 	canvas.draw_line(head_center + Vector2(-14.0 * hu, -26.0 * hu), head_center + Vector2(8.0 * hu, -36.0 * hu), Color("#8d969e"), 1.4)
 	canvas.draw_line(head_center + Vector2(-4.0 * hu, -21.0 * hu), head_center + Vector2(18.0 * hu, -28.0 * hu), Color("#8d969e"), 1.4)
+
+static func _draw_survivor_hat(canvas: CanvasItem, head_center: Vector2, hu: float, jaw_round: float, hat_id: String) -> void:
+	var hrx: float = 27.0 * hu * jaw_round
+	match hat_id:
+		"cd_helmet":
+			# White 1950s Civil Defense steel Brodie helmet with red/blue CD triangle emblem
+			var dome_pts := PackedVector2Array([
+				head_center + Vector2(-hrx * 1.12, -19.0 * hu),
+				head_center + Vector2(-hrx * 0.92, -37.0 * hu),
+				head_center + Vector2(-hrx * 0.44, -47.0 * hu),
+				head_center + Vector2(hrx * 0.44, -47.0 * hu),
+				head_center + Vector2(hrx * 0.92, -37.0 * hu),
+				head_center + Vector2(hrx * 1.12, -19.0 * hu)
+			])
+			_draw_poly_outlined(canvas, dome_pts, Color("#f2efe6"), INK_COLOR, 2.0)
+			# Right dome steel shading + left specular gleam
+			var dome_shade := PackedVector2Array([
+				head_center + Vector2(hrx * 0.25, -46.0 * hu),
+				head_center + Vector2(hrx * 0.90, -36.5 * hu),
+				head_center + Vector2(hrx * 1.08, -19.5 * hu),
+				head_center + Vector2(hrx * 0.35, -19.5 * hu)
+			])
+			canvas.draw_colored_polygon(dome_shade, Color("#cfd5da"))
+			canvas.draw_line(head_center + Vector2(-hrx * 0.65, -36.0 * hu), head_center + Vector2(-hrx * 0.22, -43.0 * hu), Color.WHITE, 2.2 * hu)
+			# Wide flared Brodie steel brim
+			var brim_pts := PackedVector2Array([
+				head_center + Vector2(-hrx * 1.44, -15.5 * hu),
+				head_center + Vector2(-hrx * 0.85, -21.5 * hu),
+				head_center + Vector2(hrx * 0.85, -21.5 * hu),
+				head_center + Vector2(hrx * 1.44, -15.5 * hu),
+				head_center + Vector2(hrx * 0.95, -14.0 * hu),
+				head_center + Vector2(-hrx * 0.95, -14.0 * hu)
+			])
+			_draw_poly_outlined(canvas, brim_pts, Color("#e4e1d8"), INK_COLOR, 2.0)
+			# Iconic Blue Circle + White Triangle + Red CD Mark on front dome
+			var emb_c := head_center + Vector2(0.0, -32.5 * hu)
+			var emb_r: float = 8.4 * hu
+			canvas.draw_circle(emb_c, emb_r + 1.0 * hu, INK_COLOR)
+			canvas.draw_circle(emb_c, emb_r, Color("#1f4e8c"))
+			var tri := PackedVector2Array([
+				emb_c + Vector2(0.0, -emb_r * 0.72),
+				emb_c + Vector2(emb_r * 0.68, emb_r * 0.48),
+				emb_c + Vector2(-emb_r * 0.68, emb_r * 0.48)
+			])
+			canvas.draw_colored_polygon(tri, Color("#faf8f2"))
+			canvas.draw_circle(emb_c + Vector2(0.0, emb_r * 0.12), emb_r * 0.24, Color("#d93426"))
+
+		"ushanka":
+			# Warm brown/grey fur winter ear-flap hat
+			var crown_pts := PackedVector2Array([
+				head_center + Vector2(-hrx * 1.02, -22.0 * hu),
+				head_center + Vector2(-hrx * 0.86, -44.0 * hu),
+				head_center + Vector2(0.0, -48.0 * hu),
+				head_center + Vector2(hrx * 0.86, -44.0 * hu),
+				head_center + Vector2(hrx * 1.02, -22.0 * hu)
+			])
+			_draw_poly_outlined(canvas, crown_pts, Color("#6e4c30"), INK_COLOR, 2.0)
+			# Furry grey-brown ear flaps hanging beside temples
+			for side in [-1.0, 1.0]:
+				var flap_pts := PackedVector2Array([
+					head_center + Vector2(side * hrx * 0.90, -24.0 * hu),
+					head_center + Vector2(side * hrx * 1.24, -18.0 * hu),
+					head_center + Vector2(side * hrx * 1.20, 11.0 * hu),
+					head_center + Vector2(side * hrx * 0.92, 13.0 * hu),
+					head_center + Vector2(side * hrx * 0.84, -8.0 * hu)
+				])
+				_draw_poly_outlined(canvas, flap_pts, Color("#8a7d6f"), INK_COLOR, 1.9)
+				canvas.draw_line(
+					head_center + Vector2(side * hrx * 1.06, 12.5 * hu),
+					head_center + Vector2(side * hrx * 1.12, 20.0 * hu),
+					INK_COLOR,
+					1.5
+				)
+			# Thick plush front shearling fur visor cuff
+			var fur_rect := Rect2(head_center.x - hrx * 1.04, head_center.y - 36.5 * hu, hrx * 2.08, 18.5 * hu)
+			canvas.draw_rect(fur_rect, Color("#9e9080"), true)
+			canvas.draw_rect(fur_rect.grow(-2.2 * hu), Color("#b5a796"), true)
+			canvas.draw_rect(fur_rect, INK_COLOR, false, 2.0)
+			# Cozy Civil Defense / winter enamel star pin in center
+			var pin_c := head_center + Vector2(0.0, -27.2 * hu)
+			canvas.draw_circle(pin_c, 4.6 * hu, INK_COLOR)
+			canvas.draw_circle(pin_c, 3.4 * hu, ATOMIC_ORANGE)
+			canvas.draw_circle(pin_c, 1.4 * hu, HAZARD_YELLOW)
+
+		"medic_cap":
+			# Crisp white field medic cap with red medical cross
+			var cap_pts := PackedVector2Array([
+				head_center + Vector2(-hrx * 1.04, -18.0 * hu),
+				head_center + Vector2(-hrx * 0.98, -39.0 * hu),
+				head_center + Vector2(-hrx * 0.42, -46.5 * hu),
+				head_center + Vector2(hrx * 0.42, -46.5 * hu),
+				head_center + Vector2(hrx * 0.98, -39.0 * hu),
+				head_center + Vector2(hrx * 1.04, -18.0 * hu)
+			])
+			_draw_poly_outlined(canvas, cap_pts, Color("#faf7f0"), INK_COLOR, 2.0)
+			# Subtle visor bill & clean grey fold crease
+			var bill_pts := PackedVector2Array([
+				head_center + Vector2(-hrx * 0.96, -18.5 * hu),
+				head_center + Vector2(hrx * 0.96, -18.5 * hu),
+				head_center + Vector2(hrx * 0.78, -13.5 * hu),
+				head_center + Vector2(-hrx * 0.78, -13.5 * hu)
+			])
+			_draw_poly_outlined(canvas, bill_pts, Color("#ded8ca"), INK_COLOR, 1.8)
+			# Bold Red Medical Cross on front crown
+			var mc := head_center + Vector2(0.0, -31.5 * hu)
+			var al: float = 7.2 * hu
+			var at: float = 2.8 * hu
+			canvas.draw_circle(mc, 9.2 * hu, Color("#ffffff"))
+			canvas.draw_arc(mc, 9.2 * hu, 0.0, TAU, 14, INK_COLOR, 1.3)
+			canvas.draw_rect(Rect2(mc.x - at, mc.y - al, at * 2.0, al * 2.0), Color("#d93426"), true)
+			canvas.draw_rect(Rect2(mc.x - al, mc.y - at, al * 2.0, at * 2.0), Color("#d93426"), true)
+
+		"aviator":
+			# Vintage brown leather bomber cap with brass flight goggles on forehead
+			var av_pts := PackedVector2Array([
+				head_center + Vector2(-hrx * 1.06, -16.0 * hu),
+				head_center + Vector2(-hrx * 0.96, -38.0 * hu),
+				head_center + Vector2(-hrx * 0.42, -46.0 * hu),
+				head_center + Vector2(hrx * 0.42, -46.0 * hu),
+				head_center + Vector2(hrx * 0.96, -38.0 * hu),
+				head_center + Vector2(hrx * 1.06, -16.0 * hu)
+			])
+			_draw_poly_outlined(canvas, av_pts, Color("#6e4123"), INK_COLOR, 2.0)
+			# Leather center seam & side ear tabs
+			canvas.draw_line(head_center + Vector2(0.0, -46.0 * hu), head_center + Vector2(0.0, -18.0 * hu), Color("#4a2914"), 1.6)
+			for side in [-1.0, 1.0]:
+				var tab_pts := PackedVector2Array([
+					head_center + Vector2(side * hrx * 0.90, -18.0 * hu),
+					head_center + Vector2(side * hrx * 1.15, -12.0 * hu),
+					head_center + Vector2(side * hrx * 1.10, 8.0 * hu),
+					head_center + Vector2(side * hrx * 0.88, 5.0 * hu)
+				])
+				_draw_poly_outlined(canvas, tab_pts, Color("#5c351b"), INK_COLOR, 1.8)
+			# Warm shearling fur brow trim
+			canvas.draw_line(head_center + Vector2(-hrx * 0.96, -17.0 * hu), head_center + Vector2(hrx * 0.96, -17.0 * hu), Color("#dfd1b8"), 4.2 * hu)
+			# Brass Flight Goggles resting on forehead!
+			canvas.draw_line(head_center + Vector2(-hrx * 1.02, -26.5 * hu), head_center + Vector2(hrx * 1.02, -26.5 * hu), Color("#2b211b"), 3.6 * hu)
+			for side in [-1.0, 1.0]:
+				var gc := head_center + Vector2(side * 11.5 * hu, -27.5 * hu)
+				_draw_ellipse(canvas, gc, 9.2 * hu, 6.8 * hu, INK_COLOR)
+				_draw_ellipse(canvas, gc, 7.8 * hu, 5.5 * hu, HAZARD_YELLOW)
+				_draw_ellipse(canvas, gc, 5.8 * hu, 3.9 * hu, Color("#5dbad9"))
+				canvas.draw_line(gc + Vector2(-3.2 * hu, 1.5 * hu), gc + Vector2(1.8 * hu, -2.5 * hu), Color.WHITE, 1.4)
+			canvas.draw_rect(Rect2(head_center.x - 3.0 * hu, head_center.y - 29.5 * hu, 6.0 * hu, 4.0 * hu), HAZARD_YELLOW, true)
+			canvas.draw_rect(Rect2(head_center.x - 3.0 * hu, head_center.y - 29.5 * hu, 6.0 * hu, 4.0 * hu), INK_COLOR, false, 1.2)
 
 static func _draw_hair_back(canvas: CanvasItem, head_center: Vector2, hu: float, style: int, hair_col: Color, outline: Color) -> void:
 	var dark_hair := hair_col.darkened(0.18)
@@ -835,16 +1205,19 @@ static func _draw_torso_shirt(
 	shirt_style: int,
 	outfit_col: Color,
 	skin_col: Color,
-	outline: Color
+	outline: Color,
+	soot_days: int = 0,
+	fatigue: int = 0
 ) -> void:
 	var h: float = maxf(18.0 * hu, bottom_y - neck_base.y)
+	var sh_droop: float = (3.4 * hu) if fatigue >= 1 else 0.0
 	var torso_pts := PackedVector2Array([
 		neck_base + Vector2(-12.0 * hu, -2.0 * hu),
 		neck_base + Vector2(12.0 * hu, -2.0 * hu),
-		neck_base + Vector2(shoulder_w, 10.0 * hu),
+		neck_base + Vector2(shoulder_w, 10.0 * hu + sh_droop),
 		Vector2(neck_base.x + shoulder_w + 5.0 * hu, bottom_y),
 		Vector2(neck_base.x - shoulder_w - 5.0 * hu, bottom_y),
-		neck_base + Vector2(-shoulder_w, 10.0 * hu)
+		neck_base + Vector2(-shoulder_w, 10.0 * hu + sh_droop)
 	])
 	_draw_poly_outlined(canvas, torso_pts, outfit_col, outline, 2.2)
 
@@ -940,6 +1313,26 @@ static func _draw_torso_shirt(
 					var pk := Rect2(neck_base.x + (side * 18.0 - 7.0) * hu, neck_base.y + 16.0 * hu, 14.0 * hu, 10.0 * hu)
 					canvas.draw_rect(pk, lapel_col, true)
 					canvas.draw_rect(pk, outline, false, 1.3)
+
+	# Wasteland Expedition Wear: shoulder ash/soot smudges + rugged canvas expedition strap!
+	if soot_days > 0:
+		var ash_col := Color(0.11, 0.10, 0.09, 0.44)
+		for side in [-1.0, 1.0]:
+			var sm_c := neck_base + Vector2(side * shoulder_w * 0.68, 9.5 * hu + sh_droop * 0.6)
+			if sm_c.y + 3.0 * hu < bottom_y:
+				_draw_ellipse(canvas, sm_c, 9.5 * hu, 4.2 * hu, ash_col)
+				canvas.draw_line(sm_c + Vector2(-5.5 * hu, -1.0 * hu), sm_c + Vector2(5.5 * hu, 1.4 * hu), Color(0.08, 0.08, 0.07, 0.55), 1.5 * maxf(hu, 0.65))
+
+		var st_a := neck_base + Vector2(-shoulder_w * 0.62, 3.0 * hu + sh_droop * 0.4)
+		var st_b := Vector2(neck_base.x + shoulder_w * 0.44, bottom_y)
+		if st_b.y > st_a.y + 6.0 * hu:
+			canvas.draw_line(st_a, st_b, outline, 7.6 * hu)
+			canvas.draw_line(st_a, st_b, Color("#96825c"), 5.0 * hu)
+			# Brass strap buckle on chest
+			var bk_c: Vector2 = st_a.lerp(st_b, 0.46)
+			var bk_r := Rect2(bk_c.x - 4.2 * hu, bk_c.y - 3.6 * hu, 8.4 * hu, 7.2 * hu)
+			canvas.draw_rect(bk_r, HAZARD_YELLOW, true)
+			canvas.draw_rect(bk_r, outline, false, 1.3)
 
 # ==============================================================================
 # 2. TOP-DOWN RENDERER (60-Second OSM House Scavenge & Family Screen Preview)
@@ -1129,6 +1522,31 @@ static func draw_topdown_character(
 			head_p + fwd * 4.0 * s
 		])
 		_draw_poly_outlined(canvas, hat_pts, Color("#dde4ea"), INK_COLOR, 1.5)
+	else:
+		var td_hat: String = str(member.get("hat_id", "none"))
+		match td_hat:
+			"cd_helmet":
+				canvas.draw_circle(head_p - fwd * 0.5 * s, head_r * 1.18, Color("#f2efe6"))
+				canvas.draw_arc(head_p - fwd * 0.5 * s, head_r * 1.18, 0.0, TAU, 18, INK_COLOR, 1.8)
+				canvas.draw_circle(head_p + fwd * 2.5 * s, 3.6 * s, Color("#1f4e8c"))
+				canvas.draw_circle(head_p + fwd * 2.5 * s, 1.6 * s, Color("#d93426"))
+			"ushanka":
+				canvas.draw_circle(head_p - fwd * 1.0 * s, head_r * 1.06, Color("#6e4c30"))
+				canvas.draw_arc(head_p - fwd * 1.0 * s, head_r * 1.06, 0.0, TAU, 16, INK_COLOR, 1.7)
+				canvas.draw_line(head_p + fwd * (head_r * 0.65) - right * 8.5 * s, head_p + fwd * (head_r * 0.65) + right * 8.5 * s, Color("#9e9080"), 4.2 * s)
+			"medic_cap":
+				canvas.draw_circle(head_p - fwd * 0.8 * s, head_r * 1.02, Color("#faf7f0"))
+				canvas.draw_arc(head_p - fwd * 0.8 * s, head_r * 1.02, 0.0, TAU, 16, INK_COLOR, 1.7)
+				var mc_td: Vector2 = head_p + fwd * 2.0 * s
+				canvas.draw_line(mc_td - fwd * 3.2 * s, mc_td + fwd * 3.2 * s, Color("#d93426"), 2.2 * s)
+				canvas.draw_line(mc_td - right * 3.2 * s, mc_td + right * 3.2 * s, Color("#d93426"), 2.2 * s)
+			"aviator":
+				canvas.draw_circle(head_p - fwd * 1.0 * s, head_r * 1.04, Color("#6e4123"))
+				canvas.draw_arc(head_p - fwd * 1.0 * s, head_r * 1.04, 0.0, TAU, 16, INK_COLOR, 1.7)
+				for side in [-1.0, 1.0]:
+					var gp_td: Vector2 = head_p + fwd * (head_r * 0.56) + right * (side * 4.4 * s)
+					canvas.draw_circle(gp_td, 2.8 * s, HAZARD_YELLOW)
+					canvas.draw_circle(gp_td, 1.7 * s, Color("#5dbad9"))
 
 # ==============================================================================
 # 3. BUNKER SEATED FULL-BODY RENDERER (Bunker Survival Scene & Family Preview)
@@ -1141,11 +1559,31 @@ static func draw_bunker_seated_character(
 	scale_f: float = 1.0
 ) -> void:
 	var alive: bool = bool(member.get("alive", true))
+	var betrayed: bool = bool(member.get("betrayed", false))
 	var on_expedition: bool = bool(member.get("on_expedition", false))
 	var age: int = int(member.get("age", 35))
 	var role: String = str(member.get("role", get_role_for_age(age)))
 
 	var s: float = scale_f
+	if betrayed:
+		# Betrayed empty seat: slashed cloth & crimson DESERTED placard
+		canvas.draw_circle(seat_pos + Vector2(0, 26.0 * s), 22.0 * s, Color(0, 0, 0, 0.28))
+		var rag_rect := Rect2(seat_pos.x - 19.0 * s, seat_pos.y - 6.0 * s, 38.0 * s, 9.0 * s)
+		canvas.draw_rect(rag_rect, Color("#4a3834"), true)
+		canvas.draw_rect(rag_rect, INK_COLOR, false, 1.6)
+		canvas.draw_line(seat_pos + Vector2(-12.0 * s, -9.0 * s), seat_pos + Vector2(10.0 * s, 5.0 * s), Color("#b81b1a"), 2.4 * s)
+
+		var post_a := seat_pos + Vector2(0.0, -6.0 * s)
+		var post_b := seat_pos + Vector2(2.0 * s, -44.0 * s)
+		canvas.draw_line(post_a, post_b, INK_COLOR, 4.0 * s)
+		var sign_r := Rect2(seat_pos.x - 30.0 * s, seat_pos.y - 46.0 * s, 60.0 * s, 18.0 * s)
+		canvas.draw_rect(sign_r, Color("#f2e4dc"), true)
+		canvas.draw_rect(sign_r, Color("#b81b1a"), false, 2.2)
+		var font_b: Font = ThemeDB.fallback_font
+		if font_b != null:
+			canvas.draw_string(font_b, Vector2(sign_r.position.x + 2, sign_r.position.y + 13.0 * s), "DESERTED", HORIZONTAL_ALIGNMENT_CENTER, sign_r.size.x - 4, maxi(8, int(9.5 * s)), Color("#b81b1a"))
+		return
+
 	if not alive:
 		# Seated crate memorial: folded outfit + sepia wooden cross + name tag
 		canvas.draw_circle(seat_pos + Vector2(0, 26.0 * s), 22.0 * s, Color(0, 0, 0, 0.28))
@@ -1203,9 +1641,19 @@ static func draw_bunker_seated_character(
 
 	var sanity: int = int(member.get("sanity", 0))
 	var sickness: int = int(member.get("sickness", 0))
+	var fatigue: int = int(member.get("fatigue", 0))
+	var soot_days: int = int(member.get("soot_days", 0))
+	var breakdown_days: int = int(member.get("breakdown_days", 0))
+	if fatigue >= 1:
+		stoop_y += minf(float(fatigue), 2.0) * 3.5
+
 	var id_hash: float = float(str(member.get("id", "0")).hash() % 100) * 0.07
 	var breath: float = sin(anim_time * 2.1 + id_hash) * 1.6 * s
-	var jitter_x: float = (sin(anim_time * 19.0 + id_hash) * 1.2 * s) if (sanity >= 2 or sickness >= 1) else 0.0
+	var jitter_x: float = 0.0
+	if breakdown_days > 0:
+		jitter_x = sin(anim_time * 24.0 + id_hash) * 1.5 * s
+	elif sanity >= 2 or sickness >= 1:
+		jitter_x = sin(anim_time * 19.0 + id_hash) * 1.2 * s
 
 	var skin_col: Color = get_skin_color(member)
 	if sickness >= 1 and not bool(member.get("is_mutant", false)):
@@ -1229,6 +1677,8 @@ static func draw_bunker_seated_character(
 		canvas.draw_line(knee_p, ankle_p, INK_COLOR, 9.5 * s * body_s)
 		canvas.draw_line(hip_p, knee_p, outfit_col if shirt_style == 2 else pants_col, 7.6 * s * body_s)
 		canvas.draw_line(knee_p, ankle_p, pants_col, 6.2 * s * body_s)
+		if soot_days > 0:
+			_draw_ellipse(canvas, knee_p, 3.6 * s * body_s, 2.4 * s * body_s, Color(0.10, 0.09, 0.08, 0.45))
 		# Classic 1950s saddle shoe / boot
 		var shoe_pts := PackedVector2Array([
 			ankle_p + Vector2(-4.5 * s, -2.0 * s),
@@ -1268,8 +1718,9 @@ static func draw_bunker_seated_character(
 	)
 
 	# 4. Seated Arms & Hands resting on knees
+	var arm_slump: float = (2.2 * s) if fatigue >= 1 else 0.0
 	for side in [-1.0, 1.0]:
-		var sh_p := Vector2(seat_pos.x + jitter_x + side * (shoulder_w * 0.88 * s), neck_y + 6.0 * s)
+		var sh_p := Vector2(seat_pos.x + jitter_x + side * (shoulder_w * 0.88 * s), neck_y + 6.0 * s + arm_slump)
 		var elbow_p := Vector2(seat_pos.x + side * (shoulder_w * 1.02 * s), hip_y - 9.0 * s + breath * 0.5)
 		var hand_p := Vector2(seat_pos.x + side * (knee_sep + 1.5 * s), hip_y + 3.0 * s)
 		var sl_col: Color = skin_col if (shirt_style == 2 or shirt_style == 3) else outfit_col.darkened(0.08)
@@ -1279,3 +1730,102 @@ static func draw_bunker_seated_character(
 		canvas.draw_line(elbow_p, hand_p, skin_col if shirt_style == 3 else sl_col, 4.6 * s * body_s)
 		canvas.draw_circle(hand_p, 4.2 * s * body_s, skin_col)
 		canvas.draw_arc(hand_p, 4.2 * s * body_s, 0.0, TAU, 10, INK_COLOR, 1.4)
+
+# ==============================================================================
+# 4. RELATIONSHIP SPEECH BUBBLE RENDERER (Heart, Lightning Bolt, Question, Wrench)
+# ==============================================================================
+static func draw_relationship_bubble(canvas: CanvasItem, center: Vector2, symbol: String, accent: Color) -> void:
+	if canvas == null:
+		return
+
+	var bw: float = 36.0
+	var bh: float = 28.0
+	var bx: float = center.x - bw * 0.5
+	var by: float = center.y - bh * 0.5
+
+	# Soft comic drop shadow
+	_draw_ellipse(canvas, center + Vector2(2.0, 3.0), bw * 0.52, bh * 0.52, Color(0.0, 0.0, 0.0, 0.30), 18)
+
+	# Rounded comic speech bubble polygon with downward pointer tail
+	var r: float = 8.0
+	var bub_pts := PackedVector2Array([
+		Vector2(bx + r, by),
+		Vector2(bx + bw - r, by),
+		Vector2(bx + bw, by + r),
+		Vector2(bx + bw, by + bh - r),
+		Vector2(bx + bw - r, by + bh),
+		Vector2(center.x + 5.5, by + bh),
+		Vector2(center.x - 1.5, by + bh + 8.5),
+		Vector2(center.x - 5.5, by + bh),
+		Vector2(bx + r, by + bh),
+		Vector2(bx, by + bh - r),
+		Vector2(bx, by + r)
+	])
+	_draw_poly_outlined(canvas, bub_pts, Color("#faf4e6"), INK_COLOR, 2.2)
+
+	# Subtle accent inner rim along top/sides
+	var inner_rim := Color(accent.r, accent.g, accent.b, 0.55)
+	canvas.draw_line(Vector2(bx + r, by + 2.5), Vector2(bx + bw - r, by + 2.5), inner_rim, 1.5)
+
+	var clean_sym: String = symbol.strip_edges().to_lower()
+	var ic: Vector2 = center
+
+	if clean_sym in ["heart", "bond", "love", "cooperate", "+", "♥", "<3"]:
+		# Plump comic Heart icon
+		var l_lobe := ic + Vector2(-3.8, -2.5)
+		var r_lobe := ic + Vector2(3.8, -2.5)
+		canvas.draw_circle(l_lobe, 5.2, INK_COLOR)
+		canvas.draw_circle(r_lobe, 5.2, INK_COLOR)
+		var tip_bg := PackedVector2Array([
+			ic + Vector2(-8.6, -0.8),
+			ic + Vector2(8.6, -0.8),
+			ic + Vector2(0.0, 8.8)
+		])
+		canvas.draw_colored_polygon(tip_bg, INK_COLOR)
+		canvas.draw_circle(l_lobe, 3.8, accent)
+		canvas.draw_circle(r_lobe, 3.8, accent)
+		var tip_fg := PackedVector2Array([
+			ic + Vector2(-7.0, -0.5),
+			ic + Vector2(7.0, -0.5),
+			ic + Vector2(0.0, 7.0)
+		])
+		canvas.draw_colored_polygon(tip_fg, accent)
+		canvas.draw_circle(l_lobe + Vector2(-1.2, -1.2), 1.2, Color.WHITE)
+
+	elif clean_sym in ["bolt", "lightning", "argument", "fight", "anger", "conflict", "!", "⚡"]:
+		# Jagged Lightning Bolt icon
+		var bolt := PackedVector2Array([
+			ic + Vector2(2.2, -9.0),
+			ic + Vector2(-6.2, 0.8),
+			ic + Vector2(-0.8, 0.8),
+			ic + Vector2(-3.0, 9.2),
+			ic + Vector2(6.2, -1.0),
+			ic + Vector2(0.8, -1.0)
+		])
+		_draw_poly_outlined(canvas, bolt, accent, INK_COLOR, 1.6)
+
+	elif clean_sym in ["wrench", "repair", "tool", "fix", "work", "craft"]:
+		# Crossed Mechanic's Wrench icon
+		var dir := Vector2(0.7071, -0.7071)
+		var perp := Vector2(0.7071, 0.7071)
+		var sh_pts := PackedVector2Array([
+			ic - dir * 5.5 - perp * 2.0,
+			ic + dir * 5.5 - perp * 2.0,
+			ic + dir * 5.5 + perp * 2.0,
+			ic - dir * 5.5 + perp * 2.0
+		])
+		_draw_poly_outlined(canvas, sh_pts, accent, INK_COLOR, 1.5)
+		for sgn in [-1.0, 1.0]:
+			var hc: Vector2 = ic + dir * (float(sgn) * 6.2)
+			canvas.draw_circle(hc, 4.2, INK_COLOR)
+			canvas.draw_circle(hc, 2.9, accent)
+			canvas.draw_circle(hc + dir * (float(sgn) * 1.8), 1.5, Color("#faf4e6"))
+
+	else:
+		# Crisp Question Mark icon ("question", "?", or fallback)
+		canvas.draw_arc(ic + Vector2(0.0, -3.5), 4.6, PI * 0.92, TAU + PI * 0.30, 14, INK_COLOR, 4.4)
+		canvas.draw_arc(ic + Vector2(0.0, -3.5), 4.6, PI * 0.92, TAU + PI * 0.30, 14, accent, 2.4)
+		canvas.draw_line(ic + Vector2(2.5, -0.2), ic + Vector2(0.0, 3.2), INK_COLOR, 4.2)
+		canvas.draw_line(ic + Vector2(2.5, -0.2), ic + Vector2(0.0, 3.2), accent, 2.2)
+		canvas.draw_circle(ic + Vector2(0.0, 7.2), 2.3, INK_COLOR)
+		canvas.draw_circle(ic + Vector2(0.0, 7.2), 1.3, accent)

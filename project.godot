@@ -1,23 +1,20 @@
 ; Engine configuration file.
 ; It's best edited using the editor UI and not directly,
 ; since the parameters that go here are not all obvious.
-;
-; Format:
-;   [section] ; section goes between []
-;   param=value ; assign values to parameters
 
 config_version=5
 
 [application]
 
 config/name="60 Seconds: World Reatomized"
-config/description="Real-world OpenStreetMap house scavenging & nuclear bunker survival in Godot 4.3"
+config/description="Real-world Multi-Ring OpenStreetMap 3D Isometric Scavenging & Nuclear Shelter Survival in Godot 4.3"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [autoload]
 
 GameState="*res://scripts/core/game_state.gd"
+SaveManager="*res://scripts/core/save_manager.gd"
 SoundManager="*res://scripts/audio/sound_manager.gd"
 
 [display]
@@ -32,3 +29,4 @@ window/stretch/aspect="keep"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.11, 0.1, 0.09, 1)
+anti_aliasing/quality/msaa_3d=1

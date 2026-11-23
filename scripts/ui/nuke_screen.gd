@@ -668,7 +668,7 @@ func _draw() -> void:
 
 	var ticker_line1: String = "CONELRAD 640 / 1240 kHz CIVIL DEFENSE DIRECTIVE:"
 	var ticker_line2: String = "Click any radar block or world continent to test warhead impact!"
-	if GameState.demo_mode:
+	if GameState.demo_mode and not GameState.promo_video_mode:
 		ticker_line1 = "CONELRAD AUTOMATED TACTICAL SHOWCASE ACTIVE:"
 		ticker_line2 = "Comparing distant Global Nuclear Winter vs 3.2 km Metro Strike."
 

@@ -2026,21 +2026,32 @@ static func _spawn_house_items(
 		var fsd: Dictionary = fs
 		occupied_family.append(fsd["pos"])
 
-	# Build exact 60 Seconds! spawn manifest:
-	# - 6..8 "soup" cans (weighted toward Kitchen & Utility, plus random rooms)
-	# - 6..8 "water" bottles (weighted toward Kitchen & Bathroom/Utility, plus random rooms)
+	# Build exact 60 Seconds! spawn manifest (scaled by GameState difficulty ration bonus/penalty):
+	# - 6..8 base "soup" cans (+2 on Little Boy = 8..10, -2 on Tsar Bomba = 4..6)
+	# - 6..8 base "water" bottles (+2 on Little Boy = 8..10, -2 on Tsar Bomba = 4..6)
 	# - Guaranteed core survival items: 1 "medkit", 1 "gas_mask", 1 "radio", 1 "suitcase", 1 "book", 1 weapon ("rifle" or "axe")
 	# - Plus 6..8 randomized bonus items from RANDOM_BONUS_POOL placed by room theme!
 	var spawn_requests: Array[Dictionary] = []
 
-	var soup_count: int = rng.randi_range(6, 8)
+	var soup_bonus: int = 0
+	var water_bonus: int = 0
+	var tree := Engine.get_main_loop() as SceneTree
+	var gs: Node = tree.root.get_node_or_null("GameState") if tree != null else null
+	if gs != null and gs.has_method("get_difficulty_config"):
+		var diff_raw: Variant = gs.call("get_difficulty_config")
+		if diff_raw is Dictionary:
+			var diff_cfg: Dictionary = diff_raw
+			soup_bonus = int(diff_cfg.get("spawn_soup_bonus", 0))
+			water_bonus = int(diff_cfg.get("spawn_water_bonus", 0))
+
+	var soup_count: int = clampi(rng.randi_range(6, 8) + soup_bonus, 3, 12)
 	for s_i in range(soup_count):
 		var soup_rooms: Array[String] = [ROOM_KITCHEN, ROOM_BATH_UTILITY]
 		if s_i >= soup_count - 2:
 			soup_rooms = [ROOM_LIVING, ROOM_MASTER_BED, ROOM_KIDS_BED, ROOM_KITCHEN]
 		spawn_requests.append({"item_id": "soup", "pref": soup_rooms})
 
-	var water_count: int = rng.randi_range(6, 8)
+	var water_count: int = clampi(rng.randi_range(6, 8) + water_bonus, 3, 12)
 	for w_i in range(water_count):
 		var water_rooms: Array[String] = [ROOM_KITCHEN, ROOM_BATH_UTILITY]
 		if w_i >= water_count - 2:

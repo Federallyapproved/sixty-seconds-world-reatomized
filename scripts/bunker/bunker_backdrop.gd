@@ -1,10 +1,15 @@
 class_name BunkerBackdrop
 extends Control
 
-## Full-screen (1280x720) procedurally illustrated 1950s Civil Defense fallout shelter interior.
-## Dynamically reflects exact physical inventory (individual soup cans, water bottles, durable gear,
-## broken states, padlock on hatch, Sharikov & Pancake), real-world OSM neighborhood map,
-## radiation/temperature gauges, frost/heat overlays, and seated custom family members.
+## Full-screen (1280x720) procedurally illustrated 1950s Civil Defense fallout shelter interior (V2 Overhaul).
+## Dynamically reflects:
+## - Exact physical inventory: soup cans, water bottles, durable gear, specialty supplies (antibiotics, antirad, scrap)
+## - Escape Vehicle Engine Chassis / Workbench (1950s Station Wagon front hood, 4 engine parts, stacked fuel jerrycans)
+## - Progressive deterioration: cobwebs (day >= 8), peeling CONELRAD poster (integrity < 75), branching cracks &
+##   water drip puddles (integrity < 50), scurrying roaches near floor vent (roach_infestation > 0)
+## - Dynamic atmosphere: voltage-flickering tungsten lamp + 18 drifting dust motes, radioactive green hatch rim-glow
+##   (surface_radiation_sv >= 6.0), Nuclear Winter frost crystals + survivor breath puffs (< 2°C), amber heat waves (> 28°C)
+## - Expressive seated survivors with relationship bubbles ("♥", "⚡", "!") via CharacterArtist.draw_relationship_bubble
 
 signal hotspot_selected(hotspot_info: Dictionary)
 
@@ -23,8 +28,12 @@ const COL_HAZARD := Color("#f5be2e")
 const COL_ORANGE := Color("#e05a2b")
 const COL_RED := Color("#d94c2a")
 const COL_GREEN := Color("#7ec850")
+const COL_TOXIC := Color("#66ff47")
 const COL_WATER := Color("#3b8ec2")
 const COL_FROST := Color("#8ad8ff")
+const COL_BOND_PINK := Color("#f27999")
+
+const DUST_MOTE_COUNT: int = 18
 
 var _anim_time: float = 0.0
 var _hotspots: Array = []
@@ -44,6 +53,8 @@ func _ready() -> void:
 		GameState.inventory_changed.connect(_on_state_changed)
 	if not GameState.family_changed.is_connected(_on_state_changed):
 		GameState.family_changed.connect(_on_state_changed)
+	if not GameState.relationships_changed.is_connected(_on_state_changed):
+		GameState.relationships_changed.connect(_on_state_changed)
 	if not GameState.day_advanced.is_connected(_on_day_changed):
 		GameState.day_advanced.connect(_on_day_changed)
 	if not GameState.osm_house_selected.is_connected(_on_dict_changed):
@@ -133,12 +144,16 @@ func _draw() -> void:
 
 	_draw_bunker_architecture(font)
 	_draw_back_wall_pipes_and_stencils(font)
+	_draw_progressive_deterioration(font)
 	_draw_blast_hatch_and_ladder(font)
 	_draw_wall_instruments_and_map(font)
+	_draw_conelrad_wall_poster(font)
 	_draw_supply_shelving_and_gear(font)
+	_draw_vehicle_escape_workbench(font)
 	_draw_companions(font)
 	_draw_family_bench_and_members(font)
-	_draw_overhead_swinging_lamp()
+	_draw_roach_infestation(font)
+	_draw_overhead_swinging_lamp_and_motes()
 	_draw_temperature_and_radiation_atmosphere()
 	_draw_active_tooltip(font)
 
@@ -146,10 +161,9 @@ func _draw() -> void:
 # 1. BUNKER ARCHITECTURE (RIBBED STEEL CEILING, CONCRETE WALLS, SLAB FLOOR)
 # ---------------------------------------------------------------------------
 func _draw_bunker_architecture(_font: Font) -> void:
-	# Base fill
 	draw_rect(Rect2(0.0, 0.0, 1280.0, 720.0), COL_BG_DEEP, true)
 
-	# Ribbed Blast Ceiling (y = 50..124)
+	# Ribbed Blast Ceiling (y = 48..124)
 	var ceil_poly := PackedVector2Array([
 		Vector2(0.0, 48.0), Vector2(1280.0, 48.0),
 		Vector2(1224.0, 124.0), Vector2(56.0, 124.0)
@@ -170,7 +184,6 @@ func _draw_bunker_architecture(_font: Font) -> void:
 		draw_colored_polygon(beam_pts, COL_STEEL)
 		draw_line(Vector2(top_x - 12.0, 48.0), Vector2(bot_x - 8.0, 124.0), COL_INK, 2.0)
 		draw_line(Vector2(top_x + 12.0, 48.0), Vector2(bot_x + 8.0, 124.0), COL_INK, 2.0)
-		# Rivets along ceiling ribs
 		for r_idx in range(3):
 			var rt: float = 0.22 + float(r_idx) * 0.28
 			var rx: float = lerpf(top_x, bot_x, rt)
@@ -218,7 +231,7 @@ func _draw_bunker_architecture(_font: Font) -> void:
 	draw_line(Vector2(56.0, 566.0), Vector2(0.0, 650.0), COL_INK, 2.5)
 	draw_line(Vector2(1224.0, 566.0), Vector2(1280.0, 650.0), COL_INK, 2.5)
 
-	# Floor Drainage Grate in foreground center
+	# Floor Drainage Grate / Vent in foreground center
 	var grate_rect := Rect2(576.0, 658.0, 128.0, 26.0)
 	draw_rect(grate_rect, Color("#111311"), true)
 	draw_rect(grate_rect, COL_STEEL, false, 2.0)
@@ -226,24 +239,24 @@ func _draw_bunker_architecture(_font: Font) -> void:
 		draw_line(Vector2(float(gx), 660.0), Vector2(float(gx), 682.0), COL_STEEL, 2.0)
 
 # ---------------------------------------------------------------------------
-# 2. INDUSTRIAL PIPES, VENTILATION DUCT, CRACKS & CIVIL DEFENSE STENCILS
+# 2. INDUSTRIAL PIPES, VENTILATION DUCT & CIVIL DEFENSE STENCILS
 # ---------------------------------------------------------------------------
 func _draw_back_wall_pipes_and_stencils(font: Font) -> void:
 	# Overhead horizontal air-scrubber pipe across back wall top
-	draw_rect(Rect2(62.0, 128.0, 965.0, 11.0), Color("#464e47"), true)
-	draw_rect(Rect2(62.0, 128.0, 965.0, 4.0), Color("#636d64"), true)
-	draw_rect(Rect2(62.0, 128.0, 965.0, 11.0), COL_INK, false, 1.5)
-	for px in [180.0, 420.0, 680.0, 910.0]:
+	draw_rect(Rect2(62.0, 128.0, 936.0, 11.0), Color("#464e47"), true)
+	draw_rect(Rect2(62.0, 128.0, 936.0, 4.0), Color("#636d64"), true)
+	draw_rect(Rect2(62.0, 128.0, 936.0, 11.0), COL_INK, false, 1.5)
+	for px in [180.0, 420.0, 536.0, 680.0, 910.0]:
 		draw_rect(Rect2(px - 4.0, 125.0, 8.0, 17.0), COL_STEEL_HI, true)
 		draw_rect(Rect2(px - 4.0, 125.0, 8.0, 17.0), COL_INK, false, 1.2)
 
-	# Right-side vertical filtration pipes + red pressure handwheel
-	draw_rect(Rect2(1182.0, 134.0, 14.0, 430.0), Color("#444c45"), true)
-	draw_rect(Rect2(1182.0, 134.0, 14.0, 430.0), COL_INK, false, 1.5)
-	draw_rect(Rect2(1202.0, 150.0, 10.0, 414.0), Color("#594738"), true)
-	draw_rect(Rect2(1202.0, 150.0, 10.0, 414.0), COL_INK, false, 1.5)
+	# Right-side vertical filtration pipes + red pressure handwheel above garage bay
+	draw_rect(Rect2(1182.0, 134.0, 14.0, 300.0), Color("#444c45"), true)
+	draw_rect(Rect2(1182.0, 134.0, 14.0, 300.0), COL_INK, false, 1.5)
+	draw_rect(Rect2(1202.0, 150.0, 10.0, 284.0), Color("#594738"), true)
+	draw_rect(Rect2(1202.0, 150.0, 10.0, 284.0), COL_INK, false, 1.5)
 
-	var valve_c := Vector2(1189.0, 336.0)
+	var valve_c := Vector2(1189.0, 296.0)
 	draw_circle(valve_c, 15.0, COL_RED)
 	draw_arc(valve_c, 15.0, 0.0, TAU, 24, COL_INK, 2.2)
 	draw_circle(valve_c, 9.0, COL_WALL_MID)
@@ -252,110 +265,293 @@ func _draw_back_wall_pipes_and_stencils(font: Font) -> void:
 	draw_circle(valve_c, 3.5, COL_HAZARD)
 
 	# Faded Civil Defense CD Emblem painted on right-center concrete wall
-	var cd_c := Vector2(986.0, 328.0)
-	draw_circle(cd_c, 36.0, Color(0.95, 0.75, 0.18, 0.16))
-	draw_arc(cd_c, 36.0, 0.0, TAU, 32, Color(0.11, 0.10, 0.09, 0.28), 2.5)
+	var cd_c := Vector2(990.0, 326.0)
+	draw_circle(cd_c, 34.0, Color(0.95, 0.75, 0.18, 0.16))
+	draw_arc(cd_c, 34.0, 0.0, TAU, 32, Color(0.11, 0.10, 0.09, 0.28), 2.5)
 	var tri := PackedVector2Array([
-		cd_c + Vector2(0.0, -26.0),
-		cd_c + Vector2(24.0, 17.0),
-		cd_c + Vector2(-24.0, 17.0)
+		cd_c + Vector2(0.0, -24.0),
+		cd_c + Vector2(22.0, 16.0),
+		cd_c + Vector2(-22.0, 16.0)
 	])
 	draw_colored_polygon(tri, Color(0.92, 0.88, 0.78, 0.18))
-	draw_string(font, cd_c + Vector2(-11.0, 11.0), "CD", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.85, 0.31, 0.18, 0.30))
-
-	# Dynamic Structural Damage Cracks based on GameState.bunker_structural_integrity
-	var dmg: float = clampf((100.0 - GameState.bunker_structural_integrity) / 100.0, 0.05, 1.0)
-	var crack_pts_1 := PackedVector2Array([
-		Vector2(604.0, 140.0), Vector2(612.0, 168.0),
-		Vector2(598.0, 192.0), Vector2(607.0, 218.0)
-	])
-	draw_polyline(crack_pts_1, Color(0.09, 0.09, 0.08, 0.35 + dmg * 0.55), 1.5 + dmg * 1.5)
-	if dmg > 0.25:
-		var crack_pts_2 := PackedVector2Array([
-			Vector2(920.0, 290.0), Vector2(936.0, 322.0),
-			Vector2(926.0, 354.0), Vector2(946.0, 384.0), Vector2(939.0, 412.0)
-		])
-		draw_polyline(crack_pts_2, Color(0.08, 0.08, 0.07, 0.65), 2.2)
+	draw_string(font, cd_c + Vector2(-11.0, 11.0), "CD", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.85, 0.31, 0.18, 0.30))
 
 # ---------------------------------------------------------------------------
-# 3. CEILING BLAST HATCH, PADLOCK & STEEL RUNG ACCESS LADDER
+# 2B. PROGRESSIVE ENVIRONMENTAL DETERIORATION (CRACKS, DRIPS, COBWEBS)
+# ---------------------------------------------------------------------------
+func _draw_progressive_deterioration(_font: Font) -> void:
+	var integ: float = clampf(GameState.bunker_structural_integrity, 0.0, 100.0)
+	var dmg: float = clampf((100.0 - integ) / 100.0, 0.05, 1.0)
+
+	# Hairline & moderate plaster cracks
+	var crack_pts_1 := PackedVector2Array([
+		Vector2(594.0, 140.0), Vector2(602.0, 168.0),
+		Vector2(589.0, 194.0), Vector2(598.0, 222.0)
+	])
+	draw_polyline(crack_pts_1, Color(0.09, 0.09, 0.08, 0.35 + dmg * 0.55), 1.5 + dmg * 1.4)
+
+	if integ < 78.0:
+		var crack_pts_2 := PackedVector2Array([
+			Vector2(958.0, 286.0), Vector2(972.0, 320.0),
+			Vector2(962.0, 352.0), Vector2(980.0, 384.0), Vector2(973.0, 416.0)
+		])
+		draw_polyline(crack_pts_2, Color(0.08, 0.08, 0.07, 0.68), 2.2)
+		draw_line(Vector2(972.0, 320.0), Vector2(992.0, 336.0), Color(0.08, 0.08, 0.07, 0.55), 1.5)
+
+	# Deep branching plaster cracks + pipe leak + water drip puddle when integrity < 50
+	if integ < 50.0:
+		var sev: float = clampf((50.0 - integ) / 45.0, 0.35, 1.0)
+		# Exposed spalled plaster patch & multi-branching fracture
+		var spall_poly := PackedVector2Array([
+			Vector2(524.0, 276.0), Vector2(548.0, 284.0),
+			Vector2(556.0, 314.0), Vector2(534.0, 332.0),
+			Vector2(516.0, 308.0)
+		])
+		draw_colored_polygon(spall_poly, Color(0.11, 0.12, 0.11, 0.72 * sev))
+		var deep_main := PackedVector2Array([
+			Vector2(536.0, 248.0), Vector2(529.0, 280.0),
+			Vector2(544.0, 316.0), Vector2(531.0, 358.0),
+			Vector2(546.0, 396.0), Vector2(538.0, 426.0)
+		])
+		draw_polyline(deep_main, Color(0.05, 0.05, 0.05, 0.88), 2.8)
+		draw_polyline(PackedVector2Array([Vector2(529.0, 280.0), Vector2(506.0, 298.0), Vector2(494.0, 318.0)]), Color(0.06, 0.06, 0.05, 0.78), 1.9)
+		draw_polyline(PackedVector2Array([Vector2(544.0, 316.0), Vector2(570.0, 334.0), Vector2(582.0, 356.0)]), Color(0.06, 0.06, 0.05, 0.75), 1.8)
+		draw_polyline(PackedVector2Array([Vector2(531.0, 358.0), Vector2(509.0, 378.0)]), Color(0.06, 0.06, 0.05, 0.70), 1.6)
+
+		# Damp vertical water stain below overhead pipe flange at x = 536
+		draw_rect(Rect2(531.0, 140.0, 10.0, 115.0), Color(0.08, 0.13, 0.15, 0.34 * sev), true)
+
+		# Glossy floor water drip puddle (clear of bench legs and floor grate!)
+		var puddle_c := Vector2(536.0, 624.0)
+		_draw_ellipse(puddle_c, Vector2(36.0 + sev * 12.0, 8.5 + sev * 2.5), Color(0.14, 0.28, 0.36, 0.62), Color(0.36, 0.64, 0.80, 0.38), 1.2)
+		_draw_ellipse(puddle_c + Vector2(-8.0, -1.5), Vector2(15.0, 3.2), Color(0.55, 0.82, 0.96, 0.24), Color.TRANSPARENT, 0.0)
+
+		# Falling water drop + expanding concentric ripple ring
+		var drop_phase: float = fposmod(_anim_time * 0.85, 1.0)
+		if drop_phase < 0.72:
+			var t_fall: float = drop_phase / 0.72
+			var drop_y: float = lerpf(142.0, puddle_c.y - 2.0, t_fall * t_fall)
+			draw_line(Vector2(puddle_c.x, drop_y - 6.0), Vector2(puddle_c.x, drop_y), Color(0.62, 0.88, 1.0, 0.75), 2.0)
+			draw_circle(Vector2(puddle_c.x, drop_y), 2.4, Color(0.75, 0.94, 1.0, 0.85))
+		else:
+			var r_t: float = (drop_phase - 0.72) / 0.28
+			_draw_ellipse(
+				puddle_c,
+				Vector2(lerpf(4.0, 28.0, r_t), lerpf(1.5, 6.5, r_t)),
+				Color.TRANSPARENT,
+				Color(0.68, 0.92, 1.0, (1.0 - r_t) * 0.65),
+				1.4
+			)
+
+		_register_hotspot(
+			Rect2(puddle_c.x - 44.0, puddle_c.y - 16.0, 88.0, 32.0),
+			"SEEPING GROUNDWATER PUDDLE",
+			"Hull Integrity Critical: %.0f%%" % integ,
+			"Fractured concrete seams are leaking cold groundwater! Use Salvaged Scrap in Tab 5 (5. ESCAPE) to reinforce the shelter hull (+12%).",
+			COL_WATER
+		)
+
+	# Upper-corner cobwebs as days pass (day >= 8)
+	if GameState.day >= 8:
+		var web_alpha: float = clampf(0.22 + float(GameState.day - 8) * 0.025, 0.22, 0.52)
+		var web_col := Color(0.84, 0.86, 0.80, web_alpha)
+		_draw_corner_cobweb(Vector2(56.0, 124.0), 1.0, 1.0, 64.0, web_col)
+		_draw_corner_cobweb(Vector2(1224.0, 124.0), -1.0, 1.0, 68.0, web_col)
+		if GameState.day >= 13:
+			_draw_corner_cobweb(Vector2(4.0, 52.0), 1.0, 1.0, 54.0, web_col * Color(1, 1, 1, 0.85))
+			_draw_corner_cobweb(Vector2(1276.0, 52.0), -1.0, 1.0, 54.0, web_col * Color(1, 1, 1, 0.85))
+
+func _draw_corner_cobweb(origin: Vector2, dir_x: float, dir_y: float, radius: float, col: Color) -> void:
+	var spokes: Array[Vector2] = []
+	var num_spokes: int = 5
+	for i in range(num_spokes):
+		var ang: float = (0.06 + float(i) / float(num_spokes - 1) * 0.88) * (PI * 0.5)
+		var tip := origin + Vector2(cos(ang) * dir_x * radius, sin(ang) * dir_y * radius)
+		spokes.append(tip)
+		draw_line(origin, tip, col, 1.1)
+	for ring_f in [0.34, 0.64, 0.90]:
+		for i in range(spokes.size() - 1):
+			var p1: Vector2 = origin.lerp(spokes[i], ring_f)
+			var p2: Vector2 = origin.lerp(spokes[i + 1], ring_f)
+			var mid: Vector2 = p1.lerp(p2, 0.5) - Vector2(dir_x * 2.2, dir_y * 2.2)
+			draw_polyline(PackedVector2Array([p1, mid, p2]), col, 1.0)
+
+# ---------------------------------------------------------------------------
+# 2C. TILTED / PEELING VINTAGE CONELRAD WALL POSTER (x = 508..576)
+# ---------------------------------------------------------------------------
+func _draw_conelrad_wall_poster(font: Font) -> void:
+	# Cleanly positioned between Neighborhood Map (ends x=494) and Geiger Dial (starts x=591)
+	var integ: float = clampf(GameState.bunker_structural_integrity, 0.0, 100.0)
+	var peeling: bool = integ < 75.0
+	var tilt: float = clampf((75.0 - integ) / 55.0, 0.0, 1.0) * 0.16 if peeling else 0.0
+	var pivot := Vector2(512.0, 154.0)
+	var pw: float = 64.0
+	var ph: float = 88.0
+
+	var ux := Vector2(cos(tilt), sin(tilt))
+	var uy := Vector2(-sin(tilt), cos(tilt))
+	var p0: Vector2 = pivot
+	var p1: Vector2 = pivot + ux * pw
+	var p2: Vector2 = pivot + ux * pw + uy * ph
+	var p3: Vector2 = pivot + uy * ph
+
+	# Drop shadow
+	var sh_off := Vector2(3.0, 4.0)
+	draw_colored_polygon(PackedVector2Array([p0 + sh_off, p1 + sh_off, p2 + sh_off, p3 + sh_off]), Color(0.05, 0.06, 0.05, 0.52))
+
+	if peeling:
+		# Cut top-right corner so it curls forward!
+		var peel_a: Vector2 = pivot + ux * (pw - 22.0)
+		var peel_b: Vector2 = pivot + ux * pw + uy * 24.0
+		var body_poly := PackedVector2Array([p0, peel_a, peel_b, p2, p3])
+		draw_colored_polygon(body_poly, COL_PARCHMENT_DIM)
+		# Header band clipped to peel
+		var hdr_b: Vector2 = pivot + ux * (pw - 18.0) + uy * 18.0
+		draw_colored_polygon(PackedVector2Array([p0, peel_a, hdr_b, pivot + uy * 18.0]), COL_HAZARD)
+		draw_polyline(PackedVector2Array([p0, peel_a, peel_b, p2, p3, p0]), COL_INK, 1.8)
+
+		# Curled peeling paper flap showing shaded underside
+		var curl_tip: Vector2 = pivot + ux * (pw - 17.0) + uy * 27.0 + Vector2(-4.0, 5.0)
+		var flap_poly := PackedVector2Array([peel_a, peel_b, curl_tip])
+		draw_colored_polygon(flap_poly, Color("#bfa982"))
+		draw_polyline(PackedVector2Array([peel_a, curl_tip, peel_b]), COL_INK, 1.5)
+		# Popped tack hole on concrete wall behind missing corner
+		draw_circle(pivot + ux * (pw - 5.0) + Vector2(2.0, -2.0), 2.2, Color("#121412"))
+	else:
+		draw_colored_polygon(PackedVector2Array([p0, p1, p2, p3]), COL_PARCHMENT)
+		draw_colored_polygon(PackedVector2Array([p0, p1, p1 + uy * 18.0, p0 + uy * 18.0]), COL_HAZARD)
+		draw_polyline(PackedVector2Array([p0, p1, p2, p3, p0]), COL_INK, 1.8)
+		draw_circle(p1 + Vector2(-5.0, 5.0), 2.5, COL_RED)
+
+	# Remaining corner tack
+	draw_circle(p0 + Vector2(5.0, 5.0), 2.6, COL_RED)
+
+	# Poster graphic: Mini atom trefoil + "640 / 1240" CONELRAD dial emblem
+	var center_p: Vector2 = pivot + ux * (pw * 0.5) + uy * (ph * 0.54)
+	draw_circle(center_p, 15.0, COL_INK)
+	draw_circle(center_p, 12.5, COL_HAZARD)
+	var tri_p := PackedVector2Array([
+		center_p - uy * 9.0,
+		center_p + ux * 8.5 + uy * 6.0,
+		center_p - ux * 8.5 + uy * 6.0
+	])
+	draw_colored_polygon(tri_p, COL_RED)
+	draw_string(font, p0 + ux * 5.0 + uy * 13.0, "640·1240", HORIZONTAL_ALIGNMENT_LEFT, pw - 14.0, 9, COL_INK)
+	draw_string(font, p3 + ux * 5.0 - uy * 6.0, "DUCK&COVER", HORIZONTAL_ALIGNMENT_LEFT, pw - 8.0, 8, COL_INK)
+
+	_register_hotspot(
+		Rect2(506.0, 150.0, 74.0, 98.0),
+		"CONELRAD 640·1240 POSTER",
+		"Peeling from Damp Concrete" if peeling else "Official Civil Defense Bulletin",
+		"Reminds shelter occupants to keep the CONELRAD tube radio operational on 640 & 1240 kHz for military evacuation broadcasts.",
+		COL_HAZARD
+	)
+
+# ---------------------------------------------------------------------------
+# 3. CEILING BLAST HATCH (+ RADIOACTIVE GREEN RIM-GLOW!) & STEEL LADDER
 # ---------------------------------------------------------------------------
 func _draw_blast_hatch_and_ladder(font: Font) -> void:
-	# Floor hazard stripe zone beneath ladder
-	var stripe_rect := Rect2(1042.0, 574.0, 118.0, 18.0)
+	# Shifted cleanly to x = 1036..1090 so Pancake's bowl (1008..1030) is to the left
+	# and the Escape Vehicle Garage Workbench (1096..1270) is completely clear to the right!
+	var stripe_rect := Rect2(1036.0, 574.0, 54.0, 18.0)
 	draw_rect(stripe_rect, COL_HAZARD, true)
-	for sx in range(0, 118, 18):
+	for sx in range(0, 54, 16):
 		var poly := PackedVector2Array([
-			Vector2(1042.0 + float(sx), 574.0),
-			Vector2(1042.0 + float(sx) + 9.0, 574.0),
-			Vector2(1042.0 + float(sx) + 3.0, 592.0),
-			Vector2(1042.0 + float(sx) - 6.0, 592.0)
+			Vector2(1036.0 + float(sx), 574.0),
+			Vector2(1036.0 + float(sx) + 8.0, 574.0),
+			Vector2(1036.0 + float(sx) + 3.0, 592.0),
+			Vector2(1036.0 + float(sx) - 5.0, 592.0)
 		])
 		draw_colored_polygon(poly, COL_INK)
 	draw_rect(stripe_rect, COL_INK, false, 2.0)
 
 	# Ladder shadow on concrete wall
-	draw_rect(Rect2(1082.0, 116.0, 58.0, 456.0), Color(0.07, 0.08, 0.07, 0.42), true)
+	draw_rect(Rect2(1050.0, 116.0, 42.0, 456.0), Color(0.07, 0.08, 0.07, 0.42), true)
 
 	# Wall mounting brackets
 	for by in [160.0, 285.0, 410.0, 525.0]:
-		draw_rect(Rect2(1066.0, by, 70.0, 8.0), COL_STEEL, true)
-		draw_rect(Rect2(1066.0, by, 70.0, 8.0), COL_INK, false, 1.4)
+		draw_rect(Rect2(1039.0, by, 48.0, 7.0), COL_STEEL, true)
+		draw_rect(Rect2(1039.0, by, 48.0, 7.0), COL_INK, false, 1.3)
 
-	# Vertical steel side rails
-	draw_rect(Rect2(1073.0, 104.0, 9.0, 474.0), COL_STEEL_HI, true)
-	draw_rect(Rect2(1073.0, 104.0, 9.0, 474.0), COL_INK, false, 1.8)
-	draw_rect(Rect2(1120.0, 104.0, 9.0, 474.0), COL_STEEL_HI, true)
-	draw_rect(Rect2(1120.0, 104.0, 9.0, 474.0), COL_INK, false, 1.8)
+	# Vertical steel side rails (x = 1043..1083)
+	draw_rect(Rect2(1043.0, 104.0, 8.0, 472.0), COL_STEEL_HI, true)
+	draw_rect(Rect2(1043.0, 104.0, 8.0, 472.0), COL_INK, false, 1.7)
+	draw_rect(Rect2(1075.0, 104.0, 8.0, 472.0), COL_STEEL_HI, true)
+	draw_rect(Rect2(1075.0, 104.0, 8.0, 472.0), COL_INK, false, 1.7)
 
 	# Steel rungs
 	for ry in range(132, 572, 36):
-		var rung_r := Rect2(1080.0, float(ry), 42.0, 6.0)
+		var rung_r := Rect2(1049.0, float(ry), 28.0, 5.5)
 		draw_rect(rung_r, Color("#737d75"), true)
-		draw_rect(rung_r, COL_INK, false, 1.4)
+		draw_rect(rung_r, COL_INK, false, 1.3)
 
 	# Circular Blast Hatch recessed into ceiling
-	var hc := Vector2(1101.0, 86.0)
-	_draw_ellipse(hc, Vector2(74.0, 27.0), Color("#151815"), COL_INK, 3.0)
-	_draw_ellipse(hc, Vector2(64.0, 22.0), COL_HAZARD, COL_INK, 2.0)
-	_draw_ellipse(hc, Vector2(56.0, 18.5), Color("#464f49"), COL_INK, 2.5)
-	_draw_ellipse(hc + Vector2(0.0, -2.0), Vector2(44.0, 13.5), Color("#58625b"), COL_INK, 1.8)
+	var hc := Vector2(1063.0, 86.0)
+	var sv: float = GameState.surface_radiation_sv
+
+	# Eerie radioactive green rim-glow around the ceiling hatch when surface_radiation_sv >= 6.0!
+	if sv >= 6.0:
+		var rad_pulse: float = 0.76 + 0.24 * sin(_anim_time * 3.2)
+		var rad_strength: float = clampf((sv - 5.2) / 6.5, 0.32, 1.0) * rad_pulse
+		# Seeping green fallout light cone below hatch
+		var rad_beam := PackedVector2Array([
+			hc + Vector2(-58.0, 8.0),
+			hc + Vector2(58.0, 8.0),
+			hc + Vector2(96.0, 168.0),
+			hc + Vector2(-96.0, 168.0)
+		])
+		draw_colored_polygon(rad_beam, Color(0.32, 0.96, 0.24, 0.11 * rad_strength))
+		_draw_ellipse(hc, Vector2(88.0, 34.0), Color(0.32, 1.0, 0.26, 0.18 * rad_strength), Color(0.48, 1.0, 0.36, 0.42 * rad_strength), 2.5)
+		_draw_ellipse(hc, Vector2(78.0, 29.0), Color(0.45, 1.0, 0.35, 0.24 * rad_strength), Color(0.65, 1.0, 0.50, 0.72 * rad_strength), 2.2)
+
+	_draw_ellipse(hc, Vector2(70.0, 26.0), Color("#151815"), COL_INK, 3.0)
+	_draw_ellipse(hc, Vector2(61.0, 21.0), COL_TOXIC if sv >= 6.0 else COL_HAZARD, COL_INK, 2.0)
+	_draw_ellipse(hc, Vector2(53.0, 17.5), Color("#464f49"), COL_INK, 2.5)
+	_draw_ellipse(hc + Vector2(0.0, -2.0), Vector2(41.0, 12.8), Color("#58625b"), COL_INK, 1.8)
+
+	# Glowing green gasket seam ring if radiation is extreme
+	if sv >= 6.0:
+		var seam_a: float = clampf((sv - 5.2) / 6.5, 0.4, 1.0) * (0.7 + 0.3 * sin(_anim_time * 5.0))
+		_draw_ellipse(hc, Vector2(55.5, 18.8), Color.TRANSPARENT, Color(0.52, 1.0, 0.38, seam_a), 2.2)
+		for gi in range(6):
+			var ga: float = _anim_time * 0.9 + float(gi) * (TAU / 6.0)
+			var gp := hc + Vector2(cos(ga) * 52.0, sin(ga) * 18.0 + fposmod(_anim_time * 16.0 + float(gi) * 9.0, 38.0))
+			draw_circle(gp, 1.8, Color(0.62, 1.0, 0.45, 0.55 * seam_a))
 
 	# Submarine locking wheel crank on hatch underside
 	var wc := hc + Vector2(0.0, -1.0)
-	_draw_ellipse(wc, Vector2(18.0, 7.5), Color("#262a27"), COL_HAZARD, 2.0)
-	draw_line(wc + Vector2(-17.0, 0.0), wc + Vector2(17.0, 0.0), COL_HAZARD, 2.2)
-	draw_line(wc + Vector2(-9.0, -6.0), wc + Vector2(9.0, 6.0), COL_HAZARD, 2.0)
-	draw_line(wc + Vector2(9.0, -6.0), wc + Vector2(-9.0, 6.0), COL_HAZARD, 2.0)
-	draw_circle(wc, 4.0, COL_ORANGE)
+	_draw_ellipse(wc, Vector2(17.0, 7.0), Color("#262a27"), COL_HAZARD, 2.0)
+	draw_line(wc + Vector2(-16.0, 0.0), wc + Vector2(16.0, 0.0), COL_HAZARD, 2.2)
+	draw_line(wc + Vector2(-8.0, -5.5), wc + Vector2(8.0, 5.5), COL_HAZARD, 2.0)
+	draw_line(wc + Vector2(8.0, -5.5), wc + Vector2(-8.0, 5.5), COL_HAZARD, 2.0)
+	draw_circle(wc, 3.8, COL_ORANGE)
 
 	# Heavy Steel Padlock when GameState.padlock_active is true
 	if GameState.padlock_active:
-		# Steel chain/hasp bar across hatch latch
-		draw_line(hc + Vector2(18.0, 4.0), hc + Vector2(46.0, 18.0), Color("#b8c2bc"), 4.5)
-		draw_line(hc + Vector2(18.0, 4.0), hc + Vector2(46.0, 18.0), COL_INK, 1.5)
-		var lock_pos := hc + Vector2(48.0, 28.0)
-		draw_circle(lock_pos, 20.0, Color(0.11, 0.12, 0.10, 0.85))
-		draw_arc(lock_pos, 20.0, 0.0, TAU, 24, COL_HAZARD, 2.0)
-		ItemDB.draw_item_icon(self, "padlock", lock_pos, 30.0, false)
-		var tag_r := Rect2(hc.x - 42.0, hc.y + 20.0, 76.0, 16.0)
+		draw_line(hc + Vector2(16.0, 4.0), hc + Vector2(42.0, 18.0), Color("#b8c2bc"), 4.2)
+		draw_line(hc + Vector2(16.0, 4.0), hc + Vector2(42.0, 18.0), COL_INK, 1.5)
+		var lock_pos := hc + Vector2(44.0, 27.0)
+		draw_circle(lock_pos, 18.0, Color(0.11, 0.12, 0.10, 0.88))
+		draw_arc(lock_pos, 18.0, 0.0, TAU, 24, COL_HAZARD, 2.0)
+		_draw_item_icon_safe("padlock", lock_pos, 28.0, false)
+		var tag_r := Rect2(hc.x - 44.0, hc.y + 20.0, 72.0, 16.0)
 		draw_rect(tag_r, COL_INK, true)
 		draw_rect(tag_r, COL_HAZARD, false, 1.2)
-		draw_string(font, tag_r.position + Vector2(6.0, 12.0), "LOCKED", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_HAZARD)
+		draw_string(font, tag_r.position + Vector2(5.0, 12.0), "LOCKED", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_HAZARD)
 		_register_hotspot(
-			Rect2(hc.x - 74.0, hc.y - 28.0, 152.0, 78.0),
+			Rect2(hc.x - 72.0, hc.y - 28.0, 148.0, 76.0),
 			"ARMORED BLAST HATCH [PADLOCKED]",
-			"Heavy Steel Padlock Engaged",
+			"Heavy Steel Padlock Engaged" + (" · HIGH FALLOUT GLOW!" if sv >= 6.0 else ""),
 			"Sealed tight against fallout & surface raiders. The heavy padlock will automatically block the next forced entry attempt!",
-			COL_HAZARD
+			COL_TOXIC if sv >= 6.0 else COL_HAZARD
 		)
 	else:
 		_register_hotspot(
-			Rect2(hc.x - 74.0, hc.y - 28.0, 148.0, 60.0),
+			Rect2(hc.x - 72.0, hc.y - 28.0, 144.0, 60.0),
 			"ARMORED BLAST HATCH",
-			"Standard Pressure Seal (No Padlock)",
-			"Leads up the vertical access shaft to your ruined house above. Find or craft a Padlock to reinforce against surface raiders.",
-			COL_STEEL_HI
+			("EXTREME SURFACE FALLOUT (%.1f Sv/hr)" % sv) if sv >= 6.0 else "Standard Pressure Seal (No Padlock)",
+			"Leads up the vertical access shaft to the surface. Equip a Gas Mask before venturing into glowing fallout!",
+			COL_TOXIC if sv >= 6.0 else COL_STEEL_HI
 		)
 
 # ---------------------------------------------------------------------------
@@ -378,7 +574,6 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 
 	# Map inner plot
 	var plot_r := Rect2(map_r.position.x + 8.0, map_r.position.y + 26.0, map_r.size.x - 16.0, map_r.size.y - 44.0)
-	# Subtle survey grid + local streets
 	for gx in range(1, 6):
 		var lx: float = plot_r.position.x + plot_r.size.x * (float(gx) / 6.0)
 		draw_line(Vector2(lx, plot_r.position.y), Vector2(lx, plot_r.end.y), Color(0.45, 0.41, 0.33, 0.35), 1.0)
@@ -386,12 +581,11 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 		var ly: float = plot_r.position.y + plot_r.size.y * (float(gy) / 4.0)
 		draw_line(Vector2(plot_r.position.x, ly), Vector2(plot_r.end.x, ly), Color(0.45, 0.41, 0.33, 0.35), 1.0)
 
-	# Main street cross-roads
 	var mc := plot_r.get_center()
 	draw_line(Vector2(plot_r.position.x, mc.y + 6.0), Vector2(plot_r.end.x, mc.y - 4.0), Color("#cbb894"), 5.0)
 	draw_line(Vector2(mc.x - 16.0, plot_r.position.y), Vector2(mc.x - 10.0, plot_r.end.y), Color("#cbb894"), 4.0)
 
-	# Plot real nearby POIs around center
+	# Plot real nearby POIs (supporting Multi-Ring 0..10 km scaling!)
 	var h_lat: float = float(GameState.selected_house.get("lat", 47.6242))
 	var h_lon: float = float(GameState.selected_house.get("lon", -122.3195))
 	var cos_lat: float = maxf(0.25, cos(deg_to_rad(h_lat)))
@@ -402,18 +596,23 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 			var plon: float = float(pd.get("lon", h_lon))
 			var dx_m: float = (plon - h_lon) * 111320.0 * cos_lat
 			var dy_m: float = -(plat - h_lat) * 111320.0
-			var px: float = clampf(mc.x + dx_m * 0.14, plot_r.position.x + 6.0, plot_r.end.x - 6.0)
-			var py: float = clampf(mc.y + dy_m * 0.12, plot_r.position.y + 6.0, plot_r.end.y - 6.0)
+			var dist_len: float = sqrt(dx_m * dx_m + dy_m * dy_m)
+			var scale_r: float = sqrt(clampf(dist_len / 4500.0, 0.04, 1.0)) * 38.0
+			var dir_v: Vector2 = Vector2(dx_m, dy_m) / maxf(1.0, dist_len)
+			var px: float = clampf(mc.x + dir_v.x * scale_r * 1.6, plot_r.position.x + 6.0, plot_r.end.x - 6.0)
+			var py: float = clampf(mc.y + dir_v.y * scale_r, plot_r.position.y + 6.0, plot_r.end.y - 6.0)
 			var cat: String = str(pd.get("category", pd.get("poi_type", pd.get("type", "house")))).to_lower()
 			var pcol := COL_WATER
 			if cat.contains("church"):
 				pcol = COL_HAZARD
 			elif cat.contains("groc") or cat.contains("super") or cat.contains("shop"):
 				pcol = COL_GREEN
-			elif cat.contains("pharm") or cat.contains("med") or cat.contains("clin"):
+			elif cat.contains("doc") or cat.contains("pharm") or cat.contains("med") or cat.contains("clin"):
 				pcol = COL_RED
-			draw_circle(Vector2(px, py), 3.0, pcol)
-			draw_arc(Vector2(px, py), 3.0, 0.0, TAU, 10, COL_INK, 1.0)
+			elif cat.contains("fuel") or cat.contains("auto") or cat.contains("gas"):
+				pcol = COL_ORANGE
+			draw_circle(Vector2(px, py), 2.8, pcol)
+			draw_arc(Vector2(px, py), 2.8, 0.0, TAU, 10, COL_INK, 0.9)
 
 	# Selected House Footprint Polygon at center
 	var fp_raw: Array = GameState.selected_house.get("footprint_meters", [])
@@ -422,17 +621,17 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 		for pt_v in fp_raw:
 			if pt_v is Vector2:
 				var v: Vector2 = pt_v
-				var p_pt: Vector2 = mc + v * 1.35
+				var p_pt: Vector2 = mc + v * 1.15
 				p_pt.x = clampf(p_pt.x, plot_r.position.x + 4.0, plot_r.end.x - 4.0)
 				p_pt.y = clampf(p_pt.y, plot_r.position.y + 4.0, plot_r.end.y - 4.0)
 				fp_pts.append(p_pt)
 		if fp_pts.size() >= 3:
 			draw_colored_polygon(fp_pts, COL_ORANGE)
 			fp_pts.append(fp_pts[0])
-			draw_polyline(fp_pts, COL_INK, 1.6)
+			draw_polyline(fp_pts, COL_INK, 1.5)
 	else:
-		draw_rect(Rect2(mc - Vector2(8.0, 6.0), Vector2(16.0, 12.0)), COL_ORANGE, true)
-		draw_rect(Rect2(mc - Vector2(8.0, 6.0), Vector2(16.0, 12.0)), COL_INK, false, 1.5)
+		draw_rect(Rect2(mc - Vector2(7.0, 5.0), Vector2(14.0, 10.0)), COL_ORANGE, true)
+		draw_rect(Rect2(mc - Vector2(7.0, 5.0), Vector2(14.0, 10.0)), COL_INK, false, 1.5)
 
 	# Footer address line (inset x + 16, width size.x - 32 with ellipsis) & 4 corner pushpins
 	var addr_str: String = str(GameState.selected_house.get("address", GameState.current_neighborhood_label))
@@ -450,9 +649,9 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 	var area_sqm: float = float(GameState.selected_house.get("area_sqm", 160.0))
 	_register_hotspot(
 		map_r,
-		"PINNED NEIGHBORHOOD SURVEY MAP",
+		"PINNED MULTI-RING OSM SURVEY MAP",
 		house_name,
-		"%s (%.0f m² footprint). %d real-world landmarks charted for surface scavenging." % [addr_str, area_sqm, GameState.nearby_pois.size()],
+		"%s (%.0f m² footprint). %d real-world landmarks charted across Rings 1–3 (0–10 km)." % [addr_str, area_sqm, GameState.nearby_pois.size()],
 		COL_ORANGE
 	)
 
@@ -464,21 +663,18 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 	draw_arc(gc, gr + 5.0, 0.0, TAU, 36, COL_INK, 2.5)
 	draw_circle(gc, gr - 2.0, COL_PARCHMENT)
 
-	# Colored danger zones arc (from PI*0.80 to PI*2.20)
 	var a_start: float = PI * 0.80
 	var a_end: float = PI * 2.20
 	draw_arc(gc, gr - 10.0, a_start, lerpf(a_start, a_end, 0.30), 16, COL_GREEN, 6.0)
 	draw_arc(gc, gr - 10.0, lerpf(a_start, a_end, 0.30), lerpf(a_start, a_end, 0.65), 16, COL_HAZARD, 6.0)
 	draw_arc(gc, gr - 10.0, lerpf(a_start, a_end, 0.65), a_end, 16, COL_RED, 6.0)
 
-	# Tick marks
 	for ti in range(9):
 		var tf: float = float(ti) / 8.0
 		var ta: float = lerpf(a_start, a_end, tf)
 		var dir := Vector2(cos(ta), sin(ta))
 		draw_line(gc + dir * (gr - 16.0), gc + dir * (gr - 5.0), COL_INK, 1.5)
 
-	# Radiation trefoil mini-badge
 	var tref_c := gc + Vector2(0.0, 14.0)
 	draw_circle(tref_c, 9.5, COL_HAZARD)
 	for bi in range(3):
@@ -486,7 +682,6 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 		draw_arc(tref_c, 5.5, ba - 0.42, ba + 0.42, 8, COL_INK, 4.5)
 	draw_circle(tref_c, 2.2, COL_HAZARD)
 
-	# Sweeping Geiger needle with micro-tremor proportional to Sv/hr
 	var sv: float = maxf(0.0, GameState.surface_radiation_sv)
 	var sv_norm: float = clampf(sv / 12.0, 0.0, 1.0)
 	var jitter: float = sin(_anim_time * 29.0) * 0.025 * clampf(sv / 5.0, 0.15, 1.4)
@@ -495,7 +690,6 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 	draw_line(gc, needle_tip, COL_RED, 2.5)
 	draw_circle(gc, 4.5, COL_INK)
 
-	# Brass readout plaque beneath Geiger dial
 	var g_plate := Rect2(gc.x - 48.0, gc.y + 48.0, 96.0, 22.0)
 	draw_rect(g_plate, COL_INK, true)
 	var sv_col := COL_GREEN if sv < 2.0 else (COL_HAZARD if sv < 5.5 else COL_RED)
@@ -506,7 +700,7 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 		Rect2(gc.x - 52.0, gc.y - 52.0, 104.0, 124.0),
 		"GEIGER-MÜLLER RADIATION COUNTER",
 		"Surface Dose: %.2f Sv/hr" % sv,
-		"High surface radiation requires a working Gas Mask on expeditions to avoid severe fallout sickness.",
+		"High surface radiation (>= 6.0 Sv/hr) seeps eerie green Cherenkov light around the hatch. Pack a Gas Mask & Anti-Rad pills!",
 		sv_col
 	)
 
@@ -531,86 +725,81 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 	draw_circle(Vector2(tube_x, tube_bot + 8.0), 10.0, merc_col)
 	draw_arc(Vector2(tube_x, tube_bot + 8.0), 10.0, 0.0, TAU, 20, COL_INK, 1.8)
 
-	# Degree tick marks
 	for ty_i in range(6):
 		var ty: float = lerpf(tube_top + 4.0, tube_bot - 4.0, float(ty_i) / 5.0)
 		draw_line(Vector2(tube_x - 13.0, ty), Vector2(tube_x - 6.0, ty), COL_INK, 1.2)
 		draw_line(Vector2(tube_x + 6.0, ty), Vector2(tube_x + 13.0, ty), COL_INK, 1.2)
 
-	# Temp digital plate
 	var t_plate := Rect2(th_r.position.x + 3.0, th_r.end.y - 22.0, th_r.size.x - 6.0, 19.0)
 	draw_rect(t_plate, COL_INK, true)
 	draw_string(font, t_plate.position + Vector2(0.0, 14.0), "%.0f °C" % temp_c, HORIZONTAL_ALIGNMENT_CENTER, t_plate.size.x, 11, merc_col)
 
 	var temp_desc: String = "Comfortable shelter climate."
 	if temp_c < 2.0:
-		temp_desc = "NUCLEAR WINTER FREEZE! Frost is creeping across the shelter walls — sickness risk elevated."
+		temp_desc = "NUCLEAR WINTER FREEZE! Frost crystals & icy breath fill the shelter — sickness risk elevated."
 	elif temp_c > 28.0:
 		temp_desc = "NEAR-BLAST THERMAL HEATWAVE! Sweltering bunker air accelerates family dehydration."
 	_register_hotspot(th_r, "SHELTER WALL THERMOMETER", "Interior Temp: %.1f °C" % temp_c, temp_desc, merc_col)
 
-	# --- D. Civil Defense Hull & Rescue Telemetry Plaque (Rect2(802, 148, 152, 142)) ---
+	# --- D. Civil Defense Hull & 4-Faction Rescue Telemetry Plaque (Rect2(802, 148, 152, 142)) ---
 	var cd_r := Rect2(802.0, 148.0, 152.0, 142.0)
 	draw_rect(Rect2(cd_r.position + Vector2(3.0, 4.0), cd_r.size), Color(0.06, 0.07, 0.06, 0.5), true)
 	draw_rect(cd_r, Color("#262b26"), true)
 	draw_rect(cd_r, COL_INK, false, 2.0)
-	draw_rect(Rect2(cd_r.position, Vector2(cd_r.size.x, 22.0)), COL_HAZARD, true)
-	draw_string(font, cd_r.position + Vector2(7.0, 15.0), "CONELRAD STATUS", HORIZONTAL_ALIGNMENT_LEFT, cd_r.size.x - 14.0, 11, COL_INK)
+	draw_rect(Rect2(cd_r.position, Vector2(cd_r.size.x, 20.0)), COL_HAZARD, true)
+	draw_string(font, cd_r.position + Vector2(7.0, 14.0), "CONELRAD STATUS", HORIZONTAL_ALIGNMENT_LEFT, cd_r.size.x - 14.0, 10, COL_INK)
 
 	var integ: float = clampf(GameState.bunker_structural_integrity, 0.0, 100.0)
-	draw_string(font, cd_r.position + Vector2(8.0, 40.0), "HULL: %.0f%%" % integ, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_PARCHMENT)
-	var bar_bg := Rect2(cd_r.position.x + 8.0, cd_r.position.y + 46.0, cd_r.size.x - 16.0, 10.0)
+	draw_string(font, cd_r.position + Vector2(8.0, 35.0), "HULL: %.0f%%" % integ, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_PARCHMENT)
+	var bar_bg := Rect2(cd_r.position.x + 8.0, cd_r.position.y + 40.0, cd_r.size.x - 16.0, 8.0)
 	draw_rect(bar_bg, COL_INK, true)
 	var hull_col := COL_GREEN if integ >= 65.0 else (COL_HAZARD if integ >= 35.0 else COL_RED)
-	draw_rect(Rect2(bar_bg.position + Vector2(1.0, 1.0), Vector2((bar_bg.size.x - 2.0) * (integ / 100.0), 8.0)), hull_col, true)
+	draw_rect(Rect2(bar_bg.position + Vector2(1.0, 1.0), Vector2((bar_bg.size.x - 2.0) * (integ / 100.0), 6.0)), hull_col, true)
 
-	# Rescue chain progress lamps (0..3)
+	# 4 Faction Rescue progress lamps (0..3)
 	var chains := [
 		{"key": "military", "label": "MILITARY"},
 		{"key": "sanctuary", "label": "SANCTUARY"},
-		{"key": "scientist", "label": "SCIENTIST"}
+		{"key": "scientist", "label": "SCIENTIST"},
+		{"key": "raider_pact", "label": "CONVOY"}
 	]
 	for ci in range(chains.size()):
 		var cinfo: Dictionary = chains[ci]
 		var ckey: String = str(cinfo["key"])
 		var clabel: String = str(cinfo["label"])
 		var steps: int = int(GameState.rescue_chains.get(ckey, 0))
-		var row_y: float = cd_r.position.y + 74.0 + float(ci) * 21.0
-		draw_string(font, Vector2(cd_r.position.x + 8.0, row_y + 9.0), clabel, HORIZONTAL_ALIGNMENT_LEFT, 82.0, 10, COL_PARCHMENT_DIM)
+		var row_y: float = cd_r.position.y + 56.0 + float(ci) * 20.0
+		draw_string(font, Vector2(cd_r.position.x + 8.0, row_y + 9.0), clabel, HORIZONTAL_ALIGNMENT_LEFT, 82.0, 9, COL_PARCHMENT_DIM)
 		for si in range(3):
 			var lamp_c := Vector2(cd_r.position.x + 102.0 + float(si) * 16.0, row_y + 5.0)
 			var lit: bool = si < steps
-			draw_circle(lamp_c, 5.0, COL_GREEN if lit else Color("#181a17"))
-			draw_arc(lamp_c, 5.0, 0.0, TAU, 12, COL_HAZARD if lit else COL_STEEL, 1.2)
+			draw_circle(lamp_c, 4.5, COL_GREEN if lit else Color("#181a17"))
+			draw_arc(lamp_c, 4.5, 0.0, TAU, 12, COL_HAZARD if lit else COL_STEEL, 1.1)
 
 	_register_hotspot(
 		cd_r,
 		"CONELRAD RESCUE TELEMETRY",
 		"Structural Integrity: %.0f%%" % integ,
-		"Complete all 3 signal stages on Military, Sanctuary, or Scientist rescue tracks to win evacuation!",
+		"Complete 3/3 stages on Military, Sanctuary, Scientist, or Smuggler Convoy tracks — or rebuild the Station Wagon to escape!",
 		COL_GREEN
 	)
 
 # ---------------------------------------------------------------------------
-# 5. LEFT SUPPLY SHELVING UNIT & WALL PEGBOARD (EXACT PHYSICAL INVENTORY!)
+# 5. LEFT SUPPLY SHELVING UNIT & WALL PEGBOARD (+ SPECIALTY SUPPLIES!)
 # ---------------------------------------------------------------------------
 func _draw_supply_shelving_and_gear(font: Font) -> void:
 	var rack_r := Rect2(26.0, 144.0, 274.0, 444.0)
-	# Drop shadow behind rack
 	draw_rect(Rect2(rack_r.position + Vector2(6.0, 6.0), rack_r.size), Color(0.05, 0.06, 0.05, 0.58), true)
-	# Back cross-bracing X-wires
 	draw_rect(rack_r, Color("#1b1f1c"), true)
 	draw_line(rack_r.position + Vector2(8.0, 8.0), rack_r.end - Vector2(8.0, 8.0), Color("#2f3530"), 2.5)
 	draw_line(Vector2(rack_r.end.x - 8.0, rack_r.position.y + 8.0), Vector2(rack_r.position.x + 8.0, rack_r.end.y - 8.0), Color("#2f3530"), 2.5)
 
-	# 4 Shelf Y levels (plank surfaces)
 	var shelf_ys := [236.0, 340.0, 452.0, 566.0]
 	for sy in shelf_ys:
 		draw_rect(Rect2(rack_r.position.x, sy, rack_r.size.x, 12.0), Color("#4c3e2e"), true)
 		draw_rect(Rect2(rack_r.position.x, sy, rack_r.size.x, 4.0), Color("#695640"), true)
 		draw_rect(Rect2(rack_r.position.x, sy, rack_r.size.x, 12.0), COL_INK, false, 1.8)
 
-	# Top cap & vertical bolted steel angle-iron uprights
 	draw_rect(Rect2(rack_r.position.x, rack_r.position.y, rack_r.size.x, 10.0), COL_STEEL, true)
 	draw_rect(Rect2(rack_r.position.x, rack_r.position.y, 10.0, rack_r.size.y), COL_STEEL, true)
 	draw_rect(Rect2(rack_r.end.x - 10.0, rack_r.position.y, 10.0, rack_r.size.y), COL_STEEL, true)
@@ -629,14 +818,13 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 		var col: int = i % 7
 		var cx: float = 54.0 + float(col) * 33.0 + (8.0 if row == 1 else 0.0)
 		var cy: float = 219.0 - float(row) * 28.0
-		ItemDB.draw_item_icon(self, "soup", Vector2(cx, cy), 30.0, false)
+		_draw_item_icon_safe("soup", Vector2(cx, cy), 30.0, false)
 	if soup_cans > 14:
 		var extra_r := Rect2(252.0, 162.0, 38.0, 22.0)
 		draw_rect(extra_r, COL_ORANGE, true)
 		draw_rect(extra_r, COL_INK, false, 1.5)
 		draw_string(font, extra_r.position + Vector2(3.0, 15.0), "+%d" % (soup_cans - 14), HORIZONTAL_ALIGNMENT_CENTER, 32.0, 11, COL_PARCHMENT)
 
-	# Fractional Soup Fill Indicator (if an opened can has 1/4, 2/4, or 3/4 left)
 	if soup_rem > 0:
 		var fg_r := Rect2(42.0, 158.0, 48.0, 16.0)
 		draw_rect(fg_r, COL_INK, true)
@@ -645,7 +833,6 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 			var seg_r := Rect2(fg_r.position.x + 3.0 + float(seg) * 11.0, fg_r.position.y + 3.0, 9.0, 10.0)
 			draw_rect(seg_r, COL_ORANGE if seg < soup_rem else Color("#2a2622"), true)
 
-	# Bold Soup Stencil Tag
 	var soup_tag := Rect2(44.0, 237.0, 238.0, 17.0)
 	draw_rect(soup_tag, COL_INK, true)
 	draw_rect(soup_tag, COL_ORANGE, false, 1.2)
@@ -669,7 +856,7 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 		var col: int = i % 7
 		var bx: float = 54.0 + float(col) * 33.0 + (8.0 if row == 1 else 0.0)
 		var by: float = 322.0 - float(row) * 28.0
-		ItemDB.draw_item_icon(self, "water", Vector2(bx, by), 30.0, false)
+		_draw_item_icon_safe("water", Vector2(bx, by), 30.0, false)
 	if water_bottles > 14:
 		var extra_w := Rect2(252.0, 264.0, 38.0, 22.0)
 		draw_rect(extra_w, COL_WATER, true)
@@ -693,7 +880,7 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 		Rect2(36.0, 258.0, 254.0, 100.0),
 		"EMERGENCY DRINKING WATER",
 		"%s Bottles (%d quarter-rations)" % [GameState.format_quarters_as_cans(water_q), water_q],
-		"Critical purified water! Survivors perish after ~4 days without water — ration 1/4 bottle regularly.",
+		"Critical purified water! Survivors perish after ~4–5 days without water — ration 1/4 bottle regularly.",
 		COL_WATER
 	)
 
@@ -707,16 +894,22 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 			draw_circle(Vector2(float(px), float(py)), 1.6, Color("#1b1712"))
 	draw_string(font, peg_r.position + Vector2(6.0, 14.0), "GEAR HOOKS", HORIZONTAL_ALIGNMENT_LEFT, 80.0, 9, COL_PARCHMENT_DIM)
 
-	# Collect every owned consumable & durable item to place across Shelf 3, Shelf 4, and Pegboard Hooks
+	# Collect owned medical/specialty supplies & durable gear across Shelf 3, Shelf 4, and Pegboard Hooks
 	var carried_out: Array = _get_active_expedition_gear()
 	var shelf_entries: Array = []
 
 	if GameState.medkit_count > 0:
 		shelf_entries.append({"id": "medkit", "broken": false, "count": GameState.medkit_count, "out": false})
+	if GameState.antibiotics_count > 0:
+		shelf_entries.append({"id": "antibiotics", "broken": false, "count": GameState.antibiotics_count, "out": false})
+	if GameState.antirad_count > 0:
+		shelf_entries.append({"id": "antirad", "broken": false, "count": GameState.antirad_count, "out": false})
 	if GameState.bug_spray_count > 0:
 		shelf_entries.append({"id": "bug_spray", "broken": false, "count": GameState.bug_spray_count, "out": false})
 	if GameState.ammo_count > 0:
 		shelf_entries.append({"id": "ammo", "broken": false, "count": GameState.ammo_count, "out": false})
+	if GameState.scrap_count > 0:
+		shelf_entries.append({"id": "scrap", "broken": false, "count": GameState.scrap_count, "out": false})
 
 	for gid_v in GameState.DURABLE_GEAR_IDS:
 		var gid: String = str(gid_v)
@@ -730,20 +923,22 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 				"out": is_out and not bool(g_entry.get("owned", false))
 			})
 
-	# Pre-computed clean physical slots across Shelf 3 (6 slots), Shelf 4 (6 slots), and Wall Pegboard (6 hooks)
+	# 20 physical slots across Shelf 3 (6), Shelf 4 (6), and Wall Pegboard (8 hooks)
 	var gear_slots := [
-		# Shelf 3 (y = 428)
+		# Shelf 3 (y = 424)
 		Vector2(58.0, 424.0), Vector2(98.0, 424.0), Vector2(138.0, 424.0),
 		Vector2(178.0, 424.0), Vector2(218.0, 424.0), Vector2(258.0, 424.0),
-		# Shelf 4 (y = 540)
+		# Shelf 4 (y = 536)
 		Vector2(58.0, 536.0), Vector2(98.0, 536.0), Vector2(138.0, 536.0),
 		Vector2(178.0, 536.0), Vector2(218.0, 536.0), Vector2(258.0, 536.0),
-		# Wall Pegboard Hooks
-		Vector2(332.0, 348.0), Vector2(376.0, 348.0),
-		Vector2(332.0, 408.0), Vector2(376.0, 408.0),
-		Vector2(332.0, 468.0), Vector2(376.0, 468.0)
+		# Wall Pegboard Hooks (8 hooks)
+		Vector2(332.0, 342.0), Vector2(376.0, 342.0),
+		Vector2(332.0, 386.0), Vector2(376.0, 386.0),
+		Vector2(332.0, 430.0), Vector2(376.0, 430.0),
+		Vector2(332.0, 474.0), Vector2(376.0, 474.0)
 	]
 
+	var specialty_always_badged := ["ammo", "antibiotics", "antirad", "scrap"]
 	for idx in range(mini(shelf_entries.size(), gear_slots.size())):
 		var item_d: Dictionary = shelf_entries[idx]
 		var iid: String = str(item_d.get("id", ""))
@@ -753,33 +948,32 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 		var pos: Vector2 = gear_slots[idx]
 
 		if idx >= 12:
-			# Metal hook above pegboard item
-			draw_line(pos + Vector2(0.0, -20.0), pos + Vector2(0.0, -12.0), COL_STEEL_HI, 2.5)
-			draw_circle(pos + Vector2(0.0, -20.0), 3.0, COL_HAZARD)
+			draw_line(pos + Vector2(0.0, -18.0), pos + Vector2(0.0, -11.0), COL_STEEL_HI, 2.2)
+			draw_circle(pos + Vector2(0.0, -18.0), 2.6, COL_HAZARD)
 
 		if is_out:
-			draw_rect(Rect2(pos - Vector2(16.0, 16.0), Vector2(32.0, 32.0)), Color(0.12, 0.14, 0.12, 0.72), true)
-			draw_rect(Rect2(pos - Vector2(16.0, 16.0), Vector2(32.0, 32.0)), COL_HAZARD, false, 1.2)
+			draw_rect(Rect2(pos - Vector2(15.0, 15.0), Vector2(30.0, 30.0)), Color(0.12, 0.14, 0.12, 0.72), true)
+			draw_rect(Rect2(pos - Vector2(15.0, 15.0), Vector2(30.0, 30.0)), COL_HAZARD, false, 1.2)
 			draw_string(font, pos + Vector2(-13.0, 4.0), "OUT", HORIZONTAL_ALIGNMENT_CENTER, 26.0, 9, COL_HAZARD)
 		else:
-			ItemDB.draw_item_icon(self, iid, pos, 34.0, broken)
-			if cnt > 1 or iid == "ammo":
-				var badge_r := Rect2(pos.x + 2.0, pos.y + 4.0, 20.0, 13.0)
+			_draw_item_icon_safe(iid, pos, 32.0, broken)
+			if cnt > 1 or specialty_always_badged.has(iid):
+				var badge_r := Rect2(pos.x + 1.0, pos.y + 4.0, 21.0, 13.0)
 				draw_rect(badge_r, COL_INK, true)
 				draw_rect(badge_r, COL_HAZARD, false, 1.0)
 				var b_lbl: String = "%d" % cnt if iid == "ammo" else "x%d" % cnt
-				draw_string(font, badge_r.position + Vector2(1.0, 10.0), b_lbl, HORIZONTAL_ALIGNMENT_CENTER, 18.0, 8, COL_PARCHMENT)
+				draw_string(font, badge_r.position + Vector2(1.0, 10.0), b_lbl, HORIZONTAL_ALIGNMENT_CENTER, 19.0, 8, COL_PARCHMENT)
 
-		var info: Dictionary = ItemDB.get_item_info(iid)
-		var iname: String = str(info.get("name", iid.capitalize()))
-		var idesc: String = str(info.get("description", "Shelter survival equipment."))
-		var cond_str: String = "Carried on Active Expedition" if is_out else ("BROKEN — Needs Repair!" if broken else "Working Condition")
+		var meta_d: Dictionary = _get_item_meta_safe(iid)
+		var iname: String = str(meta_d.get("name", iid.capitalize()))
+		var idesc: String = str(meta_d.get("description", "Shelter survival equipment."))
+		var cond_str: String = "Carried on Active Expedition" if is_out else ("BROKEN — Needs 1 Scrap!" if broken else "Working Condition")
 		if iid == "ammo":
 			cond_str = "%d Rounds Available" % cnt
-		elif cnt > 1:
+		elif cnt > 1 or specialty_always_badged.has(iid):
 			cond_str += " (x%d)" % cnt
 		_register_hotspot(
-			Rect2(pos - Vector2(18.0, 18.0), Vector2(36.0, 36.0)),
+			Rect2(pos - Vector2(17.0, 17.0), Vector2(34.0, 34.0)),
 			iname.to_upper(),
 			cond_str,
 			idesc,
@@ -787,10 +981,159 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 		)
 
 # ---------------------------------------------------------------------------
+# 5B. RIGHT GARAGE BAY — 1950s STATION WAGON ENGINE CHASSIS / WORKBENCH!
+# ---------------------------------------------------------------------------
+func _draw_vehicle_escape_workbench(font: Font) -> void:
+	if _notebook_occluding:
+		return
+	# Cleanly situated on right shelter bay (x = 1094..1270, y = 430..558) clear of ladder (1036..1090)!
+	var wb_r := Rect2(1094.0, 430.0, 176.0, 128.0)
+	var escape_ready: bool = GameState.can_escape_by_vehicle()
+	var parts_owned: int = GameState.get_vehicle_parts_owned_count()
+	var f_cans: int = maxi(0, GameState.fuel_cans)
+	var f_need: int = maxi(1, GameState.fuel_needed)
+	var chassis_tier: int = 0
+	if has_node("/root/SaveManager"):
+		var sm: Node = get_node("/root/SaveManager")
+		if sm.has_method("get_vehicle_chassis_tier"):
+			chassis_tier = int(sm.call("get_vehicle_chassis_tier"))
+
+	# Drop shadow & steel mechanic bay housing
+	draw_rect(Rect2(wb_r.position + Vector2(4.0, 5.0), wb_r.size), Color(0.04, 0.05, 0.04, 0.62), true)
+	draw_rect(wb_r, Color("#202622"), true)
+	draw_rect(Rect2(wb_r.position + Vector2(3.0, 20.0), wb_r.size - Vector2(6.0, 23.0)), Color("#28302b"), true)
+	draw_rect(wb_r, COL_GREEN if escape_ready else COL_INK, false, 2.2)
+
+	# Header Stencil Strip
+	draw_rect(Rect2(wb_r.position, Vector2(wb_r.size.x, 18.0)), COL_GREEN if escape_ready else COL_HAZARD, true)
+	var hdr_txt: String = "WAGON READY!" if escape_ready else ("GARAGE BAY · T%d" % chassis_tier)
+	draw_string(font, wb_r.position + Vector2(5.0, 13.0), hdr_txt, HORIZONTAL_ALIGNMENT_LEFT, wb_r.size.x - 10.0, 10, COL_INK)
+
+	# Workbench Tabletop & Steel Legs
+	var bench_y: float = wb_r.position.y + 92.0
+	draw_rect(Rect2(wb_r.position.x + 2.0, bench_y, wb_r.size.x - 4.0, 7.0), Color("#5c4732"), true)
+	draw_rect(Rect2(wb_r.position.x + 2.0, bench_y, wb_r.size.x - 4.0, 7.0), COL_INK, false, 1.3)
+
+	# --- 1950s Woodie Station Wagon Front Grille / Open Hood Chassis (left 118px of bay) ---
+	var car_x: float = wb_r.position.x + 8.0
+	var car_y: float = wb_r.position.y + 24.0
+	# Raised hood & windshield silhouette
+	var hood_up := PackedVector2Array([
+		Vector2(car_x + 8.0, car_y + 22.0),
+		Vector2(car_x + 22.0, car_y + 3.0),
+		Vector2(car_x + 86.0, car_y + 3.0),
+		Vector2(car_x + 100.0, car_y + 22.0)
+	])
+	draw_colored_polygon(hood_up, Color("#3a7585"))
+	draw_polyline(PackedVector2Array([hood_up[0], hood_up[1], hood_up[2], hood_up[3]]), COL_INK, 1.6)
+
+	# Open dark engine compartment cavity
+	var bay_r := Rect2(car_x + 12.0, car_y + 18.0, 84.0, 30.0)
+	draw_rect(bay_r, Color("#141715"), true)
+	draw_rect(bay_r, COL_STEEL_HI, false, 1.3)
+
+	# Lower fenders + faux-wood side trim + chrome bumper & grille
+	var body_r := Rect2(car_x + 4.0, car_y + 46.0, 100.0, 22.0)
+	draw_rect(body_r, Color("#3a7585"), true)
+	draw_rect(Rect2(body_r.position.x + 4.0, body_r.position.y + 3.0, 92.0, 6.0), Color("#8c5830"), true)
+	draw_rect(body_r, COL_INK, false, 1.6)
+
+	# Chrome horizontal grille + bumper
+	var grille_r := Rect2(car_x + 24.0, car_y + 50.0, 60.0, 12.0)
+	draw_rect(grille_r, Color("#cfd8dc"), true)
+	draw_rect(grille_r, COL_INK, false, 1.3)
+	for gx_off in [12.0, 24.0, 36.0, 48.0]:
+		draw_line(Vector2(grille_r.position.x + gx_off, grille_r.position.y + 2.0), Vector2(grille_r.position.x + gx_off, grille_r.end.y - 2.0), COL_INK, 1.3)
+	draw_rect(Rect2(car_x + 2.0, car_y + 62.0, 104.0, 6.0), Color("#dde5ea"), true)
+	draw_rect(Rect2(car_x + 2.0, car_y + 62.0, 104.0, 6.0), COL_INK, false, 1.2)
+
+	# Twin round 1950s headlights (glowing warm yellow when escape_ready!)
+	var hl_col := Color("#fff28a") if escape_ready else Color("#b8c6cc")
+	for hx in [car_x + 13.0, car_x + 95.0]:
+		var hpos := Vector2(hx, car_y + 54.0)
+		if escape_ready:
+			draw_circle(hpos, 11.0, Color(1.0, 0.90, 0.35, 0.34))
+		draw_circle(hpos, 6.2, hl_col)
+		draw_arc(hpos, 6.2, 0.0, TAU, 14, COL_INK, 1.5)
+
+	# 4 Engine Component Slots inside/along open engine bay:
+	# battery, radiator_hose, alternator, spark_plugs
+	var part_slots := [
+		{"id": "battery", "pos": Vector2(bay_r.position.x + 12.0, bay_r.position.y + 15.0)},
+		{"id": "radiator_hose", "pos": Vector2(bay_r.position.x + 32.0, bay_r.position.y + 15.0)},
+		{"id": "alternator", "pos": Vector2(bay_r.position.x + 52.0, bay_r.position.y + 15.0)},
+		{"id": "spark_plugs", "pos": Vector2(bay_r.position.x + 72.0, bay_r.position.y + 15.0)}
+	]
+	for ps_v in part_slots:
+		var ps: Dictionary = ps_v
+		var pid: String = str(ps["id"])
+		var ppos: Vector2 = ps["pos"]
+		var installed: bool = bool(GameState.vehicle_parts.get(pid, false))
+		if installed:
+			_draw_item_icon_safe(pid, ppos, 19.0, false)
+			draw_circle(ppos + Vector2(6.0, -8.0), 2.5, COL_GREEN)
+		else:
+			draw_rect(Rect2(ppos - Vector2(8.0, 8.0), Vector2(16.0, 16.0)), Color(0.22, 0.34, 0.42, 0.45), true)
+			draw_rect(Rect2(ppos - Vector2(8.0, 8.0), Vector2(16.0, 16.0)), Color(0.55, 0.72, 0.84, 0.55), false, 1.0)
+
+	# --- Stacked Red Fuel Jerrycans on right side of workbench (4 visual slots / exact readout) ---
+	var disp_slots: int = maxi(4, maxi(f_need, mini(f_cans, 4)))
+	var can_origin := Vector2(wb_r.position.x + 126.0, wb_r.position.y + 74.0)
+	for fi in range(mini(disp_slots, 4)):
+		var f_row: int = fi / 2
+		var f_col: int = fi % 2
+		var f_pos := Vector2(can_origin.x + float(f_col) * 22.0, can_origin.y - float(f_row) * 26.0)
+		if fi < f_cans:
+			_draw_item_icon_safe("fuel", f_pos, 22.0, false)
+		else:
+			var ghost_r := Rect2(f_pos - Vector2(8.5, 10.0), Vector2(17.0, 20.0))
+			draw_rect(ghost_r, Color(0.14, 0.16, 0.15, 0.65), true)
+			draw_rect(ghost_r, Color(0.85, 0.35, 0.22, 0.42) if fi < f_need else Color(0.4, 0.42, 0.4, 0.25), false, 1.1)
+
+	# Bottom Readout Footer Strip inside Workbench (y = bench_y + 9 .. end)
+	var foot_r := Rect2(wb_r.position.x + 4.0, bench_y + 9.0, wb_r.size.x - 8.0, 22.0)
+	draw_rect(foot_r, COL_INK, true)
+	draw_rect(foot_r, COL_GREEN if escape_ready else COL_HAZARD, false, 1.2)
+	var status_line: String = (
+		"4/4 PARTS · %d/%d FUEL READY!" % [f_cans, f_need]
+		if escape_ready
+		else "PARTS %d/4 · FUEL %d/%d" % [parts_owned, f_cans, f_need]
+	)
+	draw_string(
+		font,
+		foot_r.position + Vector2(0.0, 15.0),
+		status_line,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		foot_r.size.x,
+		9,
+		COL_GREEN if escape_ready else COL_HAZARD
+	)
+
+	var missing_list: Array[String] = []
+	for req_p in GameState.VEHICLE_PART_IDS:
+		if not bool(GameState.vehicle_parts.get(req_p, false)):
+			missing_list.append(str(req_p).replace("_", " ").capitalize())
+	var body_info: String = (
+		"All 4 engine parts installed, fuel tank full, and carburetor ready! Open Tab 5 (5. ESCAPE) in the Notebook to drive out!"
+		if escape_ready
+		else "Missing: %s | Fuel: %d/%d cans. Scavenge Gas/Auto & Hardware landmarks, then open Tab 5 (5. ESCAPE)!" % [
+			(", ".join(missing_list) if not missing_list.is_empty() else "None (Tune Engine / Add Fuel)"),
+			f_cans,
+			f_need
+		]
+	)
+	_register_hotspot(
+		wb_r,
+		"1950s STATION WAGON ESCAPE CHASSIS",
+		"Meta Chassis Tier %d · %d/4 Parts · %d/%d Fuel" % [chassis_tier, parts_owned, f_cans, f_need],
+		body_info,
+		COL_GREEN if escape_ready else COL_ORANGE
+	)
+
+# ---------------------------------------------------------------------------
 # 6. COMPANIONS: SHARIKOV THE CAT (CRATE) & PANCAKE THE DOG (BY LADDER)
 # ---------------------------------------------------------------------------
 func _draw_companions(font: Font) -> void:
-	# Military wooden crate beside shelf
 	var crate_r := Rect2(308.0, 524.0, 88.0, 62.0)
 	draw_rect(Rect2(crate_r.position + Vector2(4.0, 4.0), crate_r.size), Color(0.05, 0.06, 0.05, 0.5), true)
 	draw_rect(crate_r, Color("#5b4832"), true)
@@ -801,33 +1144,31 @@ func _draw_companions(font: Font) -> void:
 	draw_string(font, crate_r.position + Vector2(10.0, 35.0), "U.S.C.D.", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#241d15"))
 
 	if GameState.has_cat_sharikov:
-		# Folded red blanket + curled Sharikov on top of crate
 		draw_rect(Rect2(316.0, 517.0, 72.0, 9.0), Color("#8f3428"), true)
 		draw_rect(Rect2(316.0, 517.0, 72.0, 9.0), COL_INK, false, 1.2)
 		var purr_bob: float = sin(_anim_time * 2.8) * 1.4
 		var cat_pos := Vector2(352.0, 498.0 + purr_bob)
-		ItemDB.draw_item_icon(self, "cat", cat_pos, 42.0, false)
+		_draw_item_icon_safe("cat", cat_pos, 42.0, false)
 		draw_string(font, cat_pos + Vector2(18.0, -10.0 + sin(_anim_time * 2.0) * 2.0), "purr~", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, COL_PARCHMENT_DIM)
 		_register_hotspot(
 			Rect2(312.0, 474.0, 82.0, 56.0),
 			"SHARIKOV THE CAT",
 			"Bunker Feline Companion",
-			"Curled comfortably on the supply crate. Boosts family sanity, hunts roaches, and may unlock mysterious cables!",
+			"Curled comfortably on the supply crate. Boosts family sanity, hunts roaches, and advances Vault Scientist extraction!",
 			COL_HAZARD
 		)
 
 	if GameState.has_dog_pancake:
-		# Olive mat + food bowl + Pancake the Dog shifted 24px left clear of ladder hazard stripes (x = 1042)
-		var dog_base := Vector2(982.0, 566.0)
-		_draw_ellipse(dog_base + Vector2(0.0, 14.0), Vector2(44.0, 11.0), Color("#3d4a35"), COL_INK, 1.5)
+		# Cleanly positioned at x = 942..1030 (clear of seat #4 nameplate at 938 AND ladder stripes at 1036!)
+		var dog_base := Vector2(976.0, 566.0)
+		_draw_ellipse(dog_base + Vector2(0.0, 14.0), Vector2(36.0, 10.5), Color("#3d4a35"), COL_INK, 1.5)
 		var wag: float = sin(_anim_time * 5.4) * 2.0
-		ItemDB.draw_item_icon(self, "dog", dog_base + Vector2(wag * 0.4, -10.0 + absf(wag) * 0.3), 48.0, false)
-		# Red dog bowl (x = 1014..1038, cleanly left of x = 1042 hazard stripes)
-		var bowl_r := Rect2(1014.0, 574.0, 24.0, 10.0)
+		_draw_item_icon_safe("dog", dog_base + Vector2(wag * 0.4, -10.0 + absf(wag) * 0.3), 46.0, false)
+		var bowl_r := Rect2(1008.0, 574.0, 22.0, 10.0)
 		draw_rect(bowl_r, COL_RED, true)
 		draw_rect(bowl_r, COL_INK, false, 1.3)
 		_register_hotspot(
-			Rect2(950.0, 526.0, 88.0, 62.0),
+			Rect2(944.0, 526.0, 86.0, 62.0),
 			"PANCAKE THE DOG",
 			"Loyal Shelter Watchdog",
 			"Guards the blast hatch ladder against raiders and lifts everyone's spirits in the dark.",
@@ -835,17 +1176,14 @@ func _draw_companions(font: Font) -> void:
 		)
 
 # ---------------------------------------------------------------------------
-# 7. CENTER BENCH / FOLDING CHAIRS — CUSTOM SEATED FAMILY MEMBERS!
+# 7. CENTER BENCH — CUSTOM SEATED SURVIVORS, BREATH PUFFS & BUBBLES!
 # ---------------------------------------------------------------------------
 func _draw_family_bench_and_members(font: Font) -> void:
-	# Rugged 4-seat Civil Defense wooden & iron bench
 	var bench_seat := Rect2(404.0, 494.0, 548.0, 16.0)
 	var bench_back := Rect2(410.0, 434.0, 536.0, 26.0)
 
-	# Shadow pool beneath bench
 	_draw_ellipse(Vector2(678.0, 582.0), Vector2(285.0, 18.0), Color(0.05, 0.06, 0.05, 0.55), Color.TRANSPARENT, 0.0)
 
-	# Steel bench legs & crossbars
 	for lx in [426.0, 592.0, 762.0, 924.0]:
 		draw_rect(Rect2(lx, 434.0, 10.0, 146.0), COL_STEEL, true)
 		draw_rect(Rect2(lx, 434.0, 10.0, 146.0), COL_INK, false, 1.5)
@@ -857,6 +1195,7 @@ func _draw_family_bench_and_members(font: Font) -> void:
 	var seat_xs := [468.0, 608.0, 748.0, 888.0]
 	var seat_y: float = 496.0
 	var count: int = mini(GameState.family_members.size(), 4)
+	var is_freezing: bool = GameState.bunker_temp_c < 2.0
 
 	for i in range(count):
 		var m_var: Variant = GameState.family_members[i]
@@ -868,9 +1207,9 @@ func _draw_family_bench_and_members(font: Font) -> void:
 		var alive: bool = bool(member.get("alive", true))
 		var in_bunker: bool = bool(member.get("in_bunker", false))
 		var on_exp: bool = bool(member.get("on_expedition", false))
+		var betrayed: bool = bool(member.get("betrayed", false))
 
-		if not in_bunker:
-			# Left behind during 60s scavenge
+		if not in_bunker and not betrayed:
 			var tag_empty := Rect2(sx - 52.0, seat_y - 44.0, 104.0, 24.0)
 			draw_rect(tag_empty, Color(0.12, 0.12, 0.11, 0.82), true)
 			draw_rect(tag_empty, COL_STEEL, false, 1.2)
@@ -883,26 +1222,24 @@ func _draw_family_bench_and_members(font: Font) -> void:
 				"Left on the surface when the blast door sealed.",
 				COL_STEEL_HI
 			)
-		elif not alive:
-			# Fallen survivor memorial folded blanket
+		elif not alive or betrayed:
 			var mem_r := Rect2(sx - 34.0, seat_y - 22.0, 68.0, 22.0)
 			draw_rect(mem_r, Color("#3f473c"), true)
 			draw_rect(mem_r, COL_INK, false, 1.6)
 			var rip_r := Rect2(sx - 44.0, seat_y - 48.0, 88.0, 20.0)
 			draw_rect(rip_r, COL_INK, true)
-			draw_rect(rip_r, COL_RED, false, 1.2)
-			draw_string(font, rip_r.position + Vector2(0.0, 14.0), "FALLEN", HORIZONTAL_ALIGNMENT_CENTER, rip_r.size.x, 10, COL_RED)
+			draw_rect(rip_r, COL_ORANGE if betrayed else COL_RED, false, 1.2)
+			draw_string(font, rip_r.position + Vector2(0.0, 14.0), "BETRAYED" if betrayed else "FALLEN", HORIZONTAL_ALIGNMENT_CENTER, rip_r.size.x, 10, COL_ORANGE if betrayed else COL_RED)
 			_draw_seat_nameplate(font, Vector2(sx, 592.0), m_name, COL_RED)
 			var reason: String = str(member.get("death_reason", "Perished in the shelter."))
 			_register_hotspot(
 				Rect2(sx - 54.0, seat_y - 80.0, 108.0, 160.0),
-				m_name.to_upper() + " — DECEASED",
-				"Fallen Family Member",
+				m_name.to_upper() + (" — ABANDONED" if betrayed else " — DECEASED"),
+				"Left in Betrayal" if betrayed else "Fallen Family Member",
 				reason if reason != "" else "Did not survive the atomic aftermath.",
 				COL_RED
 			)
 		elif on_exp:
-			# Empty chair with expedition rucksack/tag ("OUT SCAVENGING")
 			var pack_r := Rect2(sx - 24.0, seat_y - 42.0, 48.0, 42.0)
 			draw_rect(pack_r, Color("#6a5b3e"), true)
 			draw_rect(Rect2(pack_r.position + Vector2(4.0, 6.0), Vector2(40.0, 14.0)), Color("#82704d"), true)
@@ -921,14 +1258,24 @@ func _draw_family_bench_and_members(font: Font) -> void:
 				Rect2(sx - 58.0, seat_y - 86.0, 116.0, 174.0),
 				m_name.to_upper() + " — ON EXPEDITION",
 				"Scavenging: " + exp_dest,
-				"Exploring the irradiated neighborhood outside. Check Tab 4 in the Survival Notebook for return ETA!",
+				"Exploring the irradiated neighborhood outside. Check Tab 4 (4. OSM RADAR) for return ETA!",
 				COL_HAZARD
 			)
 		else:
-			# Living seated custom character with gentle breathing bob!
 			var bob_y: float = sin(_anim_time * 2.15 + float(i) * 1.35) * 1.8
 			CharacterArtist.draw_bunker_seated_character(self, Vector2(sx, seat_y + bob_y), member, _anim_time + float(i) * 0.7, 1.0)
 			_draw_seat_nameplate(font, Vector2(sx, 592.0), m_name, COL_PARCHMENT)
+
+			# Faint breath puffs in Nuclear Winter (bunker_temp_c < 2.0)
+			if is_freezing:
+				var mouth_origin := Vector2(sx + 8.0, seat_y - 54.0 + bob_y)
+				for pi in range(2):
+					var b_phase: float = fposmod(_anim_time * 0.48 + float(i) * 0.27 + float(pi) * 0.5, 1.0)
+					var puff_a: float = sin(b_phase * PI) * 0.34
+					var puff_p: Vector2 = mouth_origin + Vector2(6.0 + b_phase * 15.0, -b_phase * 20.0)
+					var puff_r: float = 3.5 + b_phase * 6.5
+					draw_circle(puff_p, puff_r, Color(0.84, 0.96, 1.0, puff_a))
+					draw_circle(puff_p + Vector2(3.5, -1.5), puff_r * 0.72, Color(0.90, 0.98, 1.0, puff_a * 0.8))
 
 			var badges: Array = _collect_member_status_badges(member)
 			var bx_start: float = sx - (float(badges.size()) * 27.0) * 0.5
@@ -940,17 +1287,34 @@ func _draw_family_bench_and_members(font: Font) -> void:
 				draw_rect(pill_r, bcol, false, 1.3)
 				draw_string(font, pill_r.position + Vector2(0.0, 11.0), str(bd.get("short", "!")), HORIZONTAL_ALIGNMENT_CENTER, pill_r.size.x, 8, bcol)
 
+			# Expressive Relationship Bubble above seated survivor when last_bubble != ""!
+			var last_bub: String = str(member.get("last_bubble", "")).strip_edges()
+			if last_bub != "":
+				var bub_pos := Vector2(sx + 34.0, seat_y - 150.0 + sin(_anim_time * 3.1 + float(i)) * 2.5)
+				_draw_survivor_relationship_bubble(font, bub_pos, last_bub, member)
+
 			var role_str: String = str(member.get("role", "adult")).capitalize()
 			var age_val: int = int(member.get("age", 30))
 			var trait_str: String = str(member.get("trait", "survivor")).capitalize()
-			var note_str: String = _build_member_tooltip_summary(member)
+			var mid_s: String = str(member.get("id", ""))
+			var avg_rel: int = GameState.get_member_avg_relationship(mid_s)
+			var rel_tier: String = GameState.get_relationship_tier(avg_rel)
+			var note_str: String = _build_member_tooltip_summary(member, rel_tier, avg_rel)
 			_register_hotspot(
-				Rect2(sx - 52.0, seat_y - 126.0, 104.0, 218.0),
+				Rect2(sx - 52.0, seat_y - 130.0, 104.0, 222.0),
 				"%s (%s, %d)" % [m_name.to_upper(), role_str, age_val],
-				"Trait: %s" % trait_str,
+				"Trait: %s · Bond: %s (%+d)" % [trait_str, rel_tier, avg_rel],
 				note_str,
 				COL_GREEN if badges.is_empty() else COL_HAZARD
 			)
+
+func _draw_survivor_relationship_bubble(_font: Font, center: Vector2, bubble_str: String, _member: Dictionary) -> void:
+	var sym: String = bubble_str.strip_edges()
+	var lower: String = sym.to_lower()
+	var is_bond: bool = sym.contains("♥") or lower.contains("bond") or lower.contains("heart") or lower.contains("coop") or sym == "+"
+	var is_arg: bool = sym.contains("⚡") or lower.contains("arg") or lower.contains("fight") or lower.contains("bolt")
+	var accent_col: Color = COL_BOND_PINK if is_bond else (COL_ORANGE if is_arg else (COL_RED if sym == "!" else COL_HAZARD))
+	CharacterArtist.draw_relationship_bubble(self, center, sym, accent_col)
 
 func _draw_seat_nameplate(font: Font, center: Vector2, text: String, text_col: Color) -> void:
 	var pr := Rect2(center.x - 50.0, center.y - 10.0, 100.0, 20.0)
@@ -977,32 +1341,80 @@ func _collect_member_status_badges(member: Dictionary) -> Array:
 
 	var san: int = int(member.get("sanity", 0))
 	var is_crazy: bool = (san <= 35) if _sanity_hundred_scale else (san >= 2)
-	if is_crazy:
-		res.append({"short": "CRZ", "label": "Crazy", "color": Color("#c96be8")})
+	if is_crazy or int(member.get("breakdown_days", 0)) > 0:
+		res.append({"short": "CRZ", "label": "Breakdown/Crazy", "color": Color("#c96be8")})
 	if bool(member.get("is_mutant", false)):
 		res.append({"short": "MUT", "label": "Mutant", "color": COL_GREEN})
 	return res
 
-func _build_member_tooltip_summary(member: Dictionary) -> String:
+func _build_member_tooltip_summary(member: Dictionary, rel_tier: String, avg_rel: int) -> String:
 	var parts: Array[String] = []
 	var badges: Array = _collect_member_status_badges(member)
 	if badges.is_empty():
-		parts.append("Condition: Healthy & Steady")
+		parts.append("Condition: Healthy · Family Loyalty: %s (%+d)" % [rel_tier, avg_rel])
 	else:
 		var names: Array[String] = []
 		for b in badges:
 			var bd: Dictionary = b
 			names.append(str(bd.get("label", "")))
-		parts.append("Conditions: " + ", ".join(names))
+		parts.append("Conditions: %s · Loyalty: %s" % [", ".join(names), rel_tier])
 	var note: String = str(member.get("status_note", ""))
 	if note != "":
 		parts.append(note)
 	return "\n".join(parts)
 
 # ---------------------------------------------------------------------------
-# 8. SWINGING WARM OVERHEAD WORK-LAMP & SOFT GOLDEN LIGHT CONE
+# 7B. ANIMATED SCURRYING ROACHES NEAR FLOOR DRAIN VENT (roach_infestation > 0)
 # ---------------------------------------------------------------------------
-func _draw_overhead_swinging_lamp() -> void:
+func _draw_roach_infestation(_font: Font) -> void:
+	var inf: int = clampi(GameState.roach_infestation, 0, 3)
+	if inf <= 0:
+		return
+	var num_roaches: int = inf * 3
+	for ri in range(num_roaches):
+		var seed_f: float = float(ri) * 1.93
+		var speed: float = 1.6 + float(ri % 3) * 0.45
+		var t: float = _anim_time * speed + seed_f
+		var rx: float = 640.0 + sin(t) * (54.0 + float(ri % 4) * 14.0) + cos(t * 2.1) * 9.0
+		var ry: float = 670.0 + cos(t * 1.3 + seed_f) * (14.0 + float(ri % 2) * 8.0)
+		var vx: float = cos(t) * 54.0 - sin(t * 2.1) * 18.9
+		var vy: float = -sin(t * 1.3 + seed_f) * 18.2
+		var dir: Vector2 = Vector2(vx, vy).normalized()
+		if dir.length_squared() < 0.01:
+			dir = Vector2.RIGHT
+		var perp := Vector2(-dir.y, dir.x)
+		var rp := Vector2(rx, ry)
+
+		# Tiny 6 scurrying legs
+		var leg_wiggle: float = sin(_anim_time * 24.0 + seed_f) * 1.6
+		for li in [-1.0, 0.0, 1.0]:
+			var l_base: Vector2 = rp + dir * (li * 2.6)
+			draw_line(l_base - perp * 4.5 + dir * leg_wiggle * li, l_base + perp * 4.5 - dir * leg_wiggle * li, Color("#241811"), 1.0)
+
+		# Oval dark chitin carapace + antennae
+		var body_pts := PackedVector2Array([
+			rp + dir * 5.2,
+			rp + perp * 2.8,
+			rp - dir * 4.8,
+			rp - perp * 2.8
+		])
+		draw_colored_polygon(body_pts, Color("#2b1910"))
+		draw_circle(rp + dir * 4.2, 1.6, Color("#170d08"))
+		draw_line(rp + dir * 5.0, rp + dir * 8.5 + perp * (2.2 + sin(_anim_time * 17.0 + seed_f) * 0.8), Color("#3d2518"), 0.9)
+		draw_line(rp + dir * 5.0, rp + dir * 8.5 - perp * (2.2 - sin(_anim_time * 17.0 + seed_f) * 0.8), Color("#3d2518"), 0.9)
+
+	_register_hotspot(
+		Rect2(564.0, 650.0, 152.0, 42.0),
+		"FLOOR VENT ROACH INFESTATION (LVL %d)" % inf,
+		"Unsanitary Shelter Pests",
+		"Mutated roaches are swarming out of the drainage grate, risking sickness! Use Bug Spray or rely on Sharikov the Cat.",
+		COL_ORANGE
+	)
+
+# ---------------------------------------------------------------------------
+# 8. SWINGING TUNGSTEN LAMP, VOLTAGE FLICKER & 18 DRIFTING DUST MOTES!
+# ---------------------------------------------------------------------------
+func _draw_overhead_swinging_lamp_and_motes() -> void:
 	var pivot := Vector2(656.0, 50.0)
 	var swing: float = sin(_anim_time * 1.35) * 0.065
 	var cord_len: float = 48.0
@@ -1010,10 +1422,15 @@ func _draw_overhead_swinging_lamp() -> void:
 	var perp := Vector2(cos(swing), -sin(swing))
 	var bulb_pos: Vector2 = pivot + dir * cord_len
 
-	# Subtle flicker if hull damaged
+	# Subtle voltage flicker when structural integrity < 55 OR high radiation (>= 6.0 Sv/hr)
 	var flicker: float = 1.0
-	if GameState.bunker_structural_integrity < 55.0 and sin(_anim_time * 19.0) > 0.92:
-		flicker = 0.68
+	var unstable_grid: bool = (GameState.bunker_structural_integrity < 55.0) or (GameState.surface_radiation_sv >= 6.0)
+	if unstable_grid:
+		var n1: float = sin(_anim_time * 19.3) * cos(_anim_time * 31.7)
+		if n1 > 0.66:
+			flicker = 0.62
+		elif n1 < -0.78:
+			flicker = 0.80
 
 	# Soft multi-layered golden light cone cast across center bunker
 	var cone_outer := PackedVector2Array([
@@ -1031,6 +1448,20 @@ func _draw_overhead_swinging_lamp() -> void:
 		bulb_pos + dir * 540.0 - perp * 230.0
 	])
 	draw_colored_polygon(cone_inner, Color(1.0, 0.91, 0.58, 0.062 * flicker))
+
+	# 18 Softly Drifting Dust Motes floating through the golden light beam!
+	for mi in range(DUST_MOTE_COUNT):
+		var fi: float = float(mi)
+		var u_depth: float = fposmod(0.11 + fi * 0.053 + _anim_time * (0.012 + float(mi % 3) * 0.004), 0.86) + 0.10
+		var beam_half_w: float = lerpf(24.0, 275.0, u_depth)
+		var lat_norm: float = sin(_anim_time * (0.28 + float(mi % 5) * 0.07) + fi * 2.37) * 0.82
+		var bob_m: float = cos(_anim_time * (0.42 + float(mi % 4) * 0.09) + fi * 1.41) * 9.0
+		var mote_p: Vector2 = bulb_pos + dir * (u_depth * 510.0 + bob_m) + perp * (lat_norm * beam_half_w)
+		var center_falloff: float = 1.0 - absf(lat_norm) * 0.68
+		var mote_alpha: float = (0.24 + 0.18 * sin(_anim_time * 1.4 + fi)) * center_falloff * flicker
+		var mote_r: float = 1.3 + float(mi % 3) * 0.55
+		draw_circle(mote_p, mote_r * 2.2, Color(1.0, 0.90, 0.55, mote_alpha * 0.28))
+		draw_circle(mote_p, mote_r, Color(1.0, 0.96, 0.78, mote_alpha))
 
 	# Warm floor light pool
 	_draw_ellipse(Vector2(656.0 + sin(swing) * 120.0, 596.0), Vector2(260.0, 26.0), Color(1.0, 0.86, 0.45, 0.05 * flicker), Color.TRANSPARENT, 0.0)
@@ -1051,7 +1482,7 @@ func _draw_overhead_swinging_lamp() -> void:
 	draw_line(shade[3], shade[2], COL_HAZARD, 2.0)
 
 # ---------------------------------------------------------------------------
-# 9. NUCLEAR WINTER FROST (< 2°C) & NEAR-BLAST HEAT HAZE (> 28°C)
+# 9. NUCLEAR WINTER FROST (< 2°C) & WARM AMBER HEAT WAVES (> 28°C)
 # ---------------------------------------------------------------------------
 func _draw_temperature_and_radiation_atmosphere() -> void:
 	var temp_c: float = GameState.bunker_temp_c
@@ -1077,7 +1508,6 @@ func _draw_temperature_and_radiation_atmosphere() -> void:
 				o + Vector2(0.0, dy * 155.0)
 			])
 			draw_colored_polygon(corner_poly, frost_col)
-			# Crystalline frost needles
 			for ni in range(6):
 				var ang: float = (0.12 + float(ni) * 0.24) * PI * 0.5
 				var len_f: float = 82.0 + float(ni % 3) * 34.0
@@ -1086,8 +1516,7 @@ func _draw_temperature_and_radiation_atmosphere() -> void:
 				var mid := o.lerp(tip, 0.62)
 				draw_line(mid, mid + Vector2(dx * 18.0, dy * 6.0), frost_hi, 1.4)
 				draw_line(mid, mid + Vector2(dx * 6.0, dy * 18.0), frost_hi, 1.4)
-		# Icicles along overhead pipe
-		for ix in range(110, 960, 68):
+		for ix in range(110, 950, 68):
 			var ih: float = 14.0 + float((ix * 13) % 14)
 			var icy := PackedVector2Array([
 				Vector2(float(ix) - 4.0, 139.0),
@@ -1098,13 +1527,21 @@ func _draw_temperature_and_radiation_atmosphere() -> void:
 
 	elif temp_c > 28.0:
 		var pulse: float = 0.78 + 0.22 * sin(_anim_time * 2.4)
-		var heat_a: float = clampf((temp_c - 28.0) / 18.0, 0.28, 0.85) * 0.14 * pulse
-		draw_rect(Rect2(0.0, 50.0, 1280.0, 90.0), Color(0.92, 0.36, 0.14, heat_a), true)
-		draw_rect(Rect2(0.0, 620.0, 1280.0, 100.0), Color(0.90, 0.32, 0.12, heat_a * 0.85), true)
-		# Glowing thermal shimmer waves near pipes
-		for wy in range(180, 520, 64):
-			var sx_off: float = sin(_anim_time * 3.2 + float(wy) * 0.05) * 5.0
-			draw_line(Vector2(1174.0 + sx_off, float(wy)), Vector2(1218.0 - sx_off, float(wy) - 14.0), Color(0.96, 0.48, 0.20, heat_a * 1.8), 2.0)
+		var heat_a: float = clampf((temp_c - 28.0) / 18.0, 0.32, 0.90) * 0.15 * pulse
+		draw_rect(Rect2(0.0, 50.0, 1280.0, 90.0), Color(0.95, 0.44, 0.14, heat_a), true)
+		draw_rect(Rect2(0.0, 620.0, 1280.0, 100.0), Color(0.92, 0.38, 0.12, heat_a * 0.85), true)
+
+		# Rising warm amber sinusoidal heat waves across the shelter air & hot steam pipes
+		var wave_xs := [220.0, 460.0, 680.0, 910.0, 1188.0]
+		for wi in range(wave_xs.size()):
+			var base_x: float = wave_xs[wi]
+			var y_scroll: float = fposmod(_anim_time * 28.0 + float(wi) * 43.0, 120.0)
+			var wave_pts := PackedVector2Array()
+			for step_i in range(9):
+				var wy: float = 540.0 - y_scroll - float(step_i) * 18.0
+				var wx: float = base_x + sin(_anim_time * 3.6 + float(step_i) * 0.85 + float(wi)) * 7.5
+				wave_pts.append(Vector2(wx, wy))
+			draw_polyline(wave_pts, Color(0.98, 0.62, 0.22, heat_a * 1.65), 2.0)
 
 # ---------------------------------------------------------------------------
 # 10. INTERACTIVE BUNKER INSPECTOR TOOLTIP
@@ -1120,11 +1557,10 @@ func _draw_active_tooltip(font: Font) -> void:
 	var accent: Color = active.get("accent", COL_HAZARD)
 	var hs_rect: Rect2 = active.get("rect", Rect2())
 
-	# Highlight frame around active bunker element
 	draw_rect(hs_rect.grow(3.0), Color(accent.r, accent.g, accent.b, 0.72), false, 2.0)
 
-	var box_w: float = 304.0
-	var box_h: float = 96.0
+	var box_w: float = 312.0
+	var box_h: float = 98.0
 	var anchor_pt: Vector2 = hs_rect.get_center() + Vector2(0.0, -hs_rect.size.y * 0.5 - box_h - 10.0)
 	var max_x: float = 496.0 - box_w if _notebook_occluding else 1264.0 - box_w
 	var bx: float = clampf(anchor_pt.x - box_w * 0.5, 16.0, maxf(16.0, max_x))
@@ -1141,10 +1577,27 @@ func _draw_active_tooltip(font: Font) -> void:
 	draw_multiline_string(font, tip_r.position + Vector2(8.0, 55.0), body, HORIZONTAL_ALIGNMENT_LEFT, box_w - 16.0, 10, 3, COL_PARCHMENT)
 
 # ---------------------------------------------------------------------------
-# HELPERS
+# HELPERS & SAFE ITEM ICON BRIDGE
 # ---------------------------------------------------------------------------
+func _draw_item_icon_safe(item_id: String, center: Vector2, icon_size: float, broken: bool) -> void:
+	ItemDB.draw_item_icon(self, item_id, center, icon_size, broken)
+
+func _get_item_meta_safe(item_id: String) -> Dictionary:
+	var info: Dictionary = ItemDB.get_item_info(item_id)
+	if not info.is_empty() and str(info.get("name", "")) != "":
+		return info
+	match item_id:
+		"antibiotics":
+			return {"name": "Prescription Antibiotics", "description": "Doctor's Office cure for Stage-1/2 sickness, fever, and wound sepsis."}
+		"antirad":
+			return {"name": "Potassium Iodide Anti-Rad", "description": "Pharmacy radiation purge (-35 Rads) protecting against fallout sickness."}
+		"scrap":
+			return {"name": "Salvaged Scrap & Hardware", "description": "Repairs broken shelter gear or reinforces bunker structural hull (+12%)."}
+		"fuel":
+			return {"name": "Gasoline Jerrycan", "description": "High-octane fuel for the 1950s Station Wagon escape chassis."}
+	return {"name": item_id.replace("_", " ").capitalize(), "description": "Shelter survival equipment."}
+
 func _fit_string_ellipsis(font: Font, text: String, font_size: int, max_w: float) -> String:
-	# Equivalent to TextServer.OVERRUN_TRIM_ELLIPSIS without per-frame TextLine RID churn
 	if max_w <= 0.0 or text == "":
 		return ""
 	if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x <= max_w:

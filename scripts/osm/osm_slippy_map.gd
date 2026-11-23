@@ -1,24 +1,25 @@
 class_name OsmSlippyMap
 extends Control
 
-## Interactive Web Mercator OpenStreetMap slippy tile + vector parcel tactical map.
+## Interactive Web Mercator OpenStreetMap slippy tile + vector parcel tactical map (Z12-Z18).
 ## Streams & caches 256x256 PNG tiles from tile.openstreetmap.org via 4 async HTTP workers,
 ## renders crisp vector streets/parks/buildings even offline or on frame 1,
-## highlights hovered/selected houses, and displays Civil Defense range rings & POI badges.
+## highlights hovered/selected houses, and displays Multi-Ring (0.5km / 3.5km / 7.5km) Civil Defense
+## expedition sightlines & 9 distinct V2 POI badges (including Doctor Stethoscope & Gas Pump/Auto).
 
 signal house_clicked(building_dict: Dictionary)
 signal house_hovered(building_dict: Dictionary)
 signal view_changed(center_lat: float, center_lon: float, zoom: int)
 
-const MIN_ZOOM := 15
+const MIN_ZOOM := 12
 const MAX_ZOOM := 18
 const DEFAULT_ZOOM := 17
 const TILE_SIZE := 256.0
 const TILE_URL_TEMPLATE := "https://tile.openstreetmap.org/%d/%d/%d.png"
-const USER_AGENT_HEADER := "User-Agent: SixtySecondsWorldReatomized/1.0"
+const USER_AGENT_HEADER := "User-Agent: SixtySecondsWorldReatomized/2.0"
 const TILE_CACHE_DIR := "user://osm_tiles"
 const WORKER_COUNT := 4
-const MAX_MEM_TILES := 280
+const MAX_MEM_TILES := 320
 
 # Mid-century 1950s CONELRAD cartographic palette
 const COL_PAPER_BASE := Color("#dfd3b8")
@@ -54,6 +55,7 @@ var _neighbor_id_set: Dictionary = {}
 var _selected_house: Dictionary = {}
 var _hovered_house: Dictionary = {}
 var _highlighted_poi_id: int = -1
+var _ring_filter: int = 0  # 0 = All, 1 = Near <0.5km, 2 = District 0.5-3.5km, 3 = Deep 3.5km+
 
 # Smooth pan animation state
 var _pan_active: bool = false
@@ -88,7 +90,8 @@ var _disk_check_done: Dictionary = {}
 # Pulse animation clock
 var _anim_time: float = 0.0
 
-# Overlay zoom buttons
+# Overlay map controls
+var _btn_home: Button
 var _btn_zoom_in: Button
 var _btn_zoom_out: Button
 
@@ -118,23 +121,31 @@ func _ready() -> void:
 	call_deferred("_reposition_zoom_buttons")
 
 func _build_zoom_buttons() -> void:
+	_btn_home = Button.new()
+	_btn_home.text = "⌂"
+	_btn_home.tooltip_text = "Snap Back to Your House (Parcel Zoom Z17)"
+	_btn_home.custom_minimum_size = Vector2(36.0, 32.0)
+	_style_map_button(_btn_home, 17)
+	_btn_home.pressed.connect(snap_to_selected_house)
+	add_child(_btn_home)
+
 	_btn_zoom_in = Button.new()
 	_btn_zoom_in.text = "+"
 	_btn_zoom_in.tooltip_text = "Zoom In (Street Parcel Detail)"
 	_btn_zoom_in.custom_minimum_size = Vector2(36.0, 34.0)
-	_style_map_button(_btn_zoom_in)
+	_style_map_button(_btn_zoom_in, 20)
 	_btn_zoom_in.pressed.connect(zoom_in)
 	add_child(_btn_zoom_in)
 
 	_btn_zoom_out = Button.new()
 	_btn_zoom_out.text = "−"
-	_btn_zoom_out.tooltip_text = "Zoom Out (Neighborhood Radar)"
+	_btn_zoom_out.tooltip_text = "Zoom Out (Multi-Ring 1-8km Radar)"
 	_btn_zoom_out.custom_minimum_size = Vector2(36.0, 34.0)
-	_style_map_button(_btn_zoom_out)
+	_style_map_button(_btn_zoom_out, 20)
 	_btn_zoom_out.pressed.connect(zoom_out)
 	add_child(_btn_zoom_out)
 
-func _style_map_button(btn: Button) -> void:
+func _style_map_button(btn: Button, fsize: int = 20) -> void:
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(0.13, 0.15, 0.13, 0.94)
 	normal.border_color = COL_HAZARD_YELLOW
@@ -155,13 +166,15 @@ func _style_map_button(btn: Button) -> void:
 	btn.add_theme_color_override("font_color", COL_HAZARD_YELLOW)
 	btn.add_theme_color_override("font_hover_color", Color("#fff4cf"))
 	btn.add_theme_color_override("font_pressed_color", COL_INK_DARK)
-	btn.add_theme_font_size_override("font_size", 20)
+	btn.add_theme_font_size_override("font_size", fsize)
 
 func _reposition_zoom_buttons() -> void:
 	if not is_instance_valid(_btn_zoom_in) or not is_instance_valid(_btn_zoom_out):
 		return
 	var w: float = maxf(size.x, 400.0)
 	var h: float = maxf(size.y, 300.0)
+	if is_instance_valid(_btn_home):
+		_btn_home.position = Vector2(w - 48.0, h - 144.0)
 	_btn_zoom_in.position = Vector2(w - 48.0, h - 108.0)
 	_btn_zoom_out.position = Vector2(w - 48.0, h - 68.0)
 
@@ -185,6 +198,10 @@ func set_map_data(parsed_data: Dictionary, recenter: bool = true) -> void:
 	else:
 		queue_redraw()
 
+func update_pois_only(new_pois: Array) -> void:
+	_all_pois = new_pois
+	queue_redraw()
+
 func set_selected_house(bldg: Dictionary, nearby_targets: Array = []) -> void:
 	_selected_house = bldg
 	_nearby_targets = nearby_targets
@@ -195,6 +212,65 @@ func set_selected_house(bldg: Dictionary, nearby_targets: Array = []) -> void:
 			if str(t.get("category", "")) == "neighbor_house":
 				_neighbor_id_set[int(t.get("osm_id", -1))] = true
 	queue_redraw()
+
+func set_ring_filter(ring_id: int, adjust_zoom: bool = false) -> void:
+	_ring_filter = clampi(ring_id, 0, 3)
+	if adjust_zoom and not _selected_house.is_empty():
+		var h_lat: float = float(_selected_house.get("lat", center_lat))
+		var h_lon: float = float(_selected_house.get("lon", center_lon))
+		if _ring_filter == 1:
+			set_center_and_zoom(h_lat, h_lon, DEFAULT_ZOOM, false)
+		elif _ring_filter == 2:
+			set_center_and_zoom(h_lat, h_lon, 14, false)
+		elif _ring_filter == 3:
+			var sum_lat: float = 0.0
+			var sum_lon: float = 0.0
+			var n_r3: int = 0
+			for t_v in _nearby_targets:
+				var t3: Dictionary = t_v
+				if int(t3.get("ring", 1)) == 3:
+					sum_lat += float(t3.get("lat", h_lat))
+					sum_lon += float(t3.get("lon", h_lon))
+					n_r3 += 1
+			var c_lat: float = h_lat
+			var c_lon: float = h_lon
+			if n_r3 > 0:
+				c_lat = (h_lat + sum_lat / float(n_r3)) * 0.5
+				c_lon = (h_lon + sum_lon / float(n_r3)) * 0.5
+			set_center_and_zoom(c_lat, c_lon, 12, false)
+		else:
+			set_center_and_zoom(h_lat, h_lon, DEFAULT_ZOOM, false)
+	else:
+		queue_redraw()
+
+func snap_to_selected_house() -> void:
+	_play_ui_tick()
+	if not _selected_house.is_empty():
+		set_center_and_zoom(
+			float(_selected_house.get("lat", center_lat)),
+			float(_selected_house.get("lon", center_lon)),
+			DEFAULT_ZOOM,
+			false
+		)
+
+func focus_poi_with_house(poi_lat: float, poi_lon: float, dist_m: int) -> void:
+	var target_z: int = DEFAULT_ZOOM
+	if dist_m >= 3800:
+		target_z = 13
+	elif dist_m >= 1500:
+		target_z = 14
+	elif dist_m >= 520:
+		target_z = 15
+	elif dist_m >= 260:
+		target_z = 16
+
+	zoom = clampi(target_z, MIN_ZOOM, MAX_ZOOM)
+	if not _selected_house.is_empty() and dist_m >= 520:
+		var h_lat: float = float(_selected_house.get("lat", poi_lat))
+		var h_lon: float = float(_selected_house.get("lon", poi_lon))
+		pan_smooth_to(lerpf(h_lat, poi_lat, 0.62), lerpf(h_lon, poi_lon, 0.62), 0.45)
+	else:
+		pan_smooth_to(poi_lat, poi_lon, 0.45)
 
 func set_hovered_house_by_id(osm_id: int) -> void:
 	if osm_id <= 0:
@@ -224,7 +300,7 @@ func set_center_and_zoom(lat: float, lon: float, new_zoom: int = -1, immediate: 
 		view_changed.emit(center_lat, center_lon, zoom)
 		queue_redraw()
 	else:
-		pan_smooth_to(lat, lon, 0.75)
+		pan_smooth_to(lat, lon, 0.65)
 
 func pan_smooth_to(lat: float, lon: float, duration: float = 0.85) -> void:
 	_pan_from_lat = center_lat
@@ -358,7 +434,6 @@ func _update_hover_at(pos: Vector2) -> void:
 		queue_redraw()
 
 func _pick_building_at(pos: Vector2) -> Dictionary:
-	# Exact polygon hit test first (reverse order so foreground parcels win)
 	for i in range(_visible_bldg_hit_cache.size() - 1, -1, -1):
 		var item: Dictionary = _visible_bldg_hit_cache[i]
 		var rect_b: Rect2 = item.get("bounds", Rect2())
@@ -369,7 +444,6 @@ func _pick_building_at(pos: Vector2) -> Dictionary:
 			var b_dict: Dictionary = item.get("bldg", {})
 			return b_dict
 
-	# Generous 14px proximity fallback for small houses at lower zoom
 	var best_dist: float = 14.0
 	var best_bldg: Dictionary = {}
 	for item_v in _visible_bldg_hit_cache:
@@ -428,7 +502,6 @@ func _request_tile(z: int, tx: int, ty: int) -> void:
 	if _tile_textures.has(key) or _in_flight_set.has(key) or _queued_set.has(key) or _failed_tiles.has(key):
 		return
 
-	# Check disk cache once before queuing network fetch
 	if not _disk_check_done.has(key):
 		_disk_check_done[key] = true
 		var disk_path: String = "%s/z%d_x%d_y%d.png" % [TILE_CACHE_DIR, z, wrapped_x, ty]
@@ -453,7 +526,6 @@ func _pump_tile_queue() -> void:
 		if not _worker_tile_keys[i].is_empty():
 			continue
 
-		# Prefer queued tiles matching current zoom level
 		var pick_idx: int = -1
 		var z_prefix: String = "%d/" % zoom
 		for q_i in range(_queued_keys.size() - 1, -1, -1):
@@ -540,7 +612,7 @@ func _draw() -> void:
 	_draw_parks_vector(vp_rect, vector_boost)
 	_draw_roads_vector(vp_rect, font, tile_coverage_ratio < 0.5)
 
-	# 4. Tactical range rings & sightlines around selected house (underneath badges)
+	# 4. Multi-Ring (0.5km / 3.5km / 7.5km) tactical range rings & sightlines around selected house
 	var has_selected: bool = not _selected_house.is_empty()
 	var sel_screen := Vector2.ZERO
 	if has_selected:
@@ -553,7 +625,7 @@ func _draw() -> void:
 	# 5. Interactive OSM building polygons
 	_draw_building_parcels(vp_rect)
 
-	# 6. Nearby real-world POI badges (Churches, Supermarkets, Pharmacies, Police/Fire, Hardware, Schools, Neighbors)
+	# 6. Nearby real-world POI badges across all 9 V2 categories
 	_draw_poi_markers(vp_rect, font, has_selected, sel_screen)
 
 	# 7. Selected House Bunker Hatch reticle & banner (drawn prominently on top)
@@ -612,7 +684,6 @@ func _draw_slippy_tiles(vp_rect: Rect2) -> float:
 				draw_texture_rect(tex, dst_rect, false, tile_modulate)
 				loaded_visible += 1
 			else:
-				# Try parent z-1 tile quadrant while sharper tile streams in
 				if zoom > MIN_ZOOM:
 					var parent_key: String = "%d/%d/%d" % [zoom - 1, int(wrapped_tx / 2), int(ty / 2)]
 					if _tile_textures.has(parent_key):
@@ -627,6 +698,8 @@ func _draw_slippy_tiles(vp_rect: Rect2) -> float:
 	return float(loaded_visible) / float(total_visible)
 
 func _draw_parks_vector(vp_rect: Rect2, alpha_scale: float) -> void:
+	if zoom < 14:
+		return
 	var cull_rect: Rect2 = vp_rect.grow(90.0)
 	for pk_v in _parks:
 		var pk: Dictionary = pk_v
@@ -655,13 +728,13 @@ func _draw_parks_vector(vp_rect: Rect2, alpha_scale: float) -> void:
 		_safe_draw_filled_polygon(scr, fill_col)
 
 func _draw_roads_vector(vp_rect: Rect2, font: Font, draw_labels: bool) -> void:
+	if zoom < 13:
+		return
 	var cull_rect: Rect2 = vp_rect.grow(80.0)
-	var zoom_scale: float = pow(1.45, float(zoom - 16))
+	var zoom_scale: float = clampf(pow(1.45, float(zoom - 16)), 0.32, 2.3)
 	var alpha_mult: float = 0.92 if draw_labels else 0.34
 
 	var labeled_names: Dictionary = {}
-
-	# Pass 1: Dark road casings
 	var visible_roads: Array = []
 	for r_v in _roads:
 		var r: Dictionary = r_v
@@ -691,12 +764,11 @@ func _draw_roads_vector(vp_rect: Rect2, font: Font, draw_labels: bool) -> void:
 		var base_w: float = _road_base_width(kind) * zoom_scale
 		visible_roads.append({"scr": scr, "kind": kind, "width": base_w, "name": str(r.get("name", ""))})
 
-		if base_w >= 3.0:
+		if base_w >= 2.6:
 			var case_col := COL_ROAD_CASE
 			case_col.a *= alpha_mult
-			draw_polyline(scr, case_col, base_w + 2.2, true)
+			draw_polyline(scr, case_col, base_w + 2.0, true)
 
-	# Pass 2: Warm roadway fills + crisp street labels when PNG tiles haven't arrived yet
 	for vr_v in visible_roads:
 		var vr: Dictionary = vr_v
 		var scr_pts: PackedVector2Array = vr.get("scr", PackedVector2Array())
@@ -705,11 +777,11 @@ func _draw_roads_vector(vp_rect: Rect2, font: Font, draw_labels: bool) -> void:
 		var is_major: bool = kind_s in ["motorway", "trunk", "primary", "secondary", "tertiary"]
 		var fill_col: Color = COL_ROAD_MAIN if is_major else COL_ROAD_LOCAL
 		fill_col.a = alpha_mult
-		draw_polyline(scr_pts, fill_col, maxf(1.2, w), true)
+		draw_polyline(scr_pts, fill_col, maxf(1.1, w), true)
 
-		if draw_labels:
+		if draw_labels and zoom >= 15:
 			var rname: String = str(vr.get("name", ""))
-			if not rname.is_empty() and not labeled_names.has(rname) and scr_pts.size() >= 2 and w >= 4.0:
+			if not rname.is_empty() and not labeled_names.has(rname) and scr_pts.size() >= 2 and w >= 3.5:
 				var mid_idx: int = int(scr_pts.size() / 2)
 				var p_a: Vector2 = scr_pts[maxi(0, mid_idx - 1)]
 				var p_b: Vector2 = scr_pts[mini(scr_pts.size() - 1, mid_idx)]
@@ -738,6 +810,9 @@ func _road_base_width(kind: String) -> float:
 
 func _draw_building_parcels(vp_rect: Rect2) -> void:
 	_visible_bldg_hit_cache.clear()
+	if zoom < 15:
+		return
+
 	var cull_rect: Rect2 = vp_rect.grow(40.0)
 	var sel_id: int = int(_selected_house.get("osm_id", -1))
 	var hov_id: int = int(_hovered_house.get("osm_id", -1))
@@ -765,7 +840,6 @@ func _draw_building_parcels(vp_rect: Rect2) -> void:
 				else:
 					bounds = bounds.expand(sp)
 		else:
-			# Reconstruct from footprint_meters if polygon_latlon wasn't supplied
 			var blat: float = float(b.get("lat", center_lat))
 			var blon: float = float(b.get("lon", center_lon))
 			var c_sp: Vector2 = latlon_to_screen(blat, blon)
@@ -807,14 +881,12 @@ func _draw_building_parcels(vp_rect: Rect2) -> void:
 		_safe_draw_filled_polygon(scr, fill_col)
 		_draw_closed_outline(scr, COL_BLDG_OUTLINE, 1.4 if is_neighbor else 1.1)
 
-	# Draw hovered house on top in bright translucent CONELRAD hazard yellow
 	if not hovered_draw_entry.is_empty():
 		var h_poly: PackedVector2Array = hovered_draw_entry.get("poly", PackedVector2Array())
 		_safe_draw_filled_polygon(h_poly, COL_HOVER_FILL)
 		_draw_closed_outline(h_poly, COL_INK_DARK, 3.4)
 		_draw_closed_outline(h_poly, COL_HAZARD_YELLOW, 2.0)
 
-	# Draw selected house ("YOUR HOUSE") with bold pulsing orange/yellow Civil Defense highlight
 	if not selected_draw_entry.is_empty():
 		var s_poly: PackedVector2Array = selected_draw_entry.get("poly", PackedVector2Array())
 		var glow_col := Color(0.96, 0.75, 0.18, 0.35 + 0.30 * pulse)
@@ -826,34 +898,47 @@ func _draw_building_parcels(vp_rect: Rect2) -> void:
 func _draw_range_rings_and_links(sel_screen: Vector2, font: Font) -> void:
 	var mpp: float = maxf(0.12, get_meters_per_pixel())
 	var r_150: float = 150.0 / mpp
-	var r_300: float = 300.0 / mpp
+	var r_500: float = 500.0 / mpp
+	var r_3500: float = 3500.0 / mpp
+	var r_7500: float = 7500.0 / mpp
 
-	_draw_dashed_circle(sel_screen, r_150, Color(0.32, 0.62, 0.24, 0.72), 1.8, 44)
-	_draw_dashed_circle(sel_screen, r_300, Color(0.86, 0.34, 0.16, 0.65), 1.8, 64)
+	if zoom >= 16:
+		_draw_dashed_circle(sel_screen, r_150, Color(0.32, 0.62, 0.24, 0.65), 1.6, 40)
+		if r_150 > 38.0 and r_150 < 480.0:
+			_draw_micro_pill(font, sel_screen + Vector2(r_150 * 0.707 - 22.0, -r_150 * 0.707 - 8.0), "150m", Color(0.14, 0.22, 0.13, 0.88), COL_SAFE_GREEN)
 
-	# Range ring pill tags
-	if r_150 > 38.0:
-		_draw_micro_pill(font, sel_screen + Vector2(r_150 * 0.707 - 26.0, -r_150 * 0.707 - 8.0), "150m", Color(0.14, 0.22, 0.13, 0.88), COL_SAFE_GREEN)
-	if r_300 > 70.0:
-		_draw_micro_pill(font, sel_screen + Vector2(r_300 * 0.707 - 26.0, -r_300 * 0.707 - 8.0), "300m", Color(0.24, 0.13, 0.10, 0.88), COL_ATOMIC_ORANGE)
+	_draw_dashed_circle(sel_screen, r_500, Color(0.35, 0.74, 0.30, 0.78), 2.0, 56)
+	if r_500 > 36.0 and r_500 < 520.0:
+		_draw_micro_pill(font, sel_screen + Vector2(r_500 * 0.707 - 28.0, -r_500 * 0.707 - 8.0), "0.5km R1", Color(0.13, 0.23, 0.13, 0.90), COL_SAFE_GREEN)
 
-	# Dashed tactical bearing lines to key POIs (Churches, Groceries, Pharmacies, Hardware, Schools)
+	_draw_dashed_circle(sel_screen, r_3500, Color(0.96, 0.74, 0.18, 0.76), 2.0, 72)
+	if r_3500 > 50.0 and r_3500 < 560.0:
+		_draw_micro_pill(font, sel_screen + Vector2(r_3500 * 0.707 - 30.0, -r_3500 * 0.707 - 8.0), "3.5km R2", Color(0.22, 0.18, 0.09, 0.92), COL_HAZARD_YELLOW)
+
+	_draw_dashed_circle(sel_screen, r_7500, Color(0.88, 0.35, 0.17, 0.72), 2.0, 88)
+	if r_7500 > 65.0 and r_7500 < 580.0:
+		_draw_micro_pill(font, sel_screen + Vector2(r_7500 * 0.707 - 30.0, -r_7500 * 0.707 - 8.0), "7.5km R3", Color(0.24, 0.12, 0.09, 0.92), COL_ATOMIC_ORANGE)
+
+	# Dashed tactical bearing lines to key POIs
 	var drawn_links: int = 0
 	for t_v in _nearby_targets:
 		var t: Dictionary = t_v
 		var cat: String = str(t.get("category", ""))
 		var tid: int = int(t.get("osm_id", -1))
+		var t_ring: int = int(t.get("ring", 1))
 		var is_hi: bool = (tid == _highlighted_poi_id)
 		if cat == "neighbor_house" and not is_hi:
 			continue
-		if drawn_links >= 6 and not is_hi:
+		if _ring_filter > 0 and t_ring != _ring_filter and not is_hi:
+			continue
+		if drawn_links >= 9 and not is_hi:
 			continue
 		var p_scr: Vector2 = latlon_to_screen(float(t.get("lat", 0.0)), float(t.get("lon", 0.0)))
 		if p_scr.distance_to(sel_screen) < 12.0:
 			continue
 		var line_col: Color = _category_accent_color(cat)
-		line_col.a = 0.88 if is_hi else 0.44
-		draw_dashed_line(sel_screen, p_scr, line_col, 2.4 if is_hi else 1.4, 6.0, true, true)
+		line_col.a = 0.92 if is_hi else 0.46
+		draw_dashed_line(sel_screen, p_scr, line_col, 2.6 if is_hi else 1.4, 6.0, true, true)
 		drawn_links += 1
 
 func _get_selected_house_pill_rect(sel_screen: Vector2, vp_rect: Rect2, font: Font) -> Rect2:
@@ -877,13 +962,12 @@ func _draw_poi_markers(vp_rect: Rect2, font: Font, has_selected: bool = false, s
 	var cull_rect: Rect2 = vp_rect.grow(32.0)
 	var source_list: Array = _nearby_targets if not _nearby_targets.is_empty() else _all_pois
 
-	# Seed screen-space occupied_rects so POI labels never overlap HUD chrome, YOUR HOUSE, or badges
 	var occupied_rects: Array[Rect2] = []
 	occupied_rects.append(Rect2(0.0, 0.0, vp_rect.size.x, 40.0))
 	occupied_rects.append(Rect2(4.0, 8.0, 50.0, 48.0))
 	occupied_rects.append(Rect2(0.0, maxf(0.0, vp_rect.size.y - 32.0), vp_rect.size.x, 32.0))
 	occupied_rects.append(Rect2(8.0, maxf(0.0, vp_rect.size.y - 46.0), 175.0, 40.0))
-	occupied_rects.append(Rect2(maxf(0.0, vp_rect.size.x - 52.0), maxf(0.0, vp_rect.size.y - 138.0), 46.0, 110.0))
+	occupied_rects.append(Rect2(maxf(0.0, vp_rect.size.x - 52.0), maxf(0.0, vp_rect.size.y - 178.0), 46.0, 150.0))
 
 	var house_reticle_rect := Rect2()
 	var house_pill_rect := Rect2()
@@ -894,27 +978,30 @@ func _draw_poi_markers(vp_rect: Rect2, font: Font, has_selected: bool = false, s
 		occupied_rects.append(house_pill_rect)
 
 		var mpp: float = maxf(0.12, get_meters_per_pixel())
-		var r_150: float = 150.0 / mpp
-		var r_300: float = 300.0 / mpp
-		if r_150 > 38.0:
-			occupied_rects.append(Rect2(sel_screen + Vector2(r_150 * 0.707 - 26.0, -r_150 * 0.707 - 8.0), Vector2(40.0, 16.0)))
-		if r_300 > 70.0:
-			occupied_rects.append(Rect2(sel_screen + Vector2(r_300 * 0.707 - 26.0, -r_300 * 0.707 - 8.0), Vector2(40.0, 16.0)))
+		for ring_m in [150.0, 500.0, 3500.0, 7500.0]:
+			var rr: float = ring_m / mpp
+			if rr > 36.0 and rr < 580.0:
+				occupied_rects.append(Rect2(sel_screen + Vector2(rr * 0.707 - 32.0, -rr * 0.707 - 10.0), Vector2(64.0, 18.0)))
 
-	# Pass 1: Project visible POIs, reserve all badge circles, and draw non-highlighted badges
 	var visible_entries: Array = []
 	var highlighted_entry: Dictionary = {}
 	for p_v in source_list:
 		var p: Dictionary = p_v
 		var cat: String = str(p.get("category", "grocery"))
 		var pid: int = int(p.get("osm_id", -2))
+		var p_ring: int = int(p.get("ring", 1))
 		var sp: Vector2 = latlon_to_screen(float(p.get("lat", 0.0)), float(p.get("lon", 0.0)))
 		if not cull_rect.has_point(sp):
 			continue
 
+		var is_hi: bool = (pid == _highlighted_poi_id)
+		if _ring_filter > 0 and p_ring != _ring_filter and not is_hi:
+			# Still draw subtle muted dot so player keeps spatial context, but don't reserve label space
+			draw_circle(sp, 4.5, Color(0.16, 0.16, 0.15, 0.45))
+			continue
+
 		occupied_rects.append(Rect2(sp - Vector2(11.0, 11.0), Vector2(22.0, 22.0)))
 
-		var is_hi: bool = (pid == _highlighted_poi_id)
 		var entry: Dictionary = {"poi": p, "cat": cat, "sp": sp, "is_hi": is_hi}
 		if is_hi:
 			highlighted_entry = entry
@@ -928,16 +1015,15 @@ func _draw_poi_markers(vp_rect: Rect2, font: Font, has_selected: bool = false, s
 	if not highlighted_entry.is_empty():
 		var h_cat: String = str(highlighted_entry.get("cat", "grocery"))
 		var h_sp: Vector2 = highlighted_entry.get("sp", Vector2.ZERO)
-		draw_poi_badge(self, h_sp, 10.5 if h_cat == "neighbor_house" else 13.5, h_cat, true)
+		draw_poi_badge(self, h_sp, 10.5 if h_cat == "neighbor_house" else 13.8, h_cat, true)
 
-	# Pass 2: Place non-overlapping POI callout pills (highlighted POI gets top priority)
 	var label_queue: Array = []
 	if not highlighted_entry.is_empty():
 		label_queue.append(highlighted_entry)
 	for ve_v in visible_entries:
 		var ve: Dictionary = ve_v
 		var v_cat: String = str(ve.get("cat", ""))
-		if v_cat in ["church", "grocery", "pharmacy", "civic", "school", "hardware"]:
+		if v_cat != "neighbor_house":
 			label_queue.append(ve)
 
 	var safe_map_rect := Rect2(
@@ -955,7 +1041,7 @@ func _draw_poi_markers(vp_rect: Rect2, font: Font, has_selected: bool = false, s
 	for lq_v in label_queue:
 		var item: Dictionary = lq_v
 		var is_hi: bool = bool(item.get("is_hi", false))
-		if not is_hi and labeled_count >= 6:
+		if not is_hi and labeled_count >= 7:
 			continue
 
 		var p: Dictionary = item.get("poi", {})
@@ -964,13 +1050,13 @@ func _draw_poi_markers(vp_rect: Rect2, font: Font, has_selected: bool = false, s
 		if pname.length() > 24:
 			pname = pname.substr(0, 22) + ".."
 		var dist_val: int = int(p.get("distance_m", 0))
-		var tag_txt: String = ("%s (%dm)" % [pname, dist_val]) if dist_val > 0 else pname
+		var dist_str: String = ("%.1fkm" % (float(dist_val) / 1000.0)) if dist_val >= 1000 else ("%dm" % dist_val)
+		var tag_txt: String = ("%s (%s)" % [pname, dist_str]) if dist_val > 0 else pname
 
 		var text_w: float = font.get_string_size(tag_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 		var pad_x: float = 5.0
 		var w: float = ceilf(text_w + pad_x * 2.0)
 
-		# Priority order: Right, Below, Above (-13 - pill_h clears sp.y - 11 badge box), Left
 		var candidates: Array[Rect2] = [
 			Rect2(sp + Vector2(13.0, -8.0), Vector2(w, pill_h)),
 			Rect2(sp + Vector2(-w * 0.5, 13.0), Vector2(w, pill_h)),
@@ -986,7 +1072,6 @@ func _draw_poi_markers(vp_rect: Rect2, font: Font, has_selected: bool = false, s
 				found = true
 				break
 
-		# Only force-draw a fallback callout if actively hovered/highlighted by the player
 		if not found and is_hi:
 			for cand_hi in candidates:
 				var clamped_pos := Vector2(
@@ -1002,8 +1087,8 @@ func _draw_poi_markers(vp_rect: Rect2, font: Font, has_selected: bool = false, s
 		if not found:
 			continue
 
-		var bg_col: Color = Color(0.13, 0.14, 0.11, 0.95) if is_hi else Color(0.09, 0.10, 0.09, 0.84)
-		var border_col: Color = COL_HAZARD_YELLOW if is_hi else Color(0.92, 0.86, 0.72, 0.42)
+		var bg_col: Color = Color(0.13, 0.14, 0.11, 0.95) if is_hi else Color(0.09, 0.10, 0.09, 0.86)
+		var border_col: Color = COL_HAZARD_YELLOW if is_hi else Color(0.92, 0.86, 0.72, 0.44)
 		var text_col: Color = COL_HAZARD_YELLOW if is_hi else COL_PARCHMENT
 		draw_rect(chosen_rect, bg_col, true)
 		draw_rect(chosen_rect, border_col, false, 1.4 if is_hi else 1.0)
@@ -1019,7 +1104,6 @@ func _draw_selected_house_reticle(sel_screen: Vector2, vp_rect: Rect2, font: Fon
 	var pulse: float = 0.5 + 0.5 * sin(_anim_time * 5.0)
 	var ring_r: float = 13.0 + 2.5 * pulse
 
-	# Bunker Hatch wheel icon at selected house centroid
 	draw_circle(sel_screen, 10.5, COL_INK_DARK)
 	draw_circle(sel_screen, 8.5, COL_HAZARD_YELLOW)
 	draw_circle(sel_screen, 6.2, COL_INK_DARK)
@@ -1030,7 +1114,6 @@ func _draw_selected_house_reticle(sel_screen: Vector2, vp_rect: Rect2, font: Fon
 	draw_circle(sel_screen, 2.2, COL_ATOMIC_ORANGE)
 	draw_arc(sel_screen, ring_r, 0.0, TAU, 32, COL_HAZARD_YELLOW, 2.0, true)
 
-	# Bold "★ YOUR HOUSE" callout tag prominently on top
 	var label_str := "★ YOUR HOUSE"
 	var pill_rect: Rect2 = _get_selected_house_pill_rect(sel_screen, vp_rect, font)
 	var text_w: float = font.get_string_size(label_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
@@ -1041,7 +1124,6 @@ func _draw_selected_house_reticle(sel_screen: Vector2, vp_rect: Rect2, font: Fon
 	draw_string(font, Vector2(text_x, text_y), label_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_HAZARD_YELLOW)
 
 func _draw_map_hud_chrome(vp_rect: Rect2, font: Font) -> void:
-	# Outer tactical map bezel
 	draw_rect(vp_rect, COL_INK_DARK, false, 3.0)
 	draw_rect(vp_rect.grow(-2.0), Color(0.95, 0.74, 0.18, 0.55), false, 1.0)
 
@@ -1063,23 +1145,31 @@ func _draw_map_hud_chrome(vp_rect: Rect2, font: Font) -> void:
 	draw_colored_polygon(south_tri, COL_PARCHMENT)
 	draw_string(font, comp_c + Vector2(-4.0, -3.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_HAZARD_YELLOW)
 
-	# Zoom badge above +/- buttons
-	var z_box := Rect2(vp_rect.size.x - 48.0, vp_rect.size.y - 134.0, 36.0, 22.0)
+	# Zoom badge above ⌂ / + / - buttons
+	var z_box := Rect2(vp_rect.size.x - 48.0, vp_rect.size.y - 170.0, 36.0, 22.0)
 	draw_rect(z_box, Color(0.11, 0.12, 0.11, 0.92), true)
 	draw_rect(z_box, COL_HAZARD_YELLOW, false, 1.2)
 	draw_string(font, z_box.position + Vector2(6.0, 15.0), "Z%d" % zoom, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_PARCHMENT)
 
-	# Bottom-left Metric Scale Bar
+	# Bottom-left Dynamic Multi-Zoom Metric Scale Bar (50m .. 5km)
 	var mpp: float = maxf(0.1, get_meters_per_pixel())
-	var scale_meters: int = 50 if (100.0 / mpp > 165.0) else (100 if (100.0 / mpp > 55.0) else 200)
-	var bar_px: float = float(scale_meters) / mpp
+	var scale_options: Array[int] = [50, 100, 200, 500, 1000, 2000, 5000]
+	var scale_meters: int = 100
+	for s_cand in scale_options:
+		var cand_px: float = float(s_cand) / mpp
+		scale_meters = s_cand
+		if cand_px >= 58.0:
+			break
+	var bar_px: float = clampf(float(scale_meters) / mpp, 36.0, 160.0)
+	var scale_txt: String = ("%dkm" % int(scale_meters / 1000)) if scale_meters >= 1000 else ("%dm" % scale_meters)
+	var txt_w: float = font.get_string_size(scale_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 	var bar_origin := Vector2(14.0, vp_rect.size.y - 26.0)
-	var scale_bg := Rect2(10.0, vp_rect.size.y - 44.0, bar_px + 54.0, 24.0)
+	var scale_bg := Rect2(10.0, vp_rect.size.y - 44.0, bar_px + txt_w + 18.0, 24.0)
 	draw_rect(scale_bg, Color(0.11, 0.12, 0.11, 0.86), true)
 	draw_line(bar_origin, bar_origin + Vector2(bar_px, 0.0), COL_HAZARD_YELLOW, 2.2)
 	draw_line(bar_origin + Vector2(0.0, -5.0), bar_origin + Vector2(0.0, 3.0), COL_HAZARD_YELLOW, 2.0)
 	draw_line(bar_origin + Vector2(bar_px, -5.0), bar_origin + Vector2(bar_px, 3.0), COL_HAZARD_YELLOW, 2.0)
-	draw_string(font, bar_origin + Vector2(bar_px + 6.0, 2.0), "%dm" % scale_meters, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_PARCHMENT)
+	draw_string(font, bar_origin + Vector2(bar_px + 6.0, 2.0), scale_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_PARCHMENT)
 
 	# Bottom-right OpenStreetMap attribution strip
 	var attr_text := "© OpenStreetMap contributors"
@@ -1096,7 +1186,9 @@ func _draw_hover_tooltip(vp_rect: Rect2, font: Font) -> void:
 	var is_sel: bool = int(_hovered_house.get("osm_id", -1)) == int(_selected_house.get("osm_id", -2))
 	var line2: String = "SELECTED AS YOUR HOUSE" if is_sel else "Click polygon to claim as YOUR HOUSE"
 
-	var box_w: float = maxf(235.0, float(line1.length()) * 6.8 + 22.0)
+	var t1_w: float = font.get_string_size(line1, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	var t2_w: float = font.get_string_size(line2, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+	var box_w: float = maxf(235.0, maxf(t1_w, t2_w) + 20.0)
 	var box_h: float = 40.0
 	var pos: Vector2 = _last_mouse_pos + Vector2(16.0, -46.0)
 	pos.x = clampf(pos.x, 8.0, vp_rect.size.x - box_w - 8.0)
@@ -1108,6 +1200,8 @@ func _draw_hover_tooltip(vp_rect: Rect2, font: Font) -> void:
 	draw_rect(r, COL_HAZARD_YELLOW, false, 1.8)
 	draw_string(font, pos + Vector2(9.0, 16.0), line1, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COL_PARCHMENT)
 	draw_string(font, pos + Vector2(9.0, 32.0), line2, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_SAFE_GREEN if is_sel else COL_HAZARD_YELLOW)
+
+# --- Procedural 1950s CONELRAD Vector Badges for All 9 V2 Categories ---
 
 static func draw_poi_badge(canvas: CanvasItem, center: Vector2, radius: float, category: String, highlighted: bool = false) -> void:
 	var bg_col: Color = _category_accent_color(category)
@@ -1129,7 +1223,7 @@ static func draw_poi_badge(canvas: CanvasItem, center: Vector2, radius: float, c
 		return
 
 	if highlighted:
-		canvas.draw_circle(center, radius + 3.5, Color(0.96, 0.75, 0.18, 0.42))
+		canvas.draw_circle(center, radius + 3.6, Color(0.96, 0.75, 0.18, 0.44))
 	canvas.draw_circle(center, radius + 1.6, COL_INK_DARK)
 	canvas.draw_circle(center, radius, bg_col)
 	canvas.draw_arc(center, radius, 0.0, TAU, 24, rim_col, 1.5, true)
@@ -1138,23 +1232,42 @@ static func draw_poi_badge(canvas: CanvasItem, center: Vector2, radius: float, c
 	var icon_col := Color("#fff8e8")
 
 	match category:
-		"church":
-			# Crisp Sanctuary Latin Cross
-			canvas.draw_line(center + Vector2(0.0, -s * 1.15), center + Vector2(0.0, s * 1.15), icon_col, 2.3)
-			canvas.draw_line(center + Vector2(-s * 0.82, -s * 0.32), center + Vector2(s * 0.82, -s * 0.32), icon_col, 2.3)
+		"doctor":
+			# Stethoscope / Caduceus Clinical Emblem: top binaural U-loop + Y-tube + round chestpiece + gold star
+			canvas.draw_arc(center + Vector2(-s * 0.22, -s * 0.42), s * 0.52, 0.12, PI - 0.12, 10, icon_col, 1.8, true)
+			canvas.draw_circle(center + Vector2(-s * 0.72, -s * 0.52), maxf(1.1, s * 0.18), icon_col)
+			canvas.draw_circle(center + Vector2(s * 0.28, -s * 0.52), maxf(1.1, s * 0.18), icon_col)
+			canvas.draw_line(center + Vector2(-s * 0.22, s * 0.10), center + Vector2(-s * 0.22, s * 0.75), icon_col, 1.8)
+			canvas.draw_line(center + Vector2(-s * 0.22, s * 0.75), center + Vector2(s * 0.52, s * 0.52), icon_col, 1.7)
+			canvas.draw_circle(center + Vector2(s * 0.62, s * 0.36), maxf(1.6, s * 0.36), COL_HAZARD_YELLOW)
+			canvas.draw_circle(center + Vector2(s * 0.62, s * 0.36), maxf(0.8, s * 0.15), COL_INK_DARK)
+		"pharmacy":
+			# Crisp Apothecary Medical '+' Cross
+			canvas.draw_rect(Rect2(center.x - s * 0.28, center.y - s * 0.95, s * 0.56, s * 1.9), icon_col, true)
+			canvas.draw_rect(Rect2(center.x - s * 0.95, center.y - s * 0.28, s * 1.9, s * 0.56), icon_col, true)
+		"fuel_auto":
+			# 1950s Service Station Gas Pump + Hose Loop + Gear Accent
+			var pump_rect := Rect2(center.x - s * 0.78, center.y - s * 0.88, s * 1.15, s * 1.76)
+			canvas.draw_rect(pump_rect, icon_col, true)
+			var gauge_rect := Rect2(center.x - s * 0.58, center.y - s * 0.68, s * 0.75, s * 0.52)
+			canvas.draw_rect(gauge_rect, bg_col, true)
+			canvas.draw_line(center + Vector2(-s * 0.92, s * 0.88), center + Vector2(s * 0.52, s * 0.88), icon_col, 1.8)
+			# Dispensing hose & nozzle on right
+			canvas.draw_arc(center + Vector2(s * 0.44, s * 0.08), s * 0.44, -PI * 0.45, PI * 0.65, 10, COL_HAZARD_YELLOW, 1.8, true)
+			canvas.draw_line(center + Vector2(s * 0.44, -s * 0.36), center + Vector2(s * 0.82, -s * 0.62), COL_HAZARD_YELLOW, 1.8)
 		"grocery":
-			# Crisp Supply Can / Basket icon
+			# Supply Ration Basket
 			var basket := Rect2(center - Vector2(s * 0.85, s * 0.45), Vector2(s * 1.7, s * 1.15))
 			canvas.draw_rect(basket, icon_col, false, 1.8)
 			canvas.draw_line(center + Vector2(-s * 0.55, -s * 0.45), center + Vector2(0.0, -s * 1.05), icon_col, 1.7)
 			canvas.draw_line(center + Vector2(s * 0.55, -s * 0.45), center + Vector2(0.0, -s * 1.05), icon_col, 1.7)
 			canvas.draw_line(center + Vector2(-s * 0.45, s * 0.12), center + Vector2(s * 0.45, s * 0.12), icon_col, 1.6)
-		"pharmacy":
-			# Crisp Medical '+' Cross
-			canvas.draw_rect(Rect2(center.x - s * 0.28, center.y - s * 0.95, s * 0.56, s * 1.9), icon_col, true)
-			canvas.draw_rect(Rect2(center.x - s * 0.95, center.y - s * 0.28, s * 1.9, s * 0.56), icon_col, true)
+		"hardware":
+			# Diagonal Wrench / Spanner
+			canvas.draw_line(center + Vector2(-s * 0.8, s * 0.8), center + Vector2(s * 0.65, -s * 0.65), icon_col, 2.4)
+			canvas.draw_arc(center + Vector2(s * 0.65, -s * 0.65), s * 0.45, 0.3, 4.9, 10, icon_col, 1.8, true)
 		"civic":
-			# Crisp Police / Fire Emergency Shield emblem
+			# Police / Fire Emergency Shield emblem
 			var shield := PackedVector2Array([
 				center + Vector2(0.0, -s * 1.08),
 				center + Vector2(s * 0.88, -s * 0.62),
@@ -1166,48 +1279,35 @@ static func draw_poi_badge(canvas: CanvasItem, center: Vector2, radius: float, c
 			canvas.draw_polyline(shield, icon_col, 1.7, true)
 			canvas.draw_line(shield[shield.size() - 1], shield[0], icon_col, 1.7, true)
 			canvas.draw_circle(center + Vector2(0.0, -s * 0.05), s * 0.30, COL_HAZARD_YELLOW)
-		"hardware":
-			# Diagonal Wrench / Tool bar
-			canvas.draw_line(center + Vector2(-s * 0.8, s * 0.8), center + Vector2(s * 0.65, -s * 0.65), icon_col, 2.4)
-			canvas.draw_arc(center + Vector2(s * 0.65, -s * 0.65), s * 0.45, 0.3, 4.9, 10, icon_col, 1.8, true)
+		"church":
+			# Sanctuary Latin Cross
+			canvas.draw_line(center + Vector2(0.0, -s * 1.15), center + Vector2(0.0, s * 1.15), icon_col, 2.3)
+			canvas.draw_line(center + Vector2(-s * 0.82, -s * 0.32), center + Vector2(s * 0.82, -s * 0.32), icon_col, 2.3)
 		"school":
-			# Open Book pages
+			# Open Map / Book pages
 			canvas.draw_rect(Rect2(center.x - s * 0.95, center.y - s * 0.68, s * 0.92, s * 1.35), icon_col, false, 1.6)
 			canvas.draw_rect(Rect2(center.x + s * 0.03, center.y - s * 0.68, s * 0.92, s * 1.35), icon_col, false, 1.6)
-		"restaurant":
-			# Cup / bowl silhouette
-			canvas.draw_arc(center + Vector2(0.0, s * 0.05), s * 0.72, 0.0, PI, 12, icon_col, 2.0, true)
-			canvas.draw_line(center + Vector2(-s * 0.78, s * 0.05), center + Vector2(s * 0.78, s * 0.05), icon_col, 1.8)
-		"park":
-			# Pine tree triangle
-			var tree := PackedVector2Array([
-				center + Vector2(0.0, -s * 1.05),
-				center + Vector2(s * 0.85, s * 0.55),
-				center + Vector2(-s * 0.85, s * 0.55)
-			])
-			canvas.draw_colored_polygon(tree, icon_col)
-			canvas.draw_line(center + Vector2(0.0, s * 0.55), center + Vector2(0.0, s * 1.05), icon_col, 2.0)
 		_:
 			canvas.draw_circle(center, s * 0.45, icon_col)
 
 static func _category_accent_color(category: String) -> Color:
 	match category:
-		"church":
-			return Color("#6d469c")
-		"grocery":
-			return Color("#2f8244")
+		"doctor":
+			return Color("#1c7c7d")
 		"pharmacy":
 			return Color("#c93b2b")
+		"grocery":
+			return Color("#2f8244")
+		"fuel_auto":
+			return Color("#d4571c")
+		"hardware":
+			return Color("#8c5828")
 		"civic":
 			return Color("#28558c")
-		"hardware":
-			return Color("#c46821")
+		"church":
+			return Color("#6d469c")
 		"school":
 			return Color("#2e6f9e")
-		"restaurant":
-			return Color("#9e5432")
-		"park":
-			return Color("#497a38")
 		"neighbor_house":
 			return Color("#b88d32")
 		_:
@@ -1247,7 +1347,8 @@ func _draw_dashed_circle(center: Vector2, radius: float, col: Color, width: floa
 			draw_arc(center, radius, a0, a1, 5, col, width, true)
 
 func _draw_micro_pill(font: Font, pos: Vector2, txt: String, bg: Color, fg: Color) -> void:
-	var w: float = float(txt.length()) * 6.5 + 10.0
+	var tw: float = font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+	var w: float = ceilf(tw + 10.0)
 	var r := Rect2(pos, Vector2(w, 15.0))
 	draw_rect(r, bg, true)
 	draw_rect(r, fg, false, 1.1)

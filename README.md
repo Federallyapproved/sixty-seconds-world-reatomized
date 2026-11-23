@@ -2,6 +2,22 @@
 
 A full-featured re-imagining and expansion of *60 Seconds! Reatomized* built in **Godot 4.3** where **any real-world house on Earth** via **OpenStreetMap** becomes your playable 60-second scavenging floorplan and fallout bunker headquarters.
 
+## V2 "Reatomized Overhaul" (branch `feat/reatomized-overhaul`)
+
+| System | V2 implementation |
+|---|---|
+| 60-second scramble | True 3D isometric house generated from your OSM footprint, recon phase, CONELRAD siren, 4/5-slot carrying, hatch delivery, family rescue, left-behind guilt |
+| Real-world map | Walborough Ct (Wyndham VA) preset + live Nominatim/OSM search; **3 scavenge rings** (<0.5 km, 0.5–3.5 km, 3.5–10 km) with 9 place categories (grocery, doctor, pharmacy, gas/auto, hardware, police/fire, church, school, neighbours) — each with its own loot table, ambush risk, radiation and story hooks, and diminishing returns on repeat visits |
+| Shelter survival | Rationing, hunger, thirst, sickness, injury, 0–100 radiation, fatigue/sanity, hull integrity, broken-item repairs, delayed deaths, difficulty grace periods |
+| Relationships | Bonds/resentment drive cooperation, arguments, breakdowns that block expeditions, theft & betrayal desertion, fair-ration loyalty, shared hardship |
+| Events | 103 original events, chained quests, delayed consequences, item-gated options, risky "free" options (no dominant choices per the critic test), 16-day non-repeat buffer |
+| Endings | Military rescue, church/school sanctuary, vault scientist, raider pact, station-wagon vehicle escape (multi-run chassis tiers 0–3) |
+| Replayability | 3 difficulties, Full Protocol / Scavenge Drill / Survival-Only modes, 3 special challenges, 16 achievements, unlockable hats |
+| Presentation | Animated bunker with deterioration, condition-aware portraits (soot, breakdown, betrayal, rad sickness…), original procedural SFX & music loops |
+
+Screenshots: [`docs/screenshots/before`](docs/screenshots/before) (V1) vs [`docs/screenshots/after`](docs/screenshots/after) (V2).
+Tests: `godot --headless --path . -s res://tests/v2_executive_critic.gd` (also `v2_playtest_audit.gd`, `v2_osm_3d_audit.gd`, `v2_visual_audit.gd` under xvfb).
+
 ## Play in Browser & Watch Demo Video
 
 - **Play Directly in Your Browser (WebAssembly)**: **[https://federallyapproved.github.io/sixty-seconds-world-reatomized/](https://federallyapproved.github.io/sixty-seconds-world-reatomized/)**

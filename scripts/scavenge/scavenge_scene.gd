@@ -1,11 +1,11 @@
 class_name ScavengeScene
 extends Node2D
 
-## 60-Second Real-World OSM House Scavenge Sequence for "60 Seconds: World Reatomized".
-## Runs the Recon/Scout phase + frantic 60.0-second CONELRAD countdown inside the
-## player's chosen OpenStreetMap house footprint, with sliding physics, furniture bump
-## juice, multi-slot carry management, automatic Bunker Hatch chute drops, and a smart
-## pathfinding Auto-Pilot for GameState.demo_mode.
+## 3D Isometric Real-World OSM House Scavenge Sequence for "60 Seconds: World Reatomized" (V2).
+## Hosts a 1280x720 3D Isometric Cutaway House (SubViewport + Orthographic Camera3D + Dynamic Lighting)
+## paired with a crisp projected 2D CONELRAD Callout & Civil Defense HUD Layer.
+## Preserves 100% of verified HouseGenerator BFS walkability, sliding circle collisions,
+## multi-slot carry rules, Demo Auto-Pilot pathfinding, Difficulty/Drill modes, and Left-Behind tracking.
 
 signal item_picked_up(item_id: String, slots: int)
 signal family_picked_up(member_id: String, slots: int)
@@ -65,7 +65,7 @@ var _hatch_radius: float = 52.0
 var _leader_start_pos: Vector2 = Vector2(0.0, 72.0)
 var _nav_grid: Dictionary = {}
 
-# Fallback local navigation grid (in case HouseGenerator.find_path returns empty)
+# Fallback local navigation grid
 var _local_grid_origin: Vector2 = Vector2.ZERO
 var _local_grid_cell: float = 22.0
 var _local_grid_cols: int = 0
@@ -118,10 +118,30 @@ var _last_whole_sec: int = -1
 var _last_half_tick: int = -1
 var _siren_15_played: bool = false
 
-# Visual Juice & Camera
-var _camera: Camera2D = null
-var _base_zoom: float = 1.15
-var _current_zoom: float = 1.0
+# Visual Juice, 3D World & Isometric Camera
+var _is_headless: bool = false
+var _world_3d_layer: CanvasLayer = null
+var _sub_vp_container: SubViewportContainer = null
+var _sub_vp: SubViewport = null
+var _world_env: WorldEnvironment = null
+var _sun_light: DirectionalLight3D = null
+var _hatch_light: OmniLight3D = null
+var _siren_light: OmniLight3D = null
+var _camera_3d: Camera3D = null
+var _house_3d_root: Node3D = null
+var _entities_3d_root: Node3D = null
+var _chute_fx_3d_root: Node3D = null
+var _furniture_nodes_3d: Dictionary = {}
+var _hatch_nodes_3d: Dictionary = {}
+var _player_node_3d: Node3D = null
+var _player_ring_3d: MeshInstance3D = null
+var _item_nodes_3d: Dictionary = {}
+var _family_nodes_3d: Dictionary = {}
+var _last_carried_sig: String = ""
+
+var _base_ortho_size: float = 16.8
+var _current_ortho_size: float = 17.5
+var _cam_focus_2d: Vector2 = Vector2.ZERO
 var _shake_strength: float = 0.0
 var _hands_full_timer: float = 0.0
 var _suitcase_flash_timer: float = 0.0
@@ -130,7 +150,7 @@ var _atomic_flash_alpha: float = 0.0
 var _floating_popups: Array = []
 var _falling_chute_fx: Array = []
 
-# HUD Overlay
+# HUD & Callout Overlay (CanvasLayer 2)
 var _hud_layer: CanvasLayer = null
 var _hud: _ScavengeHUD = null
 
@@ -151,6 +171,7 @@ var _ai_blacklist: Dictionary = {}
 
 
 func _ready() -> void:
+	_is_headless = (DisplayServer.get_name() == "headless")
 	_preserve_and_reset_run_state()
 	SoundManager.set_ambience("scavenge")
 
@@ -162,17 +183,28 @@ func _ready() -> void:
 	_parse_house_layout(_house_layout)
 	_build_local_fallback_grid()
 
-	_scavenge_total = clampf(float(GameState.nuke_config.get("scavenge_seconds", 60.0)), 15.0, 120.0)
-	_scavenge_time_left = _scavenge_total
+	# Difficulty & Demo Timer Configuration
+	var diff_cfg: Dictionary = GameState.get_difficulty_config()
 	if GameState.demo_mode:
+		_scavenge_total = 60.0
 		_scout_total = 2.5
 	else:
-		_scout_total = clampf(float(GameState.nuke_config.get("scout_seconds", 8.0)), 1.5, 20.0)
+		var diff_scav: float = float(diff_cfg.get("scavenge_seconds", 60.0))
+		var nuke_scav: float = float(GameState.nuke_config.get("scavenge_seconds", 60.0))
+		var resolved_scav: float = diff_scav if is_equal_approx(nuke_scav, 60.0) else nuke_scav
+		_scavenge_total = clampf(resolved_scav, 15.0, 120.0)
+
+		var base_scout: float = float(GameState.nuke_config.get("scout_seconds", 8.0))
+		var scout_bonus: float = float(diff_cfg.get("scout_bonus_sec", 0.0))
+		_scout_total = clampf(base_scout + scout_bonus, 1.5, 25.0)
+
+	_scavenge_time_left = _scavenge_total
 	_scout_time_left = _scout_total
 	_last_whole_sec = int(ceil(_scout_time_left))
 
-	_setup_camera()
+	_setup_3d_isometric_world()
 	_setup_hud()
+	_sync_3d_world(0.016)
 
 	SoundManager.play_sfx("tick")
 	queue_redraw()
@@ -183,8 +215,8 @@ func _exit_tree() -> void:
 
 
 func _reset_viewport_camera_transform() -> void:
-	if is_instance_valid(_camera):
-		_camera.enabled = false
+	if is_instance_valid(_camera_3d):
+		_camera_3d.current = false
 	var vp: Viewport = get_viewport()
 	if vp != null:
 		vp.canvas_transform = Transform2D.IDENTITY
@@ -192,18 +224,36 @@ func _reset_viewport_camera_transform() -> void:
 
 func _preserve_and_reset_run_state() -> void:
 	var saved_family: Array = GameState.family_members.duplicate(true)
+	var saved_rels: Dictionary = GameState.relationships.duplicate(true)
 	var saved_house: Dictionary = GameState.selected_house.duplicate(true)
 	var saved_pois: Array = GameState.nearby_pois.duplicate(true)
+	var saved_mods: Dictionary = GameState.neighborhood_modifiers.duplicate(true)
 	var saved_neighborhood: String = GameState.current_neighborhood_label
 	var saved_nuke: Dictionary = GameState.nuke_config.duplicate(true)
 	var saved_demo: bool = GameState.demo_mode
+	var saved_promo: bool = GameState.promo_video_mode
 	var saved_fast: bool = GameState.headless_fast_test
+	var saved_diff: String = GameState.difficulty
+	var saved_mode: String = GameState.game_mode
+	var saved_challenge: String = GameState.active_challenge_id
+	var saved_cat: bool = GameState.has_cat_sharikov
+	var saved_dog: bool = GameState.has_dog_pancake
+	var saved_flags: Dictionary = GameState.story_flags.duplicate(true)
 
 	GameState.reset_to_defaults()
 
 	GameState.demo_mode = saved_demo
+	GameState.promo_video_mode = saved_promo
 	GameState.headless_fast_test = saved_fast
+	GameState.difficulty = saved_diff
+	GameState.game_mode = saved_mode
+	GameState.active_challenge_id = saved_challenge
+	if saved_mode == "challenge":
+		GameState.has_cat_sharikov = saved_cat
+		GameState.has_dog_pancake = saved_dog
+		GameState.story_flags = saved_flags
 	GameState.current_neighborhood_label = saved_neighborhood
+	GameState.neighborhood_modifiers = saved_mods
 	if not saved_pois.is_empty():
 		GameState.nearby_pois = saved_pois
 	for poi_var in GameState.nearby_pois:
@@ -218,6 +268,10 @@ func _preserve_and_reset_run_state() -> void:
 	if not saved_family.is_empty():
 		GameState.family_members = saved_family
 		GameState.reset_family_runtime_status()
+	if not saved_rels.is_empty():
+		GameState.relationships = saved_rels
+	else:
+		GameState.init_relationships(20)
 
 	GameState.surface_radiation_sv = float(GameState.nuke_config.get("initial_sv_hr", 4.5))
 	GameState.bunker_temp_c = float(GameState.nuke_config.get("bunker_temp_c", 20.0))
@@ -236,6 +290,11 @@ func _preserve_and_reset_run_state() -> void:
 		var first_m: Dictionary = GameState.family_members[0]
 		first_m["is_leader"] = true
 		_leader_member = first_m
+
+	if saved_mode == "challenge" and saved_challenge == "lone_wolf_pets":
+		_max_slots = maxi(_max_slots, 4)
+		if not _leader_member.is_empty():
+			_leader_member["scavenge_slots"] = 4
 
 
 func _parse_house_layout(layout: Dictionary) -> void:
@@ -363,7 +422,6 @@ func _parse_house_layout(layout: Dictionary) -> void:
 				elif fd.has("walkable"):
 					solid_flag = not bool(fd["walkable"])
 
-				# Keep hatch apron & player start unobstructed
 				if f_rect.grow(10.0).has_point(_hatch_pos) or f_rect.grow(PLAYER_RADIUS + 4.0).has_point(_player_pos):
 					solid_flag = false
 
@@ -462,7 +520,6 @@ func _parse_house_layout(layout: Dictionary) -> void:
 		fam_uid += 1
 
 	_non_leader_total = _world_family.size()
-	# Ensure player starts completely clear of wall overlaps
 	_player_pos = _resolve_collisions(_player_pos, false)
 
 
@@ -481,28 +538,275 @@ func _make_furniture_prop(rect: Rect2, kind: String, label: String, col: Color, 
 	}
 
 
-func _setup_camera() -> void:
-	_camera = Camera2D.new()
-	_camera.name = "ScavengeCamera"
-	_camera.position_smoothing_enabled = false
-	_camera.enabled = true
-	add_child(_camera)
-	_camera.make_current()
+# ==============================================================================
+# TRUE 3D ISOMETRIC SUBVIEWPORT, LIGHTING & CAMERA SETUP
+# ==============================================================================
 
-	var span_x: float = maxf(480.0, _house_bounds.size.x + 32.0)
-	var span_y: float = maxf(380.0, _house_bounds.size.y + 32.0)
-	var fit_zoom_x: float = 900.0 / span_x
-	var fit_zoom_y: float = 510.0 / span_y
-	_base_zoom = clampf(minf(fit_zoom_x, fit_zoom_y), 0.68, 0.95)
-	_current_zoom = clampf(_base_zoom * 0.96, 0.68, 0.95)
-	_camera.zoom = Vector2(_current_zoom, _current_zoom)
-	_camera.position = _clamp_camera_target(_player_pos, _current_zoom)
+func _setup_3d_isometric_world() -> void:
+	# Compute fitted orthographic size (~16.2 .. 19.2) from house bounds
+	var hx_m: float = maxf(12.0, _house_bounds.size.x * House3DBuilder.SCALE_3D)
+	var hz_m: float = maxf(10.0, _house_bounds.size.y * House3DBuilder.SCALE_3D)
+	var iso_span_w: float = hx_m * 0.848 + hz_m * 0.530
+	var iso_span_h: float = (hx_m * 0.530 + hz_m * 0.848) * 0.743 + 2.3
+	var fit_w: float = (iso_span_w / (1280.0 / 720.0)) * 1.18
+	var fit_h: float = iso_span_h * 1.10
+	_base_ortho_size = clampf(maxf(fit_w, fit_h), 16.2, 19.2)
+	_current_ortho_size = clampf(_base_ortho_size * 1.05, 16.4, 20.4)
+	_cam_focus_2d = _player_pos.lerp(_house_bounds.get_center(), 0.55)
+
+	# Headless fast-test guard: skip heavy GPU SubViewport/MSAA/shadow allocation
+	if _is_headless:
+		return
+
+	_world_3d_layer = CanvasLayer.new()
+	_world_3d_layer.name = "Scavenge3DViewportLayer"
+	_world_3d_layer.layer = 0
+	add_child(_world_3d_layer)
+
+	_sub_vp_container = SubViewportContainer.new()
+	_sub_vp_container.name = "ScavengeSubViewportContainer"
+	_sub_vp_container.position = Vector2.ZERO
+	_sub_vp_container.size = Vector2(1280.0, 720.0)
+	_sub_vp_container.stretch = true
+	_sub_vp_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_world_3d_layer.add_child(_sub_vp_container)
+
+	var is_software_gl: bool = RenderingServer.get_video_adapter_name().to_lower().contains("llvmpipe") or RenderingServer.get_video_adapter_name().to_lower().contains("softpipe")
+
+	_sub_vp = SubViewport.new()
+	_sub_vp.name = "ScavengeSubViewport"
+	_sub_vp.size = Vector2i(1280, 720)
+	_sub_vp.own_world_3d = true
+	_sub_vp.msaa_3d = Viewport.MSAA_DISABLED if is_software_gl else Viewport.MSAA_2X
+	_sub_vp.handle_input_locally = false
+	_sub_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_sub_vp_container.add_child(_sub_vp)
+
+	# 1950s Atomic Twilight Environment (balanced exposure so floors & 3D props stay crisp)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color("#181b18")
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color("#eddac0")
+	env.ambient_light_energy = 0.52
+	_world_env = WorldEnvironment.new()
+	_world_env.name = "WorldEnvironment3D"
+	_world_env.environment = env
+	_sub_vp.add_child(_world_env)
+
+	# Warm Golden Afternoon Sun (shifts toward ominous atomic orange as countdown nears 0!)
+	_sun_light = DirectionalLight3D.new()
+	_sun_light.name = "AtomicTwilightSun"
+	_sun_light.rotation_degrees = Vector3(-54.0, 42.0, 0.0)
+	_sun_light.light_color = Color("#ffdfab")
+	_sun_light.light_energy = 0.86
+	_sun_light.shadow_enabled = not is_software_gl
+	_sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	_sun_light.directional_shadow_max_distance = 58.0
+	_sun_light.shadow_opacity = 0.58
+	_sub_vp.add_child(_sun_light)
+
+	# Warm Subterranean Glow rising out of the Fallout Bunker Hatch
+	_hatch_light = OmniLight3D.new()
+	_hatch_light.name = "BunkerHatchGlow"
+	_hatch_light.position = House3DBuilder.to_3d(_hatch_pos, 0.52)
+	_hatch_light.light_color = Color("#ffaa3b")
+	_hatch_light.omni_range = 4.6
+	_hatch_light.light_energy = 1.20
+	_sub_vp.add_child(_hatch_light)
+
+	# Emergency Red CONELRAD Siren Light (pulses urgently in final 15 seconds)
+	_siren_light = OmniLight3D.new()
+	_siren_light.name = "ConelradSirenLight"
+	_siren_light.position = House3DBuilder.to_3d(_hatch_pos, 3.6)
+	_siren_light.light_color = Color("#ff2b1c")
+	_siren_light.omni_range = 28.0
+	_siren_light.light_energy = 0.0
+	_sub_vp.add_child(_siren_light)
+
+	# Orthographic Isometric Camera3D (-48 deg pitch, +32 deg yaw)
+	_camera_3d = Camera3D.new()
+	_camera_3d.name = "IsometricCamera3D"
+	_camera_3d.projection = Camera3D.PROJECTION_ORTHOGONAL
+	_camera_3d.rotation_degrees = Vector3(-48.0, 32.0, 0.0)
+	_camera_3d.size = _current_ortho_size
+	_camera_3d.near = 0.5
+	_camera_3d.far = 140.0
+	_camera_3d.current = true
+	_sub_vp.add_child(_camera_3d)
+	_position_camera_3d(_cam_focus_2d, Vector2.ZERO)
+
+	# Build 3D House, Cutaway Walls, Furniture & Bunker Hatch
+	var built: Dictionary = House3DBuilder.build_house_world(_house_layout, false)
+	_house_3d_root = built["root"]
+	_furniture_nodes_3d = built["furniture_nodes"]
+	_hatch_nodes_3d = built["hatch_nodes"]
+	_sub_vp.add_child(_house_3d_root)
+
+	_entities_3d_root = Node3D.new()
+	_entities_3d_root.name = "Entities3D"
+	_sub_vp.add_child(_entities_3d_root)
+
+	_chute_fx_3d_root = Node3D.new()
+	_chute_fx_3d_root.name = "ChuteFX3D"
+	_sub_vp.add_child(_chute_fx_3d_root)
+
+	# Build Articulated 3D Player Leader + Green Ground Ring
+	_player_node_3d = House3DBuilder.build_character_3d(_leader_member)
+	_player_node_3d.name = "Leader3D"
+	_entities_3d_root.add_child(_player_node_3d)
+
+	_player_ring_3d = MeshInstance3D.new()
+	var pr_torus := TorusMesh.new()
+	pr_torus.inner_radius = 0.36
+	pr_torus.outer_radius = 0.44
+	pr_torus.rings = 24
+	pr_torus.ring_segments = 8
+	_player_ring_3d.mesh = pr_torus
+	_player_ring_3d.material_override = House3DBuilder._make_mat(
+		COL_TOXIC_GREEN, 0.35, 0.1, COL_TOXIC_GREEN, 0.85, 0.88
+	)
+	_player_ring_3d.position = Vector3(0.0, 0.02, 0.0)
+	_player_ring_3d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_player_node_3d.add_child(_player_ring_3d)
+
+	# Build Articulated 3D Waiting Family Members
+	_family_nodes_3d.clear()
+	for f_var in _world_family:
+		var fam: Dictionary = f_var
+		var f_uid: int = int(fam["uid"])
+		var m_dict: Dictionary = fam["member"]
+		var f_node: Node3D = House3DBuilder.build_character_3d(m_dict)
+		f_node.position = House3DBuilder.to_3d(fam["pos"], House3DBuilder.FLOOR_TOP_Y)
+		var fam_ring := MeshInstance3D.new()
+		var fr_torus := TorusMesh.new()
+		fr_torus.inner_radius = 0.40
+		fr_torus.outer_radius = 0.48
+		fr_torus.rings = 24
+		fr_torus.ring_segments = 8
+		fam_ring.mesh = fr_torus
+		var fr_mat: StandardMaterial3D = House3DBuilder._make_mat(
+			COL_WATER_BLUE, 0.35, 0.1, COL_WATER_BLUE, 0.75, 0.85
+		)
+		fam_ring.material_override = fr_mat
+		fam_ring.position = Vector3(0.0, 0.02, 0.0)
+		fam_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		f_node.add_child(fam_ring)
+		f_node.set_meta("ring_mat", fr_mat)
+		_entities_3d_root.add_child(f_node)
+		_family_nodes_3d[f_uid] = f_node
+
+	# Build 3D Supply Models
+	_item_nodes_3d.clear()
+	for it_var in _world_items:
+		var it: Dictionary = it_var
+		_ensure_item_node_3d(it)
+
+
+func _ensure_item_node_3d(it: Dictionary) -> Node3D:
+	var uid: int = int(it.get("uid", -1))
+	if _item_nodes_3d.has(uid):
+		return _item_nodes_3d[uid]
+	if not is_instance_valid(_entities_3d_root):
+		return null
+	var iid: String = str(it.get("item_id", "soup"))
+	var inode: Node3D = House3DBuilder.build_item_3d(iid, false)
+	var ipos: Vector2 = it.get("pos", Vector2.ZERO) if it.get("pos") is Vector2 else Vector2.ZERO
+	inode.position = House3DBuilder.to_3d(ipos, House3DBuilder.FLOOR_TOP_Y)
+	_entities_3d_root.add_child(inode)
+	_item_nodes_3d[uid] = inode
+	return inode
+
+
+func _position_camera_3d(focus_2d: Vector2, screen_shake_m: Vector2) -> void:
+	if not is_instance_valid(_camera_3d):
+		return
+	var cam_basis: Basis = _camera_3d.transform.basis
+	var cam_forward: Vector3 = -cam_basis.z
+	# Shift camera look target slightly upward in screen space (+cam_basis.y * 0.68m)
+	# so the 3D house frames cleanly below the top Stopwatch Banner and above the Carry Bar!
+	var target_3d: Vector3 = House3DBuilder.to_3d(focus_2d, 0.36) + cam_basis.y * 0.68
+	var shake_world: Vector3 = cam_basis.x * screen_shake_m.x + cam_basis.y * screen_shake_m.y
+	_camera_3d.position = target_3d - cam_forward * 44.0 + shake_world
+
+
+func project_2d_to_screen(pos_2d: Vector2, y_height: float = House3DBuilder.FLOOR_TOP_Y) -> Vector2:
+	if not is_instance_valid(_camera_3d):
+		return Vector2(-9999.0, -9999.0)
+	var p3: Vector3 = House3DBuilder.to_3d(pos_2d, y_height)
+	if _camera_3d.is_position_behind(p3):
+		return Vector2(-9999.0, -9999.0)
+	return _camera_3d.unproject_position(p3)
+
+
+func _screen_to_floor_2d(screen_pos: Vector2) -> Vector2:
+	if not is_instance_valid(_camera_3d):
+		return _player_pos
+	var ray_origin: Vector3 = _camera_3d.project_ray_origin(screen_pos)
+	var ray_dir: Vector3 = _camera_3d.project_ray_normal(screen_pos)
+	if absf(ray_dir.y) < 0.0001:
+		return _player_pos
+	var t: float = (House3DBuilder.FLOOR_TOP_Y - ray_origin.y) / ray_dir.y
+	var hit_3d: Vector3 = ray_origin + ray_dir * t
+	return House3DBuilder.to_2d(hit_3d)
+
+
+func _find_target_near_screen_click(screen_pos: Vector2, max_screen_px: float = 36.0) -> Dictionary:
+	if not is_instance_valid(_camera_3d):
+		return {}
+	var best_d2: float = max_screen_px * max_screen_px
+	var best: Dictionary = {}
+
+	for f_var in _world_family:
+		var fam: Dictionary = f_var
+		if bool(fam.get("collected", false)):
+			continue
+		var fpos: Vector2 = fam["pos"]
+		var sp_body: Vector2 = project_2d_to_screen(fpos, 0.65)
+		var sp_badge: Vector2 = project_2d_to_screen(fpos, 1.35)
+		var d2: float = minf(screen_pos.distance_squared_to(sp_body), screen_pos.distance_squared_to(sp_badge))
+		if d2 <= best_d2:
+			best_d2 = d2
+			best = {
+				"kind": "family",
+				"uid": int(fam["uid"]),
+				"pos": fpos,
+				"slots": int(fam["slots"]),
+				"label": "%s [%d Slots]" % [str(fam["name"]), int(fam["slots"])],
+				"name": str(fam["name"]),
+				"ref": fam
+			}
+
+	for it_var in _world_items:
+		var it: Dictionary = it_var
+		if bool(it.get("collected", false)):
+			continue
+		var ipos: Vector2 = it["pos"]
+		var sp_it: Vector2 = project_2d_to_screen(ipos, 0.25)
+		var sp_icon: Vector2 = project_2d_to_screen(ipos, 0.72)
+		var d2_i: float = minf(screen_pos.distance_squared_to(sp_it), screen_pos.distance_squared_to(sp_icon))
+		if d2_i <= best_d2:
+			best_d2 = d2_i
+			var sl: int = int(it["slots"])
+			var sl_word: String = "Slot" if sl == 1 else "Slots"
+			best = {
+				"kind": "item",
+				"uid": int(it["uid"]),
+				"pos": ipos,
+				"slots": sl,
+				"label": "%s [%d %s]" % [str(it["name"]), sl, sl_word],
+				"name": str(it["name"]),
+				"item_id": str(it["item_id"]),
+				"ref": it
+			}
+
+	return best
 
 
 func _setup_hud() -> void:
 	_hud_layer = CanvasLayer.new()
 	_hud_layer.name = "ScavengeHUDLayer"
-	_hud_layer.layer = 12
+	_hud_layer.layer = 2
 	add_child(_hud_layer)
 
 	_hud = _ScavengeHUD.new()
@@ -544,11 +848,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and not GameState.demo_mode:
 		var mb: InputEventMouseButton = event
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
-			var world_click: Vector2 = get_global_mouse_position()
-			_handle_world_left_click(world_click)
+			var screen_click: Vector2 = mb.position
+			var world_click: Vector2 = _screen_to_floor_2d(screen_click)
+			_handle_world_left_click(world_click, screen_click)
 
 
-func _handle_world_left_click(world_click: Vector2) -> void:
+func _handle_world_left_click(world_click: Vector2, screen_click: Vector2 = Vector2(-9999.0, -9999.0)) -> void:
 	if _phase == Phase.SCOUT:
 		_has_click_target = true
 		var offset_from_start: Vector2 = world_click - _leader_start_pos
@@ -562,8 +867,12 @@ func _handle_world_left_click(world_click: Vector2) -> void:
 	if _phase != Phase.SCAVENGE:
 		return
 
-	# Check if player clicked on an item or family member
-	var clicked_target: Dictionary = _find_target_near_point(world_click, 42.0)
+	var clicked_target: Dictionary = {}
+	if screen_click.x > -9000.0:
+		clicked_target = _find_target_near_screen_click(screen_click, 36.0)
+	if clicked_target.is_empty():
+		clicked_target = _find_target_near_point(world_click, 44.0)
+
 	if not clicked_target.is_empty():
 		var tpos: Vector2 = clicked_target["pos"]
 		if _player_pos.distance_to(tpos) <= INTERACT_RADIUS + 4.0:
@@ -576,7 +885,6 @@ func _handle_world_left_click(world_click: Vector2) -> void:
 		_click_pickup_uid = int(clicked_target.get("uid", -1))
 		return
 
-	# Otherwise run to clicked floor position
 	_has_click_target = true
 	_click_target_pos = world_click
 	_click_pickup_kind = ""
@@ -597,8 +905,8 @@ func _process(delta: float) -> void:
 		Phase.OUTRO:
 			_process_outro_phase(dt)
 
-	_update_camera(dt)
-	queue_redraw()
+	_update_camera_and_lighting(dt)
+	_sync_3d_world(dt)
 	if is_instance_valid(_hud):
 		_hud.sync_state()
 		_hud.queue_redraw()
@@ -612,7 +920,6 @@ func _process_scout_phase(dt: float) -> void:
 		SoundManager.play_sfx("tick")
 
 	if GameState.demo_mode:
-		# Smoothly scan around the hatch during the 2.5s recon preview
 		var scan_angle: float = _anim_time * 2.4
 		_player_facing = Vector2(cos(scan_angle), sin(scan_angle))
 		var gentle_orbit: Vector2 = _leader_start_pos + Vector2(cos(scan_angle), sin(scan_angle)) * 18.0
@@ -650,7 +957,12 @@ func _start_scavenge_phase() -> void:
 	_has_click_target = false
 	_shake_strength = 7.5
 	SoundManager.play_sfx("siren")
-	_spawn_popup(_player_pos + Vector2(0.0, -34.0), "CONELRAD ALERT! 60 SECONDS!", COL_HAZARD_YELLOW, 1.55)
+	_spawn_popup(
+		_player_pos + Vector2(0.0, -34.0),
+		"CONELRAD ALERT! %d SECONDS!" % int(round(_scavenge_total)),
+		COL_HAZARD_YELLOW,
+		1.55
+	)
 
 
 func _process_scavenge_phase(dt: float) -> void:
@@ -712,7 +1024,6 @@ func _process_manual_scavenge_control(dt: float, cur_speed: float) -> void:
 		return
 
 	if _has_click_target:
-		# If clicking a target item/family and now within pickup range, grab it!
 		if not _click_pickup_kind.is_empty():
 			var tracked: Dictionary = _get_target_by_uid(_click_pickup_kind, _click_pickup_uid)
 			if tracked.is_empty():
@@ -757,6 +1068,11 @@ func _process_outro_phase(dt: float) -> void:
 	if _outro_elapsed >= OUTRO_DURATION and not _outro_transitioned:
 		_outro_transitioned = true
 		_reset_viewport_camera_transform()
+
+		if GameState.game_mode == "scavenge_drill":
+			GameState.request_screen(GameState.SCREEN_SUMMARY)
+			return
+
 		var living_survivors: Array = GameState.get_all_living_members()
 		if living_survivors.is_empty():
 			GameState.game_over = true
@@ -781,18 +1097,26 @@ func _process_outro_phase(dt: float) -> void:
 # ==============================================================================
 
 func _read_manual_move_vector() -> Vector2:
-	var dir := Vector2.ZERO
+	var raw := Vector2.ZERO
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
-		dir.x -= 1.0
+		raw.x -= 1.0
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		dir.x += 1.0
+		raw.x += 1.0
 	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
-		dir.y -= 1.0
+		raw.y -= 1.0
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		dir.y += 1.0
-	if dir.length_squared() > 1.0:
-		dir = dir.normalized()
-	return dir
+		raw.y += 1.0
+	if raw.length_squared() < 0.0001:
+		return Vector2.ZERO
+
+	if is_instance_valid(_camera_3d):
+		var cam_basis: Basis = _camera_3d.global_transform.basis
+		var right_2d: Vector2 = Vector2(cam_basis.x.x, cam_basis.x.z).normalized()
+		var down_2d: Vector2 = Vector2(-cam_basis.y.x, -cam_basis.y.z).normalized()
+		var world_dir: Vector2 = right_2d * raw.x + down_2d * raw.y
+		return world_dir.normalized() if world_dir.length_squared() > 0.0001 else Vector2.ZERO
+
+	return raw.normalized()
 
 
 func _compute_move_speed() -> float:
@@ -841,7 +1165,6 @@ func _apply_player_movement(desired_vel: Vector2, dt: float, scout_leash: bool) 
 func _resolve_collisions(pos: Vector2, apply_furniture_impulse: bool) -> Vector2:
 	var p: Vector2 = pos
 	for pass_idx in range(3):
-		# 1. Furniture props (solid)
 		for f_var in _furniture_props:
 			var prop: Dictionary = f_var
 			if not bool(prop.get("solid", true)):
@@ -856,11 +1179,9 @@ func _resolve_collisions(pos: Vector2, apply_furniture_impulse: bool) -> Vector2
 					prop["bump_cd"] = 0.18
 				p = pushed
 
-		# 2. Axis-aligned wall rectangles
 		for w_rect in _wall_rects:
 			p = _push_circle_out_of_rect(p, PLAYER_RADIUS, w_rect)
 
-		# 3. Diagonal / polygon wall segments
 		for seg_var in _wall_segments:
 			var seg: Dictionary = seg_var
 			var sa: Vector2 = seg["a"]
@@ -868,7 +1189,6 @@ func _resolve_collisions(pos: Vector2, apply_furniture_impulse: bool) -> Vector2
 			var hthick: float = float(seg.get("half_thick", 6.0))
 			p = _push_circle_out_of_segment(p, PLAYER_RADIUS, sa, sb, hthick)
 
-	# Keep inside outer house bounds safety margin
 	var safe_bounds: Rect2 = _house_bounds.grow(-4.0)
 	if safe_bounds.size.x > 32.0 and safe_bounds.size.y > 32.0:
 		p.x = clampf(p.x, safe_bounds.position.x, safe_bounds.end.x)
@@ -888,7 +1208,6 @@ func _push_circle_out_of_rect(center: Vector2, radius: float, rect: Rect2) -> Ve
 		var d: float = sqrt(d_sq)
 		return center + (diff / d) * (radius - d)
 
-	# Circle center is strictly inside the rect: push out along shallowest edge
 	var left_p: float = (center.x - rect.position.x) + radius
 	var right_p: float = (rect.end.x - center.x) + radius
 	var top_p: float = (center.y - rect.position.y) + radius
@@ -924,7 +1243,7 @@ func _push_circle_out_of_segment(center: Vector2, radius: float, a: Vector2, b: 
 
 
 # ==============================================================================
-# PICKUP, CHUTE DEPOSIT & BUNKER ENTRY MECHANICS
+# PICKUP, CHUTE DEPOSIT, BUNKER ENTRY & DRILL / LEFT-BEHIND CONSEQUENCES
 # ==============================================================================
 
 func _get_used_slots() -> int:
@@ -1062,7 +1381,8 @@ func _attempt_pickup_target(target: Dictionary) -> bool:
 			"name": fname,
 			"slots": needed_slots
 		})
-		_spawn_popup(entity_ref["pos"] + Vector2(0.0, -24.0), "+%s [%d SLOTS]" % [fname.to_upper(), needed_slots], COL_HAZARD_YELLOW, 1.25)
+		var fpos_p: Vector2 = entity_ref.get("pos", _player_pos) if entity_ref.get("pos") is Vector2 else _player_pos
+		_spawn_popup(fpos_p + Vector2(0.0, -24.0), "+%s [%d SLOTS]" % [fname.to_upper(), needed_slots], COL_HAZARD_YELLOW, 1.25)
 		family_picked_up.emit(str(m.get("id", "")), needed_slots)
 	else:
 		var iid: String = str(entity_ref.get("item_id", "soup"))
@@ -1074,7 +1394,8 @@ func _attempt_pickup_target(target: Dictionary) -> bool:
 			"short_name": sname,
 			"slots": needed_slots
 		})
-		_spawn_popup(entity_ref["pos"] + Vector2(0.0, -20.0), "+%s" % sname.to_upper(), COL_PARCHMENT, 1.1)
+		var ipos_p: Vector2 = entity_ref.get("pos", _player_pos) if entity_ref.get("pos") is Vector2 else _player_pos
+		_spawn_popup(ipos_p + Vector2(0.0, -20.0), "+%s" % sname.to_upper(), COL_PARCHMENT, 1.1)
 		item_picked_up.emit(iid, needed_slots)
 
 	if GameState.demo_mode:
@@ -1104,12 +1425,17 @@ func _deposit_carried_into_hatch() -> void:
 			m["status_note"] = "Dropped safely into the fallout shelter."
 			_family_deposited_count += 1
 			dropped_family_batch += 1
+			var fx_node_f: Node3D = null
+			if is_instance_valid(_chute_fx_3d_root):
+				fx_node_f = House3DBuilder.build_character_3d(m)
+				_chute_fx_3d_root.add_child(fx_node_f)
 			_falling_chute_fx.append({
 				"kind": "family",
 				"member": m,
 				"pos": start_p,
 				"t": 0.0,
-				"dur": 0.46
+				"dur": 0.46,
+				"node_3d": fx_node_f
 			})
 			_spawn_popup(_hatch_pos + Vector2(0.0, -34.0 - float(idx_offset) * 18.0), "%s SAFE IN BUNKER!" % str(m.get("name", "Family")).to_upper(), COL_TOXIC_GREEN, 1.55)
 		else:
@@ -1130,12 +1456,17 @@ func _deposit_carried_into_hatch() -> void:
 				_suitcase_flash_timer = 2.8
 				unlocked_suitcase_now = true
 
+			var fx_node_i: Node3D = null
+			if is_instance_valid(_chute_fx_3d_root):
+				fx_node_i = House3DBuilder.build_item_3d(iid, true)
+				_chute_fx_3d_root.add_child(fx_node_i)
 			_falling_chute_fx.append({
 				"kind": "item",
 				"item_id": iid,
 				"pos": start_p,
 				"t": 0.0,
-				"dur": 0.42
+				"dur": 0.42,
+				"node_3d": fx_node_i
 			})
 		idx_offset += 1
 
@@ -1152,6 +1483,9 @@ func _deposit_carried_into_hatch() -> void:
 		"leader_escaped": bool(_leader_member.get("in_bunker", false)) and bool(_leader_member.get("alive", false)),
 		"time_remaining": maxf(0.0, snappedf(_scavenge_time_left, 0.1))
 	}
+
+	if _items_deposited_count >= 18:
+		GameState.unlock_achievement("pack_mule")
 
 	if unlocked_suitcase_now:
 		_spawn_popup(_hatch_pos + Vector2(0.0, -56.0), "+1 CARRY SLOT (SUITCASE)!", COL_HAZARD_YELLOW, 2.1)
@@ -1225,7 +1559,8 @@ func _finalize_scavenge_and_enter_outro(caught_outside: bool) -> void:
 	_phase = Phase.OUTRO
 	_outro_elapsed = 0.0
 
-	# Mark any non-leader family members left upstairs as lost
+	# Mark any non-bunker family members as lost AND record GameState.left_behind_members
+	var left_behind: Array = []
 	for raw_m in GameState.family_members:
 		var m: Dictionary = raw_m
 		if not bool(m.get("in_bunker", false)):
@@ -1234,9 +1569,26 @@ func _finalize_scavenge_and_enter_outro(caught_outside: bool) -> void:
 			if str(m.get("death_reason", "")).is_empty():
 				m["death_reason"] = "Left behind upstairs when the CONELRAD siren ended."
 			m["status_note"] = "Did not reach the fallout bunker."
+			var lost_name: String = str(m.get("name", ""))
+			if not lost_name.is_empty() and not left_behind.has(lost_name):
+				left_behind.append(lost_name)
+		elif not bool(m.get("alive", false)):
+			var lost_name2: String = str(m.get("name", ""))
+			if not lost_name2.is_empty() and not left_behind.has(lost_name2):
+				left_behind.append(lost_name2)
+
+	GameState.left_behind_members = left_behind
+
+	if _items_deposited_count >= 18:
+		GameState.unlock_achievement("pack_mule")
+	if GameState.family_members.size() >= 4 and left_behind.is_empty():
+		GameState.unlock_achievement("full_house")
 
 	var survivors: Array = GameState.get_all_living_members()
 	var leader_safe: bool = (not caught_outside) and bool(_leader_member.get("in_bunker", false)) and bool(_leader_member.get("alive", false))
+	var drill_pts: int = _items_deposited_count * 100 + survivors.size() * 250 + (400 if leader_safe else 0) + int(round(maxf(0.0, _scavenge_time_left) * 15.0))
+	var drill_grade: String = "S" if (leader_safe and left_behind.is_empty() and _items_deposited_count >= 14) else ("A" if (leader_safe and _items_deposited_count >= 10) else ("B" if leader_safe else "F"))
+
 	GameState.scavenge_stats = {
 		"items_collected": _items_deposited_count,
 		"soup_cans": GameState.soup_quarters / 4,
@@ -1244,10 +1596,31 @@ func _finalize_scavenge_and_enter_outro(caught_outside: bool) -> void:
 		"gear_collected": _gear_deposited_count,
 		"family_saved": survivors.size(),
 		"leader_escaped": leader_safe,
-		"time_remaining": maxf(0.0, snappedf(_scavenge_time_left, 0.1))
+		"time_remaining": maxf(0.0, snappedf(_scavenge_time_left, 0.1)),
+		"drill_score": drill_pts,
+		"drill_grade": drill_grade
 	}
 
-	if survivors.is_empty():
+	if GameState.game_mode == "scavenge_drill":
+		GameState.game_over = true
+		GameState.victory = leader_safe
+		GameState.ending_route = "scavenge_drill"
+		var house_label: String = str(GameState.selected_house.get("name", "Selected Residence"))
+		var ldr_name: String = str(_leader_member.get("name", "Leader"))
+		if leader_safe:
+			GameState.ending_title = "CIVIL DEFENSE DRILL COMPLETE — GRADE %s (%d PTS)" % [drill_grade, drill_pts]
+			GameState.ending_description = "60-Second CONELRAD Readiness Drill completed at %s! %s sealed the blast hatch with %.1fs to spare, evacuating %d/%d household members and %d supplies (%d Soup, %d Water, %d Survival Gear)." % [
+				house_label, ldr_name, maxf(0.0, _scavenge_time_left),
+				survivors.size(), GameState.family_members.size(),
+				_items_deposited_count, GameState.soup_quarters / 4,
+				GameState.water_quarters / 4, _gear_deposited_count
+			]
+		else:
+			GameState.ending_title = "SCAVENGE DRILL FAILED — CAUGHT ABOVE GROUND (%d PTS)" % drill_pts
+			GameState.ending_description = "The CONELRAD countdown hit 0.0s before %s reached the fallout hatch at %s! Prior chute haul: %d/%d household members and %d supplies." % [
+				ldr_name, house_label, survivors.size(), GameState.family_members.size(), _items_deposited_count
+			]
+	elif survivors.is_empty():
 		GameState.game_over = true
 		GameState.victory = false
 		if GameState.ending_title.is_empty():
@@ -1288,7 +1661,6 @@ func _process_demo_autopilot(dt: float, cur_speed: float) -> void:
 		_apply_player_movement(Vector2.ZERO, dt, false)
 		return
 
-	# Decay temporary item blacklist timers
 	var expired_keys: Array = []
 	for k in _ai_blacklist.keys():
 		var rem: float = float(_ai_blacklist[k]) - dt
@@ -1299,7 +1671,6 @@ func _process_demo_autopilot(dt: float, cur_speed: float) -> void:
 	for ek in expired_keys:
 		_ai_blacklist.erase(ek)
 
-	# Opportunistically grab high-value 1-slot items right under our feet if they won't block our current multi-slot target
 	var free_slots: int = _max_slots - _get_used_slots()
 	var reserved_for_goal: int = 0
 	if _ai_goal_kind == "family" or _ai_goal_kind == "item":
@@ -1328,7 +1699,6 @@ func _process_demo_autopilot(dt: float, cur_speed: float) -> void:
 
 	free_slots = _max_slots - _get_used_slots()
 
-	# Check whether it's time to sprint back to Hatch for final dive!
 	var home_dist: float = _player_pos.distance_to(_hatch_pos)
 	var return_budget_sec: float = (home_dist / maxf(cur_speed, 130.0)) * 1.55 + 3.1
 	var house_empty: bool = (_count_remaining_world_items() == 0 and _count_remaining_world_family() == 0)
@@ -1344,7 +1714,6 @@ func _process_demo_autopilot(dt: float, cur_speed: float) -> void:
 		_ai_steer_toward(_hatch_pos, "hatch", -1, dt, cur_speed)
 		return
 
-	# Deposit trip if hands are full, or carrying suitcase early, or no fitting item left
 	var has_carried_suitcase: bool = _is_carrying_item("suitcase")
 	var best_next: Dictionary = _pick_best_demo_target(free_slots)
 
@@ -1352,7 +1721,6 @@ func _process_demo_autopilot(dt: float, cur_speed: float) -> void:
 		_ai_steer_toward(_hatch_pos, "hatch", -1, dt, cur_speed)
 		return
 
-	# Keep pursuing current goal if still valid & fits, otherwise switch to best_next
 	var active_goal: Dictionary = _get_target_by_uid(_ai_goal_kind, _ai_goal_uid)
 	if active_goal.is_empty() or int(active_goal.get("slots", 1)) > free_slots or _ai_blacklist.has(_ai_goal_uid):
 		active_goal = best_next
@@ -1387,7 +1755,6 @@ func _pick_best_demo_target(free_slots: int) -> Dictionary:
 	var best_score: float = -999999.0
 	var best_target: Dictionary = {}
 
-	# Evaluate remaining family members
 	for f_var in _world_family:
 		var fam: Dictionary = f_var
 		var uid: int = int(fam["uid"])
@@ -1402,7 +1769,6 @@ func _pick_best_demo_target(free_slots: int) -> Dictionary:
 			best_score = score
 			best_target = {"kind": "family", "uid": uid, "pos": fpos, "slots": f_slots, "name": str(fam["name"]), "ref": fam}
 
-	# Evaluate remaining items
 	var soup_total: int = _count_total_secured_or_carried("soup")
 	var water_total: int = _count_total_secured_or_carried("water")
 	var has_weapon: bool = _count_total_secured_or_carried("rifle") > 0 or _count_total_secured_or_carried("axe") > 0
@@ -1464,7 +1830,6 @@ func _ai_steer_toward(goal_pos: Vector2, goal_kind: String, goal_uid: int, dt: f
 		_ai_wp_index = 0
 		_ai_repath_timer = 0.35
 
-	# Advance past reached waypoints
 	while _ai_wp_index < _ai_waypoints.size() - 1:
 		if _player_pos.distance_to(_ai_waypoints[_ai_wp_index]) <= 20.0:
 			_ai_wp_index += 1
@@ -1475,7 +1840,6 @@ func _ai_steer_toward(goal_pos: Vector2, goal_kind: String, goal_uid: int, dt: f
 	if _ai_wp_index >= 0 and _ai_wp_index < _ai_waypoints.size():
 		desired_point = _ai_waypoints[_ai_wp_index]
 
-	# Anti-stuck check
 	_ai_progress_timer += dt
 	if _ai_progress_timer >= 0.38:
 		var moved: float = _player_pos.distance_to(_ai_progress_anchor)
@@ -1616,7 +1980,6 @@ func _fallback_find_path(from_pos: Vector2, to_pos: Vector2) -> Array[Vector2]:
 			var nidx: int = ny * _local_grid_cols + nx
 			if came_from[nidx] != -1 or _local_grid_blocked[nidx] != 0:
 				continue
-			# Prevent diagonal corner cutting through walls
 			if d.x != 0 and d.y != 0:
 				if _local_grid_blocked[cy * _local_grid_cols + nx] != 0 or _local_grid_blocked[ny * _local_grid_cols + cx] != 0:
 					continue
@@ -1661,7 +2024,7 @@ func _nearest_unblocked_cell(cell: Vector2i) -> Vector2i:
 
 
 # ==============================================================================
-# HELPERS, QUERIES & FX UPDATES
+# HELPERS, QUERIES, 3D CAMERA/LIGHTING & FX SYNC
 # ==============================================================================
 
 func _is_carrying_item(item_id: String) -> bool:
@@ -1748,12 +2111,15 @@ func _update_timers_and_fx(dt: float) -> void:
 			puff["life"] = life
 		idx -= 1
 
-	# Update falling chute animations
+	# Update falling chute animations (and free 3D FX node when done)
 	idx = _falling_chute_fx.size() - 1
 	while idx >= 0:
 		var fx: Dictionary = _falling_chute_fx[idx]
 		var t_val: float = float(fx["t"]) + dt
 		if t_val >= float(fx["dur"]):
+			var fx_n: Variant = fx.get("node_3d", null)
+			if fx_n is Node and is_instance_valid(fx_n):
+				(fx_n as Node).queue_free()
 			_falling_chute_fx.remove_at(idx)
 		else:
 			fx["t"] = t_val
@@ -1768,490 +2134,225 @@ func _update_timers_and_fx(dt: float) -> void:
 			_floating_popups.remove_at(idx)
 		else:
 			pop["t"] = pt
-			pop["pos"] = (pop["pos"] as Vector2) + Vector2(0.0, -26.0 * dt)
+			pop["pos"] = (pop["pos"] as Vector2) + Vector2(0.0, -24.0 * dt)
 		idx -= 1
 
 
-func _clamp_camera_target(raw_target: Vector2, zoom_val: float) -> Vector2:
-	var z: float = maxf(zoom_val, 0.5)
-	var hc: Vector2 = _house_bounds.get_center()
-	var hw: float = _house_bounds.size.x * 0.5 + 10.0
-	var hh: float = _house_bounds.size.y * 0.5 + 10.0
-
-	# Safe screen corridor between left radar (x=246) & right tally (x=1002),
-	# and between top stopwatch banner (y=108) & bottom carry bar (y=616).
-	var allow_left_world: float = (640.0 - 246.0) / z
-	var allow_right_world: float = (1002.0 - 640.0) / z
-	var allow_top_world: float = (360.0 - 108.0) / z
-	var allow_bot_world: float = (616.0 - 360.0) / z
-
-	var out: Vector2 = raw_target
-	var x_when_left_aligned: float = (hc.x - hw) + allow_left_world
-	var x_when_right_aligned: float = (hc.x + hw) - allow_right_world
-	if x_when_right_aligned <= x_when_left_aligned:
-		var pref_x: float = hc.x + clampf((raw_target.x - hc.x) * 0.18, -16.0, 16.0)
-		out.x = clampf(pref_x, x_when_right_aligned, x_when_left_aligned)
-	else:
-		out.x = clampf(raw_target.x, x_when_left_aligned, x_when_right_aligned)
-
-	# Apply gentle upward world offset (-18.0 px) so top rooms & central Bunker Hatch
-	# sit cleanly below the top 96px Stopwatch Banner and above the bottom 95px Carry Slots HUD.
-	var y_when_top_aligned: float = (hc.y - hh) + allow_top_world
-	var y_when_bot_aligned: float = (hc.y + hh) - allow_bot_world
-	if y_when_bot_aligned <= y_when_top_aligned:
-		var biased_y: float = hc.y - 18.0 + (raw_target.y - hc.y) * 0.22
-		out.y = clampf(biased_y, y_when_bot_aligned, y_when_top_aligned)
-	else:
-		var tall_y: float = hc.y - 18.0 + (raw_target.y - hc.y) * 0.55
-		out.y = clampf(tall_y, y_when_top_aligned, y_when_bot_aligned)
-
-	return out
-
-
-func _update_camera(dt: float) -> void:
-	if not is_instance_valid(_camera):
+func _update_camera_and_lighting(dt: float) -> void:
+	if _is_headless or not is_instance_valid(_camera_3d):
 		return
 
-	var target_zoom: float = _base_zoom
+	var target_ortho: float = _base_ortho_size
 	if _phase == Phase.SCOUT:
-		target_zoom = clampf(_base_zoom * 0.95, 0.68, 0.95)
+		target_ortho = clampf(_base_ortho_size * 1.06, 15.8, 20.2)
 	elif _phase == Phase.OUTRO:
-		target_zoom = clampf(_base_zoom * 1.06, 0.72, 1.02)
+		target_ortho = clampf(_base_ortho_size * 0.88, 13.8, 16.5)
 
-	_current_zoom = lerpf(_current_zoom, target_zoom, minf(1.0, dt * 4.5))
-	_camera.zoom = Vector2(_current_zoom, _current_zoom)
+	_current_ortho_size = lerpf(_current_ortho_size, target_ortho, minf(1.0, dt * 4.5))
+	_camera_3d.size = _current_ortho_size
 
-	var desired_cam: Vector2 = _player_pos
+	var house_mid: Vector2 = _house_bounds.get_center()
+	var desired_focus: Vector2 = house_mid.lerp(_player_pos, 0.38)
 	if _phase == Phase.SCOUT:
-		desired_cam = _player_pos.lerp(_house_bounds.get_center(), 0.55)
+		desired_focus = house_mid.lerp(_player_pos, 0.16)
 	elif _phase == Phase.OUTRO and not _leader_caught_outside:
-		desired_cam = _hatch_pos
+		desired_focus = house_mid.lerp(_hatch_pos, 0.65)
 
-	desired_cam = _clamp_camera_target(desired_cam, _current_zoom)
-	_camera.position = _camera.position.lerp(desired_cam, minf(1.0, dt * 9.0))
+	var clamp_pad: Rect2 = _house_bounds.grow(-110.0)
+	if clamp_pad.size.x > 20.0 and clamp_pad.size.y > 20.0:
+		desired_focus.x = clampf(desired_focus.x, clamp_pad.position.x, clamp_pad.end.x)
+		desired_focus.y = clampf(desired_focus.y, clamp_pad.position.y, clamp_pad.end.y)
+
+	_cam_focus_2d = _cam_focus_2d.lerp(desired_focus, minf(1.0, dt * 7.5))
 
 	var total_shake: float = _shake_strength
 	if _phase == Phase.SCAVENGE and _scavenge_time_left <= 4.5:
 		var tremor: float = float(GameState.nuke_config.get("tremor_intensity", 0.6))
-		total_shake = maxf(total_shake, (4.5 - _scavenge_time_left) * 0.65 * tremor)
+		total_shake = maxf(total_shake, (4.5 - _scavenge_time_left) * 0.72 * tremor)
 
+	var shake_m := Vector2.ZERO
 	if total_shake > 0.05:
-		_camera.offset = Vector2(
-			GameState.rng.randf_range(-total_shake, total_shake),
-			GameState.rng.randf_range(-total_shake, total_shake)
+		var m_amp: float = total_shake * 0.022
+		shake_m = Vector2(
+			GameState.rng.randf_range(-m_amp, m_amp),
+			GameState.rng.randf_range(-m_amp, m_amp)
 		)
-	else:
-		_camera.offset = Vector2.ZERO
+
+	_position_camera_3d(_cam_focus_2d, shake_m)
+
+	# Dynamic Sunlight & CONELRAD Siren Lighting
+	if is_instance_valid(_sun_light):
+		var urgency_t: float = 0.0
+		if _phase == Phase.SCAVENGE:
+			urgency_t = clampf(1.0 - (_scavenge_time_left / maxf(1.0, _scavenge_total)), 0.0, 1.0)
+		elif _phase == Phase.OUTRO:
+			urgency_t = 1.0
+		var golden_sun := Color("#ffdfab")
+		var atomic_sun := Color("#ff7c3b")
+		_sun_light.light_color = golden_sun.lerp(atomic_sun, pow(urgency_t, 1.6))
+		_sun_light.light_energy = 0.86 + urgency_t * 0.24 + _atomic_flash_alpha * 1.8
+
+	if is_instance_valid(_siren_light):
+		if _phase == Phase.SCAVENGE and _scavenge_time_left <= 15.0:
+			var klaxon_p: float = 0.5 + 0.5 * sin(_anim_time * 10.5)
+			_siren_light.light_energy = 0.35 + klaxon_p * 1.85
+			_siren_light.position = House3DBuilder.to_3d(
+				_hatch_pos + Vector2(cos(_anim_time * 4.5), sin(_anim_time * 4.5)) * 90.0,
+				3.4
+			)
+		else:
+			_siren_light.light_energy = 0.0
+
+	if is_instance_valid(_hatch_light):
+		var hpulse: float = 0.5 + 0.5 * sin(_anim_time * 5.2)
+		var has_loot: bool = not _carried_entries.is_empty()
+		_hatch_light.light_color = COL_TOXIC_GREEN if has_loot else Color("#ffaa3b")
+		_hatch_light.light_energy = (1.55 if has_loot else 1.15) + 0.35 * hpulse
 
 
-# ==============================================================================
-# PROCEDURAL MID-CENTURY 1950s TOP-DOWN HOUSE RENDERING (_draw)
-# ==============================================================================
+func _sync_3d_world(dt: float) -> void:
+	if _is_headless:
+		return
 
-func _draw() -> void:
-	var font: Font = ThemeDB.fallback_font
-	_draw_exterior_yard()
-	_draw_house_floors_and_rooms(font)
-	_draw_bunker_hatch(font)
-	_draw_furniture_layer()
-	_draw_walls_layer()
-	_draw_falling_chute_items()
-	_draw_world_items_and_family(font)
-	_draw_player_and_navigation(font)
-	_draw_floating_popups(font)
-
-
-func _draw_exterior_yard() -> void:
-	var yard_rect: Rect2 = _house_bounds.grow(760.0)
-	draw_rect(yard_rect, COL_YARD_GRASS, true)
-
-	# Suburban mowed lawn stripes
-	var stripe_w: float = 48.0
-	var sx: float = floor(yard_rect.position.x / stripe_w) * stripe_w
-	var idx: int = 0
-	while sx < yard_rect.end.x:
-		if idx % 2 == 0:
-			draw_rect(Rect2(sx, yard_rect.position.y, stripe_w, yard_rect.size.y), COL_YARD_STRIPE, true)
-		sx += stripe_w
-		idx += 1
-
-	# Exterior house shadow & concrete perimeter apron
-	if _outer_poly_valid:
-		var shadow_poly := PackedVector2Array()
-		for pt in _outer_polygon:
-			shadow_poly.append(pt + Vector2(12.0, 15.0))
-		draw_colored_polygon(shadow_poly, Color(0.05, 0.06, 0.05, 0.48))
-		draw_polyline(_close_poly(_outer_polygon), COL_SIDEWALK, 16.0, true)
-	else:
-		draw_rect(_house_bounds.grow(6.0), COL_SIDEWALK, true)
-		draw_rect(Rect2(_house_bounds.position + Vector2(12.0, 15.0), _house_bounds.size), Color(0.05, 0.06, 0.05, 0.45), true)
-
-
-func _draw_house_floors_and_rooms(font: Font) -> void:
-	if _outer_poly_valid:
-		draw_colored_polygon(_outer_polygon, COL_FLOOR_BASE)
-	else:
-		draw_rect(_house_bounds, COL_FLOOR_BASE, true)
-
-	for r_var in _rooms:
-		var room: Dictionary = r_var
-		var r_col: Color = room["color"]
-		var r_rect: Rect2 = room["rect"]
-		var r_poly: PackedVector2Array = room["polygon"]
-		var poly_ok: bool = bool(room.get("poly_valid", false))
-		var kind: String = str(room.get("kind", ""))
-
-		if poly_ok:
-			draw_colored_polygon(r_poly, r_col)
-		elif r_rect.size.x > 1.0 and r_rect.size.y > 1.0:
-			draw_rect(r_rect, r_col, true)
-
-		# Mid-century patterned tile / plank textures inside rectangular bounds
-		var pat_rect: Rect2 = r_rect
-		if (pat_rect.size.x <= 1.0 or pat_rect.size.y <= 1.0) and r_poly.size() >= 3:
-			pat_rect = _poly_bounds(r_poly)
-
-		if pat_rect.size.x > 24.0 and pat_rect.size.y > 24.0 and (not poly_ok or r_rect.size.x > 1.0):
-			if kind.find("kitchen") >= 0:
-				_draw_checker_floor(pat_rect, 24.0, Color(1.0, 0.98, 0.92, 0.24), Color(0.74, 0.36, 0.24, 0.14))
-			elif kind.find("bath") >= 0:
-				_draw_grid_floor(pat_rect, 18.0, Color(0.24, 0.52, 0.56, 0.18))
-			elif kind.find("garage") >= 0 or kind.find("study") >= 0:
-				_draw_grid_floor(pat_rect, 46.0, Color(0.12, 0.13, 0.12, 0.14))
-			else:
-				_draw_plank_floor(pat_rect, 16.0, Color(0.32, 0.22, 0.12, 0.13))
-
-		# Architectural floor stencil label
-		var r_title: String = str(room.get("name", "")).to_upper()
-		if not r_title.is_empty():
-			var cpos: Vector2 = room["center"]
-			if cpos.distance_to(_hatch_pos) < _hatch_radius + 26.0:
-				cpos += Vector2(0.0, _hatch_radius + 28.0)
-			_draw_text_centered(self, font, cpos, r_title, 12, Color(0.22, 0.19, 0.15, 0.52))
-
-
-func _draw_checker_floor(rect: Rect2, tile: float, col_a: Color, col_b: Color) -> void:
-	var cols: int = mini(40, int(floor(rect.size.x / tile)))
-	var rows: int = mini(40, int(floor(rect.size.y / tile)))
-	for ry in range(rows):
-		for cx in range(cols):
-			var c: Color = col_a if ((cx + ry) % 2 == 0) else col_b
-			draw_rect(Rect2(rect.position.x + float(cx) * tile, rect.position.y + float(ry) * tile, tile, tile), c, true)
-
-
-func _draw_grid_floor(rect: Rect2, step: float, line_col: Color) -> void:
-	var x: float = rect.position.x + step
-	while x < rect.end.x:
-		draw_line(Vector2(x, rect.position.y), Vector2(x, rect.end.y), line_col, 1.0)
-		x += step
-	var y: float = rect.position.y + step
-	while y < rect.end.y:
-		draw_line(Vector2(rect.position.x, y), Vector2(rect.end.x, y), line_col, 1.0)
-		y += step
-
-
-func _draw_plank_floor(rect: Rect2, spacing: float, line_col: Color) -> void:
-	var y: float = rect.position.y + spacing
-	while y < rect.end.y:
-		draw_line(Vector2(rect.position.x, y), Vector2(rect.end.x, y), line_col, 1.0)
-		y += spacing
-
-
-func _draw_bunker_hatch(font: Font) -> void:
-	var hp: Vector2 = _hatch_pos
-	var hr: float = _hatch_radius
-	var drop_r: float = hr + HATCH_DROP_MARGIN
-
-	# Pulsing drop-chute zone halo
-	var pulse: float = 0.5 + 0.5 * sin(_anim_time * 5.2)
-	var urgent: bool = (_phase == Phase.SCAVENGE and _scavenge_time_left <= 15.0)
-	var zone_col: Color = COL_ALERT_RED if urgent else (COL_TOXIC_GREEN if not _carried_entries.is_empty() else COL_HAZARD_YELLOW)
-	draw_circle(hp, drop_r, Color(zone_col.r, zone_col.g, zone_col.b, 0.09 + 0.09 * pulse))
-	draw_arc(hp, drop_r, 0.0, TAU, 48, Color(zone_col.r, zone_col.g, zone_col.b, 0.55 + 0.35 * pulse), 2.2, true)
-
-	# Concrete blast pad + hazard ring
-	draw_circle(hp + Vector2(3.0, 4.0), hr + 8.0, Color(0.06, 0.06, 0.05, 0.42))
-	draw_circle(hp, hr + 7.0, COL_HAZARD_YELLOW)
-	var seg_count: int = 16
-	for i in range(seg_count):
-		if i % 2 == 0:
-			var a0: float = float(i) * TAU / float(seg_count)
-			var a1: float = float(i + 1) * TAU / float(seg_count)
-			draw_arc(hp, hr + 2.5, a0, a1, 5, COL_INK, 7.0)
-	draw_arc(hp, hr + 7.0, 0.0, TAU, 40, COL_INK, 2.5, true)
-
-	# Heavy steel collar
-	draw_circle(hp, hr - 2.0, Color("#5a635e"))
-	draw_arc(hp, hr - 2.0, 0.0, TAU, 36, COL_INK, 2.5, true)
-	for i in range(8):
-		var ra: float = float(i) * TAU / 8.0
-		var rpos: Vector2 = hp + Vector2(cos(ra), sin(ra)) * (hr - 7.5)
-		draw_circle(rpos, 2.6, COL_INK)
-		draw_circle(rpos + Vector2(-0.5, -0.5), 1.5, Color("#b7c0ba"))
-
-	# Deep stairwell shaft & warm amber bunker glow + ladder rungs
-	var shaft_r: float = hr - 13.0
-	draw_circle(hp, shaft_r, Color("#111412"))
-	draw_circle(hp + Vector2(0.0, 4.0), shaft_r * 0.68, Color(0.88, 0.56, 0.18, 0.22 + 0.08 * pulse))
-	var ladder_x: float = shaft_r * 0.36
-	draw_line(hp + Vector2(-ladder_x, -shaft_r * 0.72), hp + Vector2(-ladder_x, shaft_r * 0.78), Color("#8e9892"), 3.0)
-	draw_line(hp + Vector2(ladder_x, -shaft_r * 0.72), hp + Vector2(ladder_x, shaft_r * 0.78), Color("#8e9892"), 3.0)
-	for rung in range(-2, 3):
-		var ry: float = float(rung) * (shaft_r * 0.3)
-		draw_line(hp + Vector2(-ladder_x, ry), hp + Vector2(ladder_x, ry), Color("#c6cfc9"), 2.2)
-	draw_arc(hp, shaft_r, 0.0, TAU, 32, COL_INK, 2.5, true)
-
-	# Swung-open heavy steel hatch lid (unless sealed in outro!)
-	if _phase == Phase.OUTRO and not _leader_caught_outside:
-		draw_circle(hp, hr - 4.0, Color("#49524d"))
-		draw_arc(hp, hr - 4.0, 0.0, TAU, 36, COL_INK, 3.0, true)
-		_draw_hatch_wheel(hp, 15.0)
-	else:
-		var lid_center: Vector2 = hp + Vector2(hr * 0.96, -hr * 0.42)
-		var lid_r: float = hr * 0.62
-		draw_circle(lid_center + Vector2(3.0, 4.0), lid_r, Color(0.05, 0.05, 0.05, 0.38))
-		draw_circle(lid_center, lid_r, Color("#4a534e"))
-		draw_arc(lid_center, lid_r, 0.0, TAU, 28, COL_INK, 2.5, true)
-		_draw_hatch_wheel(lid_center, 11.0)
-
-	# Stenciled label below hatch
-	var hatch_tag: String = "BUNKER HATCH"
-	if not _carried_entries.is_empty():
-		hatch_tag = "STEP HERE TO DROP LOOT!"
-	elif _can_dive_into_bunker() and _scavenge_time_left <= 20.0:
-		hatch_tag = "PRESS [F] — DIVE IN!"
-	_draw_badge_pill(self, font, hp + Vector2(0.0, hr + 19.0), hatch_tag, 11, COL_SLATE_DARK, zone_col)
-
-
-func _draw_hatch_wheel(center: Vector2, wheel_r: float) -> void:
-	for i in range(4):
-		var a: float = float(i) * PI * 0.25
-		var d := Vector2(cos(a), sin(a)) * wheel_r
-		draw_line(center - d, center + d, COL_INK, 3.2)
-		draw_line(center - d, center + d, COL_HAZARD_YELLOW, 1.6)
-	draw_arc(center, wheel_r, 0.0, TAU, 20, COL_INK, 3.4, true)
-	draw_arc(center, wheel_r, 0.0, TAU, 20, COL_ATOMIC_ORANGE, 1.8, true)
-	draw_circle(center, 3.5, COL_INK)
-
-
-func _draw_furniture_layer() -> void:
-	for f_var in _furniture_props:
-		var prop: Dictionary = f_var
-		var base_rect: Rect2 = prop["rect"]
+	# 1. Sync bumped 3D furniture props
+	for idx in range(_furniture_props.size()):
+		if not _furniture_nodes_3d.has(idx):
+			continue
+		var prop: Dictionary = _furniture_props[idx]
+		var f_node: Node3D = _furniture_nodes_3d[idx]
+		if not is_instance_valid(f_node):
+			continue
+		var base_r: Rect2 = prop["rect"]
 		var b_off: Vector2 = prop["bump_offset"]
 		var b_rot: float = float(prop.get("bump_rot", 0.0))
-		var kind: String = str(prop.get("kind", "table"))
-		var col: Color = prop["color"]
-		var solid: bool = bool(prop.get("solid", true))
+		var base_yaw: float = float(f_node.get_meta("base_yaw", 0.0))
+		f_node.position = House3DBuilder.to_3d(base_r.get_center() + b_off, House3DBuilder.FLOOR_TOP_Y)
+		f_node.rotation = Vector3(b_off.y * 0.018, base_yaw + b_rot, -b_off.x * 0.018)
 
-		var pivot: Vector2 = base_rect.get_center() + b_off
-		draw_set_transform(pivot, b_rot, Vector2.ONE)
-		var local_r := Rect2(-base_rect.size * 0.5, base_rect.size)
+	# 2. Sync Bunker Hatch Beacon Ring & Slamming Steel Lid
+	if not _hatch_nodes_3d.is_empty():
+		var lid_p: Node3D = _hatch_nodes_3d.get("lid_pivot", null)
+		if is_instance_valid(lid_p):
+			var target_lid_x: float = -174.0
+			if _phase == Phase.OUTRO and not _leader_caught_outside:
+				target_lid_x = 0.0
+			lid_p.rotation_degrees.x = lerpf(lid_p.rotation_degrees.x, target_lid_x, minf(1.0, dt * 14.0))
 
-		if not solid:
-			# Decorative woven mid-century rug
-			draw_rect(local_r, col, true)
-			draw_rect(local_r.grow(-4.0), col.lightened(0.16), false, 2.0)
-			draw_rect(local_r, Color(0.12, 0.1, 0.08, 0.45), false, 1.5)
-			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-			continue
+		var b_mat: StandardMaterial3D = _hatch_nodes_3d.get("beacon_mat", null)
+		var b_ring: MeshInstance3D = _hatch_nodes_3d.get("beacon_ring", null)
+		if b_mat != null and is_instance_valid(b_ring):
+			var pulse: float = 0.5 + 0.5 * sin(_anim_time * 5.4)
+			var urgent: bool = (_phase == Phase.SCAVENGE and _scavenge_time_left <= 15.0)
+			var z_col: Color = COL_ALERT_RED if urgent else (COL_TOXIC_GREEN if not _carried_entries.is_empty() else COL_HAZARD_YELLOW)
+			b_mat.albedo_color = Color(z_col.r, z_col.g, z_col.b, 0.65 + 0.25 * pulse)
+			b_mat.emission = z_col
+			b_mat.emission_energy_multiplier = 0.75 + 0.75 * pulse
+			var s_pulse: float = 1.0 + 0.025 * pulse
+			b_ring.scale = Vector3(s_pulse, 1.0, s_pulse)
 
-		# Drop shadow
-		draw_rect(Rect2(local_r.position + Vector2(3.5, 4.5), local_r.size), Color(0.06, 0.06, 0.05, 0.34), true)
-		draw_rect(local_r, col, true)
+	# 3. Sync 3D Player Leader + Articulated Limbs + Overhead Carried Stack
+	if is_instance_valid(_player_node_3d):
+		var hide_leader: bool = (_phase == Phase.OUTRO and not _leader_caught_outside)
+		_player_node_3d.visible = not hide_leader
+		if not hide_leader:
+			_player_node_3d.position = House3DBuilder.to_3d(_player_pos, House3DBuilder.FLOOR_TOP_Y)
+			var target_yaw: float = atan2(_player_facing.x, _player_facing.y)
+			_player_node_3d.rotation.y = lerp_angle(_player_node_3d.rotation.y, target_yaw, minf(1.0, dt * 16.0))
+			var spd_ratio: float = _player_vel.length() / BASE_MOVE_SPEED
+			House3DBuilder.animate_character_3d(
+				_player_node_3d,
+				_walk_phase,
+				spd_ratio,
+				_carried_entries.size(),
+				_anim_time,
+				false
+			)
 
-		# Prop-specific 1950s architectural detail
-		if kind.find("bed") >= 0:
-			var blanket_r := Rect2(local_r.position.x + 3.0, local_r.position.y + local_r.size.y * 0.32, local_r.size.x - 6.0, local_r.size.y * 0.64)
-			draw_rect(blanket_r, col.darkened(0.16), true)
-			draw_rect(Rect2(local_r.position.x + 6.0, local_r.position.y + 6.0, local_r.size.x * 0.38, local_r.size.y * 0.2), COL_PARCHMENT, true)
-			if local_r.size.x > 54.0:
-				draw_rect(Rect2(local_r.end.x - 6.0 - local_r.size.x * 0.38, local_r.position.y + 6.0, local_r.size.x * 0.38, local_r.size.y * 0.2), COL_PARCHMENT, true)
-			draw_rect(Rect2(local_r.position.x, local_r.position.y, local_r.size.x, 6.0), Color("#4f311c"), true)
-		elif kind.find("sofa") >= 0 or kind.find("couch") >= 0:
-			draw_rect(local_r.grow(-5.0), col.lightened(0.12), true)
-			draw_rect(Rect2(local_r.position.x, local_r.position.y, local_r.size.x, 8.0), col.darkened(0.22), true)
-			draw_line(Vector2(0.0, local_r.position.y + 8.0), Vector2(0.0, local_r.end.y - 3.0), COL_INK, 1.4)
-		elif kind.find("stove") >= 0 or kind.find("oven") >= 0:
-			var bx: float = local_r.size.x * 0.24
-			var by: float = local_r.size.y * 0.24
-			var b_rad: float = minf(6.5, minf(local_r.size.x, local_r.size.y) * 0.16)
-			for sx in [-1.0, 1.0]:
-				for sy in [-1.0, 1.0]:
-					draw_circle(Vector2(sx * bx, sy * by), b_rad, COL_SLATE)
-					draw_circle(Vector2(sx * bx, sy * by), b_rad * 0.45, COL_ATOMIC_ORANGE)
-		elif kind.find("sink") >= 0 or kind.find("tub") >= 0 or kind.find("toilet") >= 0:
-			draw_rect(local_r.grow(-5.0), Color("#d7e5e8"), true)
-			draw_circle(Vector2.ZERO, 3.0, COL_SLATE)
-		elif kind.find("book") >= 0 or kind.find("shelf") >= 0:
-			var stripe_cols: Array[Color] = [COL_ATOMIC_ORANGE, COL_HAZARD_YELLOW, COL_WATER_BLUE, COL_TOXIC_GREEN, COL_PARCHMENT]
-			var cur_x: float = local_r.position.x + 4.0
-			var sc_i: int = 0
-			while cur_x < local_r.end.x - 6.0:
-				draw_rect(Rect2(cur_x, local_r.position.y + 3.0, 4.5, local_r.size.y - 6.0), stripe_cols[sc_i % stripe_cols.size()], true)
-				cur_x += 6.5
-				sc_i += 1
-		else:
-			draw_rect(local_r.grow(-4.0), col.lightened(0.1), false, 1.5)
+			var sig_parts: PackedStringArray = PackedStringArray()
+			for ce_var in _carried_entries:
+				var ce: Dictionary = ce_var
+				sig_parts.append(str(ce.get("kind", "")) + ":" + str(ce.get("item_id", ce.get("name", ""))))
+			var cur_sig: String = "|".join(sig_parts)
+			if cur_sig != _last_carried_sig:
+				_last_carried_sig = cur_sig
+				House3DBuilder.sync_carried_stack_3d(_player_node_3d, _carried_entries)
 
-		draw_rect(local_r, COL_INK, false, 2.2)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-
-func _draw_walls_layer() -> void:
-	# Exterior outline stroke on polygon
-	if _outer_poly_valid:
-		draw_polyline(_close_poly(_outer_polygon), COL_WALL_EXT, 9.0, true)
-
-	for seg_var in _wall_segments:
-		var seg: Dictionary = seg_var
-		var sa: Vector2 = seg["a"]
-		var sb: Vector2 = seg["b"]
-		var ht: float = float(seg.get("half_thick", 6.0))
-		draw_line(sa, sb, COL_INK, ht * 2.0 + 3.0)
-		draw_line(sa, sb, COL_WALL_INT, ht * 2.0 - 1.0)
-		draw_line(sa, sb, COL_WALL_TRIM, maxf(1.5, ht * 0.45))
-
-	for w_rect in _wall_rects:
-		draw_rect(Rect2(w_rect.position + Vector2(2.0, 3.0), w_rect.size), Color(0.05, 0.05, 0.04, 0.34), true)
-		draw_rect(w_rect, COL_WALL_INT, true)
-		if w_rect.size.x > 6.0 and w_rect.size.y > 6.0:
-			draw_rect(w_rect.grow(-2.5), COL_WALL_TRIM, false, 1.2)
-		draw_rect(w_rect, COL_INK, false, 2.0)
-
-
-func _draw_falling_chute_items() -> void:
-	for fx_var in _falling_chute_fx:
-		var fx: Dictionary = fx_var
-		var p: float = clampf(float(fx["t"]) / maxf(0.01, float(fx["dur"])), 0.0, 1.0)
-		var cur_pos: Vector2 = (fx["pos"] as Vector2).lerp(_hatch_pos, ease(p, 0.5))
-		var sc: float = lerpf(1.0, 0.2, p)
-		draw_set_transform(cur_pos, p * 3.8, Vector2(sc, sc))
-		if str(fx.get("kind", "")) == "family":
-			var m: Dictionary = fx["member"]
-			CharacterArtist.draw_topdown_character(self, Vector2.ZERO, Vector2(0.0, 1.0), m, 0.0, 0.9)
-		else:
-			ItemDB.draw_item_icon(self, str(fx.get("item_id", "soup")), Vector2.ZERO, 28.0, false)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-
-func _draw_world_items_and_family(font: Font) -> void:
+	# 4. Sync 3D Waiting Family Members
 	var hovered_kind: String = str(_hovered_target.get("kind", ""))
 	var hovered_uid: int = int(_hovered_target.get("uid", -1))
 
-	# Draw items on floor/furniture
-	for it_var in _world_items:
-		var it: Dictionary = it_var
-		if bool(it.get("collected", false)):
-			continue
-		var ipos: Vector2 = it["pos"]
-		var uid: int = int(it["uid"])
-		var bob: float = sin(_anim_time * 3.6 + float(it["bob_phase"])) * 2.0
-		var draw_p: Vector2 = ipos + Vector2(0.0, bob)
-		var is_hovered: bool = (hovered_kind == "item" and hovered_uid == uid)
-		var slots: int = int(it["slots"])
-		var icol: Color = it["color"]
-
-		# Ground shadow & crisp parchment token disc
-		draw_circle(ipos + Vector2(1.5, 3.5), 16.5, Color(0.06, 0.06, 0.05, 0.36))
-		draw_circle(draw_p, 16.5, COL_PARCHMENT)
-		draw_arc(draw_p, 16.5, 0.0, TAU, 24, icol if slots == 2 else COL_INK, 2.2, true)
-
-		if _phase == Phase.SCOUT:
-			var shimmer: float = 0.45 + 0.45 * sin(_anim_time * 6.0 + float(it["bob_phase"]))
-			draw_arc(draw_p, 21.0, 0.0, TAU, 24, Color(COL_HAZARD_YELLOW.r, COL_HAZARD_YELLOW.g, COL_HAZARD_YELLOW.b, shimmer), 2.0, true)
-
-		if is_hovered:
-			var hr_pulse: float = 23.0 + 2.5 * sin(_anim_time * 9.0)
-			draw_circle(draw_p, hr_pulse, Color(COL_HAZARD_YELLOW.r, COL_HAZARD_YELLOW.g, COL_HAZARD_YELLOW.b, 0.25))
-			draw_arc(draw_p, hr_pulse, 0.0, TAU, 28, COL_HAZARD_YELLOW, 3.0, true)
-
-		ItemDB.draw_item_icon(self, str(it["item_id"]), draw_p, 28.0, false)
-
-		# 2-slot indicator pips
-		if slots == 2:
-			draw_circle(draw_p + Vector2(-4.5, 16.5), 3.0, COL_HAZARD_YELLOW)
-			draw_arc(draw_p + Vector2(-4.5, 16.5), 3.0, 0.0, TAU, 10, COL_INK, 1.2)
-			draw_circle(draw_p + Vector2(4.5, 16.5), 3.0, COL_HAZARD_YELLOW)
-			draw_arc(draw_p + Vector2(4.5, 16.5), 3.0, 0.0, TAU, 10, COL_INK, 1.2)
-
-		if _phase == Phase.SCOUT and not is_hovered:
-			_draw_text_centered_outlined(self, font, draw_p + Vector2(0.0, -22.0), str(it["short_name"]), 11, COL_PARCHMENT, COL_INK)
-
-	# Draw non-leader family members waiting for rescue
 	for f_var in _world_family:
 		var fam: Dictionary = f_var
-		if bool(fam.get("collected", false)):
+		var f_uid: int = int(fam["uid"])
+		if not _family_nodes_3d.has(f_uid):
+			continue
+		var f_node: Node3D = _family_nodes_3d[f_uid]
+		if not is_instance_valid(f_node):
+			continue
+		var collected_f: bool = bool(fam.get("collected", false))
+		f_node.visible = not collected_f
+		if collected_f:
 			continue
 		var fpos: Vector2 = fam["pos"]
-		var fuid: int = int(fam["uid"])
-		var m: Dictionary = fam["member"]
-		var is_hovered_f: bool = (hovered_kind == "family" and hovered_uid == fuid)
-		var look_dir: Vector2 = (_player_pos - fpos).normalized() if _player_pos.distance_to(fpos) > 2.0 else Vector2(0.0, 1.0)
-		var nervous_wiggle: float = sin(_anim_time * 5.5 + float(fam["bob_phase"])) * 0.35
+		f_node.position = House3DBuilder.to_3d(fpos, House3DBuilder.FLOOR_TOP_Y)
+		var look_v: Vector2 = (_player_pos - fpos).normalized() if _player_pos.distance_to(fpos) > 2.0 else Vector2(0.0, 1.0)
+		f_node.rotation.y = lerp_angle(f_node.rotation.y, atan2(look_v.x, look_v.y), minf(1.0, dt * 8.0))
+		House3DBuilder.animate_character_3d(f_node, 0.0, 0.0, 0, _anim_time + float(fam.get("bob_phase", 0.0)), true)
 
-		var ring_r: float = 22.0 + 2.0 * sin(_anim_time * 5.0 + float(fam["bob_phase"]))
-		draw_circle(fpos, ring_r, Color(0.25, 0.72, 0.95, 0.18))
-		draw_arc(fpos, ring_r, 0.0, TAU, 28, COL_HAZARD_YELLOW if is_hovered_f else COL_WATER_BLUE, 3.0 if is_hovered_f else 2.0, true)
+		var fr_mat: StandardMaterial3D = f_node.get_meta("ring_mat", null)
+		if fr_mat != null:
+			var is_hov_f: bool = (hovered_kind == "family" and hovered_uid == f_uid)
+			var rc_f: Color = COL_HAZARD_YELLOW if is_hov_f else COL_WATER_BLUE
+			fr_mat.albedo_color = rc_f
+			fr_mat.emission = rc_f
+			fr_mat.emission_energy_multiplier = 1.45 if is_hov_f else 0.65
 
-		CharacterArtist.draw_topdown_character(self, fpos, look_dir, m, nervous_wiggle, 1.05)
+	# 5. Sync 3D Supply Items (bobbing, rotating, highlight ring)
+	for it_var in _world_items:
+		var it: Dictionary = it_var
+		var i_uid: int = int(it["uid"])
+		var collected_i: bool = bool(it.get("collected", false))
+		var inode: Node3D = _ensure_item_node_3d(it)
+		if not is_instance_valid(inode):
+			continue
+		inode.visible = not collected_i
+		if collected_i:
+			continue
 
-		if not is_hovered_f:
-			var tag: String = "%s [%d]" % [str(fam["name"]), int(fam["slots"])]
-			_draw_badge_pill(self, font, fpos + Vector2(0.0, -28.0), tag, 11, COL_SLATE_DARK, COL_HAZARD_YELLOW)
+		var ipos: Vector2 = it["pos"]
+		inode.position = House3DBuilder.to_3d(ipos, House3DBuilder.FLOOR_TOP_Y)
+		var mpivot: Node3D = inode.get_node_or_null("ModelPivot")
+		var phase_off: float = float(it.get("bob_phase", 0.0))
+		if mpivot != null:
+			mpivot.position.y = 0.25 + sin(_anim_time * 3.4 + phase_off) * 0.045
+			mpivot.rotation.y = _anim_time * 1.35 + phase_off
 
-	# Bright highlighted target tooltip callout (closest within 52 px)
-	if not _hovered_target.is_empty():
-		var hpos: Vector2 = _hovered_target["pos"]
-		var hslots: int = int(_hovered_target.get("slots", 1))
-		var fits: bool = (_get_used_slots() + hslots <= _max_slots)
-		var label_str: String = str(_hovered_target.get("label", "Item"))
-		if _phase == Phase.SCAVENGE:
-			label_str = ("[E] " + label_str) if fits else ("FULL! " + label_str)
-		var pill_fg: Color = COL_HAZARD_YELLOW if fits else COL_ATOMIC_ORANGE
-		_draw_badge_pill(self, font, hpos + Vector2(0.0, -34.0), label_str, 12, COL_INK, pill_fg)
+		var is_hov_i: bool = (hovered_kind == "item" and hovered_uid == i_uid)
+		var rmat: StandardMaterial3D = inode.get_meta("ring_mat", null)
+		var hring: Node3D = inode.get_node_or_null("HoverRing")
+		if rmat != null and hring != null:
+			var base_rc: Color = inode.get_meta("base_ring_col", COL_HAZARD_YELLOW)
+			var active_rc: Color = COL_HAZARD_YELLOW if (is_hov_i or _phase == Phase.SCOUT) else base_rc
+			rmat.albedo_color = active_rc
+			rmat.emission = active_rc
+			rmat.emission_energy_multiplier = 1.55 if is_hov_i else (0.95 if _phase == Phase.SCOUT else 0.45)
+			var sc_r: float = 1.18 + 0.06 * sin(_anim_time * 8.5) if is_hov_i else 1.0
+			hring.scale = Vector3(sc_r, 1.0, sc_r)
 
-
-func _draw_player_and_navigation(font: Font) -> void:
-	# Dust puffs
-	for puff_var in _dust_puffs:
-		var puff: Dictionary = puff_var
-		var ratio: float = clampf(float(puff["life"]) / float(puff["max_life"]), 0.0, 1.0)
-		draw_circle(puff["pos"], float(puff["radius"]) * (1.3 - 0.3 * ratio), Color(0.88, 0.82, 0.7, 0.36 * ratio))
-
-	# Click target marker (manual mode) or clean tactical path preview (demo mode)
-	if GameState.demo_mode and _phase == Phase.SCAVENGE and _ai_waypoints.size() > 0:
-		var prev_p: Vector2 = _player_pos
-		for wi in range(_ai_wp_index, mini(_ai_waypoints.size(), _ai_wp_index + 8)):
-			var wp: Vector2 = _ai_waypoints[wi]
-			draw_line(prev_p, wp, Color(COL_HAZARD_YELLOW.r, COL_HAZARD_YELLOW.g, COL_HAZARD_YELLOW.b, 0.32), 2.2)
-			prev_p = wp
-	elif _has_click_target and not GameState.demo_mode:
-		var r_pulse: float = 10.0 + 3.0 * sin(_anim_time * 8.0)
-		draw_arc(_click_target_pos, r_pulse, 0.0, TAU, 20, COL_HAZARD_YELLOW, 2.0, true)
-
-	# Player ground ring & character
-	draw_circle(_player_pos + Vector2(1.5, 3.0), 15.0, Color(0.05, 0.05, 0.05, 0.38))
-	draw_arc(_player_pos, 17.5, 0.0, TAU, 28, Color(COL_TOXIC_GREEN.r, COL_TOXIC_GREEN.g, COL_TOXIC_GREEN.b, 0.72), 2.2, true)
-
-	if not (_phase == Phase.OUTRO and not _leader_caught_outside):
-		CharacterArtist.draw_topdown_character(self, _player_pos, _player_facing, _leader_member, _walk_phase, 1.12)
-
-		var used_slots: int = _get_used_slots()
-		if used_slots > 0:
-			var carry_tag: String = "%d/%d" % [used_slots, _max_slots]
-			var tag_col: Color = COL_ATOMIC_ORANGE if used_slots >= _max_slots else COL_PARCHMENT
-			_draw_badge_pill(self, font, _player_pos + Vector2(0.0, -30.0), carry_tag, 11, COL_SLATE_DARK, tag_col)
-
-
-func _draw_floating_popups(font: Font) -> void:
-	for pop_var in _floating_popups:
-		var pop: Dictionary = pop_var
-		var alpha: float = clampf(1.0 - float(pop["t"]) / maxf(0.01, float(pop["dur"])), 0.0, 1.0)
-		var col: Color = pop["color"]
-		col.a = alpha
-		var out_col := Color(COL_INK.r, COL_INK.g, COL_INK.b, alpha)
-		_draw_text_centered_outlined(self, font, pop["pos"], str(pop["text"]), 14, col, out_col)
+	# 6. Sync 3D Tumbling Chute Drop Props
+	for fx_var in _falling_chute_fx:
+		var fx: Dictionary = fx_var
+		var fx_node: Variant = fx.get("node_3d", null)
+		if not (fx_node is Node3D) or not is_instance_valid(fx_node):
+			continue
+		var n3: Node3D = fx_node
+		var prog: float = clampf(float(fx["t"]) / maxf(0.01, float(fx["dur"])), 0.0, 1.0)
+		var pos_2d_cur: Vector2 = (fx["pos"] as Vector2).lerp(_hatch_pos, ease(prog, 0.5))
+		var arc_y: float = lerpf(1.05, -0.35, prog * prog) + sin(prog * PI) * 0.35
+		var sc_3d: float = lerpf(0.85, 0.22, prog)
+		n3.position = House3DBuilder.to_3d(pos_2d_cur, arc_y)
+		n3.rotation = Vector3(prog * 3.2, prog * 5.4, prog * 2.1)
+		n3.scale = Vector3(sc_3d, sc_3d, sc_3d)
 
 
 # ==============================================================================
@@ -2277,26 +2378,6 @@ func _sanitize_polygon(poly: PackedVector2Array) -> PackedVector2Array:
 	if cleaned.size() >= 2 and cleaned[0].distance_to(cleaned[cleaned.size() - 1]) <= 0.6:
 		cleaned.remove_at(cleaned.size() - 1)
 	return cleaned
-
-
-func _close_poly(poly: PackedVector2Array) -> PackedVector2Array:
-	var res := PackedVector2Array(poly)
-	if res.size() > 0:
-		res.append(res[0])
-	return res
-
-
-func _poly_bounds(poly: PackedVector2Array) -> Rect2:
-	if poly.is_empty():
-		return Rect2()
-	var min_v: Vector2 = poly[0]
-	var max_v: Vector2 = poly[0]
-	for pt in poly:
-		min_v.x = minf(min_v.x, pt.x)
-		min_v.y = minf(min_v.y, pt.y)
-		max_v.x = maxf(max_v.x, pt.x)
-		max_v.y = maxf(max_v.y, pt.y)
-	return Rect2(min_v, max_v - min_v)
 
 
 func _polygon_centroid(poly: PackedVector2Array) -> Vector2:
@@ -2384,7 +2465,7 @@ static func _draw_badge_pill(canvas: CanvasItem, font: Font, center: Vector2, te
 
 
 # ==============================================================================
-# 1280x720 CIVIL DEFENSE CONELRAD HUD OVERLAY (_ScavengeHUD)
+# FLOATING 3D->2D CALLOUTS + 1280x720 CIVIL DEFENSE CONELRAD HUD (_ScavengeHUD)
 # ==============================================================================
 
 class _ScavengeHUD extends Control:
@@ -2417,8 +2498,8 @@ class _ScavengeHUD extends Control:
 
 		_auto_btn = Button.new()
 		_auto_btn.text = "Auto-Grab: OFF [G]"
-		_auto_btn.position = Vector2(246.0, 650.0)
-		_auto_btn.size = Vector2(138.0, 26.0)
+		_auto_btn.position = Vector2(262.0, 650.0)
+		_auto_btn.size = Vector2(140.0, 26.0)
 		_auto_btn.focus_mode = Control.FOCUS_NONE
 		_style_hud_button(_auto_btn, ScavengeScene.COL_SLATE, ScavengeScene.COL_PARCHMENT)
 		_auto_btn.pressed.connect(_on_auto_pressed)
@@ -2468,6 +2549,9 @@ class _ScavengeHUD extends Control:
 			return
 		var font: Font = ThemeDB.fallback_font
 
+		if scene_ref._phase != ScavengeScene.Phase.OUTRO and not scene_ref._is_headless:
+			_draw_projected_3d_callouts(font)
+
 		# Urgent final-15s Civil Defense red siren vignette
 		if scene_ref._phase == ScavengeScene.Phase.SCAVENGE and scene_ref._scavenge_time_left <= 15.0:
 			var klaxon: float = 0.5 + 0.5 * sin(scene_ref._anim_time * 9.5)
@@ -2486,6 +2570,245 @@ class _ScavengeHUD extends Control:
 		if scene_ref._phase == ScavengeScene.Phase.OUTRO:
 			_draw_outro_transition_overlay(font)
 
+	func _draw_projected_3d_callouts(font: Font) -> void:
+		if not is_instance_valid(scene_ref._camera_3d):
+			return
+
+		# 1. Tactical Demo Path or Click-to-Run Reticle projected onto 3D floor
+		if GameState.demo_mode and not GameState.promo_video_mode and scene_ref._phase == ScavengeScene.Phase.SCAVENGE and scene_ref._ai_waypoints.size() > 0:
+			var prev_scr: Vector2 = scene_ref.project_2d_to_screen(scene_ref._player_pos, 0.08)
+			for wi in range(scene_ref._ai_wp_index, mini(scene_ref._ai_waypoints.size(), scene_ref._ai_wp_index + 8)):
+				var wp_scr: Vector2 = scene_ref.project_2d_to_screen(scene_ref._ai_waypoints[wi], 0.08)
+				if prev_scr.x > -9000.0 and wp_scr.x > -9000.0:
+					draw_line(prev_scr, wp_scr, Color(ScavengeScene.COL_HAZARD_YELLOW.r, ScavengeScene.COL_HAZARD_YELLOW.g, ScavengeScene.COL_HAZARD_YELLOW.b, 0.36), 2.2)
+				prev_scr = wp_scr
+		elif scene_ref._has_click_target and not GameState.demo_mode:
+			var click_scr: Vector2 = scene_ref.project_2d_to_screen(scene_ref._click_target_pos, 0.08)
+			if click_scr.x > -9000.0:
+				var r_pulse: float = 9.0 + 2.5 * sin(scene_ref._anim_time * 8.0)
+				draw_arc(click_scr, r_pulse, 0.0, TAU, 20, ScavengeScene.COL_HAZARD_YELLOW, 2.0, true)
+
+		# 2. Subtle Architectural Room Labels on 3D floors (de-collided against items & family!)
+		var occupied_scr_pts: Array[Vector2] = []
+		for it_occ_var in scene_ref._world_items:
+			var it_occ: Dictionary = it_occ_var
+			if bool(it_occ.get("collected", false)):
+				continue
+			var ipos_occ: Vector2 = it_occ["pos"]
+			var s_flr: Vector2 = scene_ref.project_2d_to_screen(ipos_occ, 0.08)
+			var s_bdg: Vector2 = scene_ref.project_2d_to_screen(ipos_occ, 0.90)
+			if s_flr.x > -9000.0:
+				occupied_scr_pts.append(s_flr)
+			if s_bdg.x > -9000.0:
+				occupied_scr_pts.append(s_bdg)
+		for f_occ_var in scene_ref._world_family:
+			var fam_occ: Dictionary = f_occ_var
+			if bool(fam_occ.get("collected", false)):
+				continue
+			var fpos_occ: Vector2 = fam_occ["pos"]
+			var sf_flr: Vector2 = scene_ref.project_2d_to_screen(fpos_occ, 0.08)
+			var sf_bdg: Vector2 = scene_ref.project_2d_to_screen(fpos_occ, 1.38)
+			if sf_flr.x > -9000.0:
+				occupied_scr_pts.append(sf_flr)
+			if sf_bdg.x > -9000.0:
+				occupied_scr_pts.append(sf_bdg)
+		var hatch_occ_scr: Vector2 = scene_ref.project_2d_to_screen(
+			scene_ref._hatch_pos + Vector2(0.0, scene_ref._hatch_radius * 0.72), 0.16
+		)
+		if hatch_occ_scr.x > -9000.0:
+			occupied_scr_pts.append(hatch_occ_scr)
+
+		var cand_offsets: Array[Vector2] = [
+			Vector2(0.0, -28.0),
+			Vector2(0.0, 28.0),
+			Vector2(-36.0, 0.0),
+			Vector2(36.0, 0.0)
+		]
+		for r_var in scene_ref._rooms:
+			var rm: Dictionary = r_var
+			var r_title: String = str(rm.get("name", "")).to_upper()
+			if r_title.is_empty():
+				continue
+			var cpos: Vector2 = rm["center"]
+			if cpos.distance_to(scene_ref._hatch_pos) < scene_ref._hatch_radius + 30.0:
+				cpos += Vector2(0.0, scene_ref._hatch_radius + 32.0)
+			var base_scr: Vector2 = scene_ref.project_2d_to_screen(cpos, 0.06)
+			if base_scr.x <= -9000.0:
+				continue
+			var r_scr: Vector2 = base_scr
+			var min_d_sq: float = 99999999.0
+			for occ_p in occupied_scr_pts:
+				var d_sq: float = r_scr.distance_squared_to(occ_p)
+				if d_sq < min_d_sq:
+					min_d_sq = d_sq
+			if min_d_sq < 36.0 * 36.0:
+				var best_scr: Vector2 = r_scr
+				var best_d_sq: float = min_d_sq
+				var rm_rect: Rect2 = rm.get("rect", Rect2()) if rm.get("rect") is Rect2 else Rect2()
+				for off in cand_offsets:
+					var cand_scr: Vector2 = base_scr + off
+					if cand_scr.x <= 40.0 or cand_scr.x >= 1240.0 or cand_scr.y <= 105.0 or cand_scr.y >= 615.0:
+						continue
+					if rm_rect.size.x > 24.0 and rm_rect.size.y > 24.0:
+						var cand_flr_2d: Vector2 = scene_ref._screen_to_floor_2d(cand_scr)
+						if not rm_rect.grow(-8.0).has_point(cand_flr_2d):
+							continue
+					var cand_min_sq: float = 99999999.0
+					for occ_p2 in occupied_scr_pts:
+						var d2: float = cand_scr.distance_squared_to(occ_p2)
+						if d2 < cand_min_sq:
+							cand_min_sq = d2
+					if cand_min_sq >= 36.0 * 36.0:
+						best_scr = cand_scr
+						best_d_sq = cand_min_sq
+						break
+					elif cand_min_sq > best_d_sq:
+						best_scr = cand_scr
+						best_d_sq = cand_min_sq
+				r_scr = best_scr
+
+			if r_scr.x > 40.0 and r_scr.x < 1240.0 and r_scr.y > 105.0 and r_scr.y < 615.0:
+				occupied_scr_pts.append(r_scr)
+				var lbl_a: float = 0.72 if scene_ref._phase == ScavengeScene.Phase.SCOUT else 0.42
+				ScavengeScene._draw_text_centered_outlined(
+					self, font, r_scr, r_title, 11,
+					Color(ScavengeScene.COL_PARCHMENT.r, ScavengeScene.COL_PARCHMENT.g, ScavengeScene.COL_PARCHMENT.b, lbl_a),
+					Color(0.08, 0.08, 0.07, lbl_a * 0.85)
+				)
+
+		# 3. Dust puffs behind running leader
+		for puff_var in scene_ref._dust_puffs:
+			var puff: Dictionary = puff_var
+			var p_scr: Vector2 = scene_ref.project_2d_to_screen(puff["pos"], 0.12)
+			if p_scr.x > -9000.0:
+				var ratio: float = clampf(float(puff["life"]) / float(puff["max_life"]), 0.0, 1.0)
+				draw_circle(p_scr, float(puff["radius"]) * (1.2 - 0.25 * ratio), Color(0.92, 0.86, 0.74, 0.34 * ratio))
+
+		# 4. Crisp Floating 2D Item Icon Badges above 3D Supply Models (leaving 3D floor prop clearly visible!)
+		var hovered_kind: String = str(scene_ref._hovered_target.get("kind", ""))
+		var hovered_uid: int = int(scene_ref._hovered_target.get("uid", -1))
+		var scout_label_pts: Array[Vector2] = []
+
+		for it_var in scene_ref._world_items:
+			var it: Dictionary = it_var
+			if bool(it.get("collected", false)):
+				continue
+			var ipos: Vector2 = it["pos"]
+			var uid: int = int(it["uid"])
+			var is_hovered: bool = (hovered_kind == "item" and hovered_uid == uid)
+			var bob_y: float = 0.90 + sin(scene_ref._anim_time * 3.4 + float(it["bob_phase"])) * 0.045
+			var badge_p: Vector2 = scene_ref.project_2d_to_screen(ipos, bob_y)
+			var prop_p: Vector2 = scene_ref.project_2d_to_screen(ipos, 0.34)
+			if badge_p.x < -20.0 or badge_p.x > 1300.0 or badge_p.y < -20.0 or badge_p.y > 740.0:
+				continue
+
+			var slots: int = int(it["slots"])
+			var icol: Color = it["color"]
+			var rad: float = 15.5 if is_hovered else 11.4
+
+			# Subtle pointer tether down to the 3D supply prop on the floor
+			if prop_p.y > badge_p.y + rad + 2.0:
+				draw_line(
+					badge_p + Vector2(0.0, rad),
+					Vector2(badge_p.x, minf(prop_p.y - 4.0, badge_p.y + rad + 10.0)),
+					Color(0.11, 0.10, 0.09, 0.55),
+					1.4
+				)
+			draw_circle(badge_p + Vector2(1.2, 1.8), rad, Color(0.05, 0.05, 0.04, 0.38))
+			draw_circle(badge_p, rad, ScavengeScene.COL_PARCHMENT)
+			var rim_c: Color = ScavengeScene.COL_HAZARD_YELLOW if is_hovered else (icol if slots == 2 else ScavengeScene.COL_INK)
+			draw_arc(badge_p, rad, 0.0, TAU, 22, rim_c, 2.5 if is_hovered else 1.6, true)
+
+			ItemDB.draw_item_icon(self, str(it["item_id"]), badge_p, 22.0 if is_hovered else 16.8, false)
+
+			if slots == 2:
+				var tag_2s: Vector2 = badge_p + Vector2(rad * 0.76, -rad * 0.70)
+				draw_circle(tag_2s, 5.8, ScavengeScene.COL_HAZARD_YELLOW)
+				draw_arc(tag_2s, 5.8, 0.0, TAU, 14, ScavengeScene.COL_INK, 1.2)
+				ScavengeScene._draw_text_centered(self, font, tag_2s, "2", 8, ScavengeScene.COL_INK)
+
+			if scene_ref._phase == ScavengeScene.Phase.SCOUT and not is_hovered:
+				var lbl_pt: Vector2 = badge_p + Vector2(0.0, -rad - 8.0)
+				var crowded: bool = false
+				for prev_lp in scout_label_pts:
+					if absf(prev_lp.x - lbl_pt.x) < 42.0 and absf(prev_lp.y - lbl_pt.y) < 15.0:
+						crowded = true
+						break
+				if not crowded:
+					scout_label_pts.append(lbl_pt)
+					ScavengeScene._draw_text_centered_outlined(
+						self, font, lbl_pt,
+						str(it["short_name"]), 10, ScavengeScene.COL_PARCHMENT, ScavengeScene.COL_INK
+					)
+
+		# 5. Bunker Hatch Status Callout Badge (drawn above floor tokens so it is never obscured)
+		var hatch_scr: Vector2 = scene_ref.project_2d_to_screen(
+			scene_ref._hatch_pos + Vector2(0.0, scene_ref._hatch_radius * 0.72), 0.16
+		)
+		if hatch_scr.x > -9000.0:
+			var urgent_h: bool = (scene_ref._phase == ScavengeScene.Phase.SCAVENGE and scene_ref._scavenge_time_left <= 15.0)
+			var h_col: Color = ScavengeScene.COL_ALERT_RED if urgent_h else (ScavengeScene.COL_TOXIC_GREEN if not scene_ref._carried_entries.is_empty() else ScavengeScene.COL_HAZARD_YELLOW)
+			var hatch_tag: String = "BUNKER HATCH"
+			if not scene_ref._carried_entries.is_empty():
+				hatch_tag = "STEP HERE TO DROP LOOT!"
+			elif scene_ref._can_dive_into_bunker() and scene_ref._scavenge_time_left <= 20.0:
+				hatch_tag = "PRESS [F] — DIVE IN!"
+			ScavengeScene._draw_badge_pill(self, font, hatch_scr, hatch_tag, 11, ScavengeScene.COL_SLATE_DARK, h_col)
+
+		# 6. Floating Family Member Rescue Name & Slot Tags
+		for f_var in scene_ref._world_family:
+			var fam: Dictionary = f_var
+			if bool(fam.get("collected", false)):
+				continue
+			var fuid: int = int(fam["uid"])
+			var is_hov_f: bool = (hovered_kind == "family" and hovered_uid == fuid)
+			if is_hov_f:
+				continue
+			var m_d: Dictionary = fam["member"]
+			var age_f: int = int(m_d.get("age", 30))
+			var h_sc: float = 0.72 if age_f <= 12 else (0.88 if age_f <= 17 else 1.0)
+			var f_scr: Vector2 = scene_ref.project_2d_to_screen(fam["pos"], 1.56 * h_sc)
+			if f_scr.x > -9000.0:
+				var ftag: String = "%s [%d]" % [str(fam["name"]), int(fam["slots"])]
+				ScavengeScene._draw_badge_pill(self, font, f_scr, ftag, 11, ScavengeScene.COL_SLATE_DARK, ScavengeScene.COL_HAZARD_YELLOW)
+
+		# 7. Player Overhead Carry Slot Indicator
+		var used_slots: int = scene_ref._get_used_slots()
+		if used_slots > 0:
+			var carry_h: float = 2.12 + float(scene_ref._carried_entries.size()) * 0.28
+			var p_scr_top: Vector2 = scene_ref.project_2d_to_screen(scene_ref._player_pos, carry_h)
+			if p_scr_top.x > -9000.0:
+				var carry_tag: String = "%d/%d" % [used_slots, scene_ref._max_slots]
+				var tag_col: Color = ScavengeScene.COL_ATOMIC_ORANGE if used_slots >= scene_ref._max_slots else ScavengeScene.COL_PARCHMENT
+				ScavengeScene._draw_badge_pill(self, font, p_scr_top, carry_tag, 11, ScavengeScene.COL_SLATE_DARK, tag_col)
+
+		# 8. Nearest-Pickup Highlight Prompt Callout
+		if not scene_ref._hovered_target.is_empty():
+			var hpos: Vector2 = scene_ref._hovered_target["pos"]
+			var hkind: String = str(scene_ref._hovered_target.get("kind", "item"))
+			var hslots: int = int(scene_ref._hovered_target.get("slots", 1))
+			var fits: bool = (used_slots + hslots <= scene_ref._max_slots)
+			var label_str: String = str(scene_ref._hovered_target.get("label", "Item"))
+			if scene_ref._phase == ScavengeScene.Phase.SCAVENGE:
+				label_str = ("[E] " + label_str) if fits else ("FULL! " + label_str)
+			var pill_fg: Color = ScavengeScene.COL_HAZARD_YELLOW if fits else ScavengeScene.COL_ATOMIC_ORANGE
+			var prompt_y: float = 1.62 if hkind == "family" else 1.22
+			var prompt_scr: Vector2 = scene_ref.project_2d_to_screen(hpos, prompt_y)
+			if prompt_scr.x > -9000.0:
+				ScavengeScene._draw_badge_pill(self, font, prompt_scr, label_str, 12, ScavengeScene.COL_INK, pill_fg)
+
+		# 9. Floating World Popups (+SOUP, HANDS FULL, SAFE IN BUNKER)
+		for pop_var in scene_ref._floating_popups:
+			var pop: Dictionary = pop_var
+			var prog_p: float = clampf(float(pop["t"]) / maxf(0.01, float(pop["dur"])), 0.0, 1.0)
+			var alpha: float = clampf(1.0 - prog_p, 0.0, 1.0)
+			var pop_scr: Vector2 = scene_ref.project_2d_to_screen(pop["pos"], 1.15 + prog_p * 0.55)
+			if pop_scr.x > -9000.0:
+				var col: Color = pop["color"]
+				col.a = alpha
+				var out_col := Color(ScavengeScene.COL_INK.r, ScavengeScene.COL_INK.g, ScavengeScene.COL_INK.b, alpha)
+				ScavengeScene._draw_text_centered_outlined(self, font, pop_scr, str(pop["text"]), 14, col, out_col)
+
 	func _draw_minimap_panel(font: Font) -> void:
 		var panel_r := Rect2(14.0, 12.0, 224.0, 154.0)
 		draw_rect(Rect2(panel_r.position + Vector2(3.0, 4.0), panel_r.size), Color(0.0, 0.0, 0.0, 0.45), true)
@@ -2493,7 +2816,8 @@ class _ScavengeHUD extends Control:
 		draw_rect(Rect2(panel_r.position.x, panel_r.position.y, panel_r.size.x, 22.0), ScavengeScene.COL_SLATE, true)
 		draw_rect(panel_r, ScavengeScene.COL_HAZARD_YELLOW, false, 2.0)
 
-		draw_string(font, panel_r.position + Vector2(8.0, 16.0), "OSM HOUSE RADAR", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_HAZARD_YELLOW)
+		var radar_hdr: String = "OSM 3D DRILL RADAR" if GameState.game_mode == "scavenge_drill" else "OSM HOUSE RADAR"
+		draw_string(font, panel_r.position + Vector2(8.0, 16.0), radar_hdr, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_HAZARD_YELLOW)
 		draw_circle(panel_r.position + Vector2(panel_r.size.x - 12.0, 11.0), 4.0, ScavengeScene.COL_TOXIC_GREEN)
 
 		var map_area := Rect2(panel_r.position.x + 10.0, panel_r.position.y + 28.0, panel_r.size.x - 20.0, panel_r.size.y - 46.0)
@@ -2502,7 +2826,6 @@ class _ScavengeHUD extends Control:
 		var map_center: Vector2 = map_area.get_center()
 		var world_center: Vector2 = hb.get_center()
 
-		# Footprint polygon
 		if scene_ref._outer_polygon.size() >= 3:
 			var mini_poly := PackedVector2Array()
 			for pt in scene_ref._outer_polygon:
@@ -2512,7 +2835,6 @@ class _ScavengeHUD extends Control:
 			mini_poly.append(mini_poly[0])
 			draw_polyline(mini_poly, ScavengeScene.COL_HAZARD_YELLOW, 1.5, true)
 
-		# Room dividers & short codes
 		for r_var in scene_ref._rooms:
 			var rm: Dictionary = r_var
 			var rr: Rect2 = rm["rect"]
@@ -2523,7 +2845,6 @@ class _ScavengeHUD extends Control:
 			var short_lbl: String = str(rm.get("name", "")).substr(0, 3).to_upper()
 			ScavengeScene._draw_text_centered(self, font, rc, short_lbl, 8, Color(0.85, 0.84, 0.75, 0.55))
 
-		# Remaining items
 		for it_var in scene_ref._world_items:
 			var it: Dictionary = it_var
 			if bool(it.get("collected", false)):
@@ -2539,7 +2860,6 @@ class _ScavengeHUD extends Control:
 				dot_c = ScavengeScene.COL_HAZARD_YELLOW
 			draw_circle(mp, 2.3, dot_c)
 
-		# Remaining family members
 		for f_var in scene_ref._world_family:
 			var fam: Dictionary = f_var
 			if bool(fam.get("collected", false)):
@@ -2548,12 +2868,10 @@ class _ScavengeHUD extends Control:
 			draw_circle(fp, 4.0, Color("#ff6670"))
 			draw_arc(fp, 5.5, 0.0, TAU, 12, ScavengeScene.COL_HAZARD_YELLOW, 1.2)
 
-		# Bunker Hatch bullseye
 		var hp_mini: Vector2 = map_center + (scene_ref._hatch_pos - world_center) * scale_f
 		draw_circle(hp_mini, 4.5, ScavengeScene.COL_HAZARD_YELLOW)
 		draw_circle(hp_mini, 2.2, ScavengeScene.COL_INK)
 
-		# Player dot + facing line
 		var pp_mini: Vector2 = map_center + (scene_ref._player_pos - world_center) * scale_f
 		draw_line(pp_mini, pp_mini + scene_ref._player_facing * 7.5, ScavengeScene.COL_TOXIC_GREEN, 2.0)
 		draw_circle(pp_mini, 3.6, Color.WHITE)
@@ -2573,30 +2891,26 @@ class _ScavengeHUD extends Control:
 		if urgent and t_left > 0.0 and fmod(t_left, 1.0) > 0.86:
 			jitter = Vector2(sin(scene_ref._anim_time * 55.0) * 2.5, cos(scene_ref._anim_time * 48.0) * 2.0)
 
-		# Status plaque behind banner + digital clock
 		var plaque := Rect2(506.0, 14.0, 482.0, 84.0)
 		draw_rect(Rect2(plaque.position + Vector2(3.0, 4.0), plaque.size), Color(0.0, 0.0, 0.0, 0.45), true)
 		draw_rect(plaque, ScavengeScene.COL_SLATE_DARK, true)
 		var border_c: Color = ScavengeScene.COL_HAZARD_YELLOW if is_scout else (ScavengeScene.COL_ALERT_RED if urgent else ScavengeScene.COL_ATOMIC_ORANGE)
 		draw_rect(plaque, border_c, false, 2.5)
 
-		# Analog Civil Defense Stopwatch on left of plaque
+		# Analog Civil Defense Stopwatch
 		var sw_c: Vector2 = Vector2(462.0, 58.0) + jitter
 		var sw_r: float = 43.0
-		# Crown stem & side button
 		draw_rect(Rect2(sw_c.x - 5.0, sw_c.y - sw_r - 9.0, 10.0, 9.0), Color("#c6a664"), true)
 		draw_rect(Rect2(sw_c.x - 8.0, sw_c.y - sw_r - 13.0, 16.0, 5.0), Color("#dfc282"), true)
 		draw_arc(sw_c + Vector2(0.0, -sw_r - 14.0), 6.0, PI, TAU, 12, Color("#c6a664"), 2.2)
 		var side_p: Vector2 = sw_c + Vector2(cos(-0.85), sin(-0.85)) * (sw_r + 4.0)
 		draw_circle(side_p, 4.5, ScavengeScene.COL_ALERT_RED)
 
-		# Outer bezel & cream dial
 		draw_circle(sw_c + Vector2(3.0, 4.0), sw_r + 4.0, Color(0.0, 0.0, 0.0, 0.5))
 		draw_circle(sw_c, sw_r + 4.0, Color("#b99858"))
 		draw_arc(sw_c, sw_r + 4.0, 0.0, TAU, 44, ScavengeScene.COL_INK, 2.5, true)
 		draw_circle(sw_c, sw_r - 1.0, ScavengeScene.COL_PARCHMENT)
 
-		# 15-second red danger wedge (from 45s at PI to 60s at 1.5*PI -> i.e. -PI to -PI/2)
 		var wedge_pts := PackedVector2Array([sw_c])
 		var w_steps: int = 16
 		for wi in range(w_steps + 1):
@@ -2605,7 +2919,6 @@ class _ScavengeHUD extends Control:
 		var danger_a: float = 0.52 if (urgent and sin(scene_ref._anim_time * 12.0) > 0.0) else 0.28
 		draw_colored_polygon(wedge_pts, Color(ScavengeScene.COL_ALERT_RED.r, ScavengeScene.COL_ALERT_RED.g, ScavengeScene.COL_ALERT_RED.b, danger_a))
 
-		# 60 dial ticks & numerals
 		for ti in range(60):
 			var ta: float = -PI * 0.5 + (float(ti) / 60.0) * TAU
 			var dir := Vector2(cos(ta), sin(ta))
@@ -2614,13 +2927,13 @@ class _ScavengeHUD extends Control:
 			var t_col: Color = ScavengeScene.COL_ALERT_RED if ti >= 45 else ScavengeScene.COL_INK
 			draw_line(sw_c + dir * inner_r, sw_c + dir * (sw_r - 2.0), t_col, 2.0 if major else 1.0)
 
-		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(0.0, -sw_r + 16.0), "60", 10, ScavengeScene.COL_INK)
+		var top_num: String = str(int(round(scene_ref._scavenge_total)))
+		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(0.0, -sw_r + 16.0), top_num, 10, ScavengeScene.COL_INK)
 		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(sw_r - 15.0, 0.0), "15", 10, ScavengeScene.COL_INK)
 		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(0.0, sw_r - 15.0), "30", 10, ScavengeScene.COL_INK)
 		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(-sw_r + 15.0, 0.0), "45", 10, ScavengeScene.COL_ALERT_RED)
 		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(0.0, 11.0), "CONELRAD", 7, Color(0.2, 0.18, 0.15, 0.75))
 
-		# Sweeping stopwatch hand
 		var hand_frac: float = 0.0
 		if is_scout:
 			hand_frac = 1.0 - (scene_ref._scout_time_left / maxf(0.1, scene_ref._scout_total))
@@ -2635,25 +2948,27 @@ class _ScavengeHUD extends Control:
 		draw_circle(sw_c, 2.4, ScavengeScene.COL_HAZARD_YELLOW)
 		draw_arc(sw_c, sw_r - 1.0, 0.0, TAU, 44, ScavengeScene.COL_INK, 2.2, true)
 
-		# Digital Tenths Readout + Mode Badge
 		var digital_str: String = ("RECON %04.1fs" % t_left) if is_scout else ("%04.1f SEC" % t_left)
 		var dig_col: Color = ScavengeScene.COL_HAZARD_YELLOW if is_scout else (ScavengeScene.COL_ALERT_RED if (urgent and sin(scene_ref._anim_time * 14.0) > 0.0) else ScavengeScene.COL_PARCHMENT)
 		draw_string(font, Vector2(522.0, 46.0), digital_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, dig_col)
 
 		var leader_name: String = str(scene_ref._leader_member.get("name", "Leader")).to_upper()
 		var leader_trait: String = str(scene_ref._leader_member.get("trait", "")).to_upper()
-		var right_tag: String = "AUTO-PILOT DEMO" if GameState.demo_mode else ("LEADER: %s (%s)" % [leader_name, leader_trait])
-		var tag_c: Color = ScavengeScene.COL_TOXIC_GREEN if GameState.demo_mode else ScavengeScene.COL_PARCHMENT_DARK
+		var leader_lbl: String = ("LEADER: %s (%s)" % [leader_name, leader_trait]) if not leader_trait.is_empty() else ("LEADER: %s" % leader_name)
+		var show_demo_lbl: bool = GameState.demo_mode and not GameState.promo_video_mode
+		var right_tag: String = "AUTO-PILOT DEMO" if show_demo_lbl else leader_lbl
+		var tag_c: Color = ScavengeScene.COL_TOXIC_GREEN if show_demo_lbl else ScavengeScene.COL_PARCHMENT_DARK
 		draw_string(font, Vector2(734.0, 42.0), right_tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, tag_c)
 
-		# Phase Banner Strip
 		var banner_r := Rect2(516.0, 56.0, 462.0, 34.0)
 		var banner_bg: Color = ScavengeScene.COL_HAZARD_YELLOW if is_scout else (ScavengeScene.COL_ALERT_RED if urgent else ScavengeScene.COL_ATOMIC_ORANGE)
 		var banner_fg: Color = ScavengeScene.COL_INK if is_scout else ScavengeScene.COL_PARCHMENT
-		var banner_txt: String = "RECON PHASE — MEMORIZE YOUR HOUSE! [TAB to Skip]"
+		var banner_txt: String = "3D RECON — MEMORIZE YOUR HOUSE! [TAB to Skip]"
 		if not is_scout:
 			if urgent:
 				banner_txt = "IMPENDING IMPACT! GET TO THE HATCH!"
+			elif GameState.game_mode == "scavenge_drill":
+				banner_txt = "CIVIL DEFENSE DRILL! MAXIMIZE CHUTE SCORE!"
 			else:
 				banner_txt = "CONELRAD ALERT! GRAB SUPPLIES & FAMILY!"
 
@@ -2684,7 +2999,6 @@ class _ScavengeHUD extends Control:
 		ItemDB.draw_item_icon(self, "toolbox", Vector2(pr.position.x + 22.0, row2_y), 22.0, false)
 		draw_string(font, Vector2(pr.position.x + 38.0, row2_y + 5.0), "Gear: %d" % scene_ref._gear_deposited_count, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ScavengeScene.COL_PARCHMENT)
 
-		# Draw up to 5 secured key gear mini-icons
 		var gx: float = pr.position.x + 122.0
 		var shown: int = 0
 		for gid in scene_ref._secured_gear_order:
@@ -2696,7 +3010,6 @@ class _ScavengeHUD extends Control:
 			gx += 25.0
 			shown += 1
 
-		# Family Rescued / Total + mini portraits
 		var row3_y: float = pr.position.y + 105.0
 		var fam_saved: int = scene_ref._family_deposited_count
 		var fam_tot: int = scene_ref._non_leader_total
@@ -2725,7 +3038,6 @@ class _ScavengeHUD extends Control:
 		var max_s: int = scene_ref._max_slots
 		var used_s: int = scene_ref._get_used_slots()
 
-		# Hands Full / Suitcase Upgrade alert banner above carry rack
 		if scene_ref._suitcase_flash_timer > 0.0:
 			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "+1 CARRY SLOT UNLOCKED (SUITCASE)!", 14, ScavengeScene.COL_INK, ScavengeScene.COL_HAZARD_YELLOW)
 		elif scene_ref._hands_full_timer > 0.0:
@@ -2751,7 +3063,6 @@ class _ScavengeHUD extends Control:
 			draw_rect(badge_r, ScavengeScene.COL_INK, false, 1.2)
 			ScavengeScene._draw_text_centered(self, font, badge_r.get_center(), "SUITCASE +1 SLOT", 10, ScavengeScene.COL_INK)
 
-		# Draw empty background slot frames first
 		var slots_x0: float = 640.0 - total_w * 0.5
 		var slots_y0: float = rack_rect.position.y + 24.0
 		for si in range(max_s):
@@ -2761,7 +3072,6 @@ class _ScavengeHUD extends Control:
 			draw_rect(sr, ScavengeScene.COL_HAZARD_YELLOW if is_bonus else Color(0.45, 0.44, 0.38, 0.8), false, 1.5)
 			ScavengeScene._draw_text_centered(self, font, sr.get_center(), "+1" if is_bonus else ("SLOT %d" % (si + 1)), 10, Color(0.65, 0.63, 0.56, 0.45))
 
-		# Draw carried item/family spanned cards over slots
 		var cur_slot: int = 0
 		for entry_var in scene_ref._carried_entries:
 			var entry: Dictionary = entry_var
@@ -2792,7 +3102,7 @@ class _ScavengeHUD extends Control:
 			cur_slot += span
 
 	func _draw_controls_and_compass(font: Font) -> void:
-		# Bottom-left controls hint
+		# Unclipped 396px Bottom-Left Controls Hint
 		var hint_r := Rect2(14.0, 646.0, 396.0, 64.0)
 		draw_rect(hint_r, Color(0.12, 0.14, 0.12, 0.9), true)
 		draw_rect(hint_r, Color(0.45, 0.44, 0.36, 0.85), false, 1.5)
@@ -2800,7 +3110,7 @@ class _ScavengeHUD extends Control:
 		draw_string(font, Vector2(22.0, 684.0), "E / Space / Click: Grab Item", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_HAZARD_YELLOW)
 		draw_string(font, Vector2(22.0, 701.0), "Walk onto Hatch: Drop Loot  |  F: Dive In", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_PARCHMENT_DARK)
 
-		# Bottom-right Hatch Compass & Speed Readout
+		# Bottom-Right Hatch Compass & Speed Readout
 		var comp_r := Rect2(922.0, 646.0, 344.0, 64.0)
 		draw_rect(comp_r, Color(0.12, 0.14, 0.12, 0.9), true)
 		draw_rect(comp_r, Color(0.45, 0.44, 0.36, 0.85), false, 1.5)
@@ -2816,7 +3126,13 @@ class _ScavengeHUD extends Control:
 			draw_circle(cc, 8.0, ScavengeScene.COL_TOXIC_GREEN)
 			draw_string(font, Vector2(comp_r.position.x + 62.0, 671.0), "AT BUNKER HATCH!", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ScavengeScene.COL_TOXIC_GREEN)
 		else:
+			# Rotate compass needle into screen space if 3D camera is active so arrow points straight at hatch on screen!
 			var dir_h: Vector2 = to_hatch.normalized()
+			if is_instance_valid(scene_ref._camera_3d):
+				var p_scr: Vector2 = scene_ref.project_2d_to_screen(scene_ref._player_pos, 0.1)
+				var h_scr: Vector2 = scene_ref.project_2d_to_screen(scene_ref._hatch_pos, 0.1)
+				if p_scr.distance_to(h_scr) > 1.0:
+					dir_h = (h_scr - p_scr).normalized()
 			var tip: Vector2 = cc + dir_h * 14.0
 			var wing_l: Vector2 = cc - dir_h * 8.0 + Vector2(-dir_h.y, dir_h.x) * 6.5
 			var wing_r: Vector2 = cc - dir_h * 8.0 - Vector2(-dir_h.y, dir_h.x) * 6.5
@@ -2844,7 +3160,9 @@ class _ScavengeHUD extends Control:
 		var survivors: Array = GameState.get_all_living_members()
 		var no_guardian: bool = (not survivors.is_empty()) and (not scene_ref._has_capable_guardian_in_bunker())
 		var title_txt: String = "HATCH SEALED — ENTERING FALLOUT SHELTER..."
-		if scene_ref._leader_caught_outside:
+		if GameState.game_mode == "scavenge_drill":
+			title_txt = "DRILL COMPLETE — TALLYING CIVIL DEFENSE DOSSIER..." if not scene_ref._leader_caught_outside else "DRILL FAILED — CAUGHT ABOVE GROUND"
+		elif scene_ref._leader_caught_outside:
 			if survivors.is_empty():
 				title_txt = "ATOMIC DETONATION — NO SURVIVORS IN BUNKER"
 			elif no_guardian:
@@ -2854,7 +3172,6 @@ class _ScavengeHUD extends Control:
 
 		ScavengeScene._draw_text_centered(self, font, hdr_r.get_center(), title_txt, 19, ScavengeScene.COL_HAZARD_YELLOW if not scene_ref._leader_caught_outside else ScavengeScene.COL_PARCHMENT)
 
-		# 4 Summary Stat Tiles
 		var soup_n: int = GameState.soup_quarters / 4
 		var water_n: int = GameState.water_quarters / 4
 		var gear_n: int = scene_ref._gear_deposited_count
@@ -2883,7 +3200,6 @@ class _ScavengeHUD extends Control:
 			ScavengeScene._draw_text_centered(self, font, tr.position + Vector2(tile_w * 0.5, 74.0), str(td["val"]), 16, ScavengeScene.COL_INK)
 			ScavengeScene._draw_text_centered(self, font, tr.position + Vector2(tile_w * 0.5, 96.0), str(td["lbl"]), 11, ScavengeScene.COL_SLATE)
 
-		# Family Roster Status Portraits
 		var fam_count: int = GameState.family_members.size()
 		var p_size: float = 78.0
 		var p_gap: float = 34.0
@@ -2909,7 +3225,6 @@ class _ScavengeHUD extends Control:
 				ScavengeScene.COL_TOXIC_GREEN if safe else ScavengeScene.COL_ALERT_RED
 			)
 
-		# Progress bar along bottom of transition card
 		var bar_r := Rect2(card.position.x + 40.0, card.end.y - 34.0, card.size.x - 80.0, 14.0)
 		var fill_p: float = clampf(scene_ref._outro_elapsed / ScavengeScene.OUTRO_DURATION, 0.0, 1.0)
 		draw_rect(bar_r, ScavengeScene.COL_SLATE_DARK, true)

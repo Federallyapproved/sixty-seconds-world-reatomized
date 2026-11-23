@@ -76,12 +76,32 @@ static func get_companion_ids() -> Array[String]:
 	return companions
 
 
+static func get_specialty_item_ids() -> Array[String]:
+	var spec: Array[String] = [
+		"antibiotics",
+		"antirad",
+		"scrap",
+		"fuel",
+		"battery",
+		"alternator",
+		"spark_plugs",
+		"radiator_hose"
+	]
+	return spec
+
+
 static func _normalize_id(item_id: String) -> String:
 	var clean: String = item_id.strip_edges().to_lower()
 	if clean == "sharikov":
 		return "cat"
 	if clean == "pancake":
 		return "dog"
+	if clean == "anti_rad" or clean == "anti-rad":
+		return "antirad"
+	if clean == "fuel_can" or clean == "jerrycan":
+		return "fuel"
+	if clean == "spark_plug":
+		return "spark_plugs"
 	return clean
 
 
@@ -317,6 +337,105 @@ static func get_item_info(item_id: String) -> Dictionary:
 				"preferred_rooms": ["Living Room", "Hallway"],
 				"color": Color("#d89c42")
 			}
+		"antibiotics":
+			return {
+				"id": "antibiotics",
+				"name": "Prescription Antibiotics",
+				"short_name": "Antibiotics",
+				"slots": 1,
+				"category": "medical",
+				"description": "Amber-glass prescription capsules from a Doctor's Office. Cures Stage-1/2 sickness & infection and prevents wound sepsis.",
+				"preferred_rooms": ["Bathroom", "Master Bedroom"],
+				"color": Color("#cf6a17")
+			}
+		"antirad":
+			return {
+				"id": "antirad",
+				"name": "Potassium Iodide Anti-Rad",
+				"short_name": "Anti-Rad",
+				"slots": 1,
+				"category": "medical",
+				"description": "CONELRAD foil blister pack of Potassium Iodide tablets. Purges -35.0 Rads and blocks fallout radiation sickness.",
+				"preferred_rooms": ["Bathroom", "Kitchen"],
+				"color": Color("#f5be2e")
+			}
+		"scrap":
+			return {
+				"id": "scrap",
+				"name": "Salvaged Scrap & Hardware",
+				"short_name": "Scrap",
+				"slots": 1,
+				"category": "utility",
+				"description": "Assorted steel hull plates, brass gears, and hardware. Repairs broken gear or reinforces shelter integrity (+12%).",
+				"preferred_rooms": ["Garage / Study", "Hallway"],
+				"color": Color("#8f9ba6")
+			}
+		"fuel":
+			return {
+				"id": "fuel",
+				"name": "Gasoline Jerrycan",
+				"short_name": "Fuel Can",
+				"slots": 1,
+				"category": "vehicle",
+				"description": "Heavy red 5-gallon military steel jerrycan of stabilized gasoline for the Station Wagon highway escape.",
+				"preferred_rooms": ["Garage / Study"],
+				"color": Color("#cf3526")
+			}
+		"battery":
+			return {
+				"id": "battery",
+				"name": "12V Lead-Acid Battery",
+				"short_name": "Battery",
+				"slots": 1,
+				"category": "vehicle",
+				"description": "Heavy-duty 12V automotive starter battery with intact lead cells for cranking the escape Station Wagon.",
+				"preferred_rooms": ["Garage / Study"],
+				"color": Color("#384047")
+			}
+		"alternator":
+			return {
+				"id": "alternator",
+				"name": "Copper-Wound Alternator",
+				"short_name": "Alternator",
+				"slots": 1,
+				"category": "vehicle",
+				"description": "Finned aluminum dynamo alternator with copper windings and V-belt pulley for the Station Wagon engine.",
+				"preferred_rooms": ["Garage / Study"],
+				"color": Color("#d96b27")
+			}
+		"spark_plugs":
+			return {
+				"id": "spark_plugs",
+				"name": "Ceramic Spark Plugs",
+				"short_name": "Spark Plugs",
+				"slots": 1,
+				"category": "vehicle",
+				"description": "Ribbed white ceramic ignition spark plugs with brass hex shells to fire the Station Wagon V8.",
+				"preferred_rooms": ["Garage / Study"],
+				"color": Color("#eef4f8")
+			}
+		"radiator_hose":
+			return {
+				"id": "radiator_hose",
+				"name": "Reinforced Radiator Hose",
+				"short_name": "Rad. Hose",
+				"slots": 1,
+				"category": "vehicle",
+				"description": "Heavy curved reinforced rubber coolant hose with stainless steel clamps for the Station Wagon.",
+				"preferred_rooms": ["Garage / Study"],
+				"color": Color("#4a5258")
+			}
+		"vehicle_part":
+			return {
+				"id": "vehicle_part",
+				"name": "Station Wagon Engine Part",
+				"short_name": "Engine Part",
+				"slots": 1,
+				"category": "vehicle",
+				"description": "Salvaged automotive engine component required to rebuild the shelter's escape Station Wagon.",
+				"preferred_rooms": ["Garage / Study"],
+				"color": Color("#5d6870")
+			}
 		_:
 			return {
 				"id": key,
@@ -389,6 +508,22 @@ static func draw_item_icon(
 			_draw_cat(canvas, center, u, ol, thin)
 		"dog":
 			_draw_dog(canvas, center, u, ol, thin)
+		"antibiotics":
+			_draw_antibiotics(canvas, center, u, ol, thin)
+		"antirad":
+			_draw_antirad(canvas, center, u, ol, thin)
+		"scrap":
+			_draw_scrap(canvas, center, u, ol, thin)
+		"fuel":
+			_draw_fuel(canvas, center, u, ol, thin)
+		"battery":
+			_draw_battery(canvas, center, u, ol, thin)
+		"alternator":
+			_draw_alternator(canvas, center, u, ol, thin)
+		"spark_plugs":
+			_draw_spark_plugs(canvas, center, u, ol, thin)
+		"radiator_hose", "vehicle_part":
+			_draw_radiator_hose(canvas, center, u, ol, thin)
 		_:
 			_draw_fallback_crate(canvas, center, u, ol, thin)
 
@@ -1562,6 +1697,470 @@ static func _draw_dog(canvas: CanvasItem, c: Vector2, u: float, ol: float, thin:
 		var ec: Vector2 = hc + Vector2(float(sgn) * u * 0.22, -u * 0.12)
 		canvas.draw_circle(ec, maxf(u * 0.09, 1.3), COL_INK)
 		canvas.draw_circle(ec + Vector2(-u * 0.025, -u * 0.025), maxf(u * 0.03, 0.8), Color.WHITE)
+
+
+# ---------------------------------------------------------------------------
+# 21. ANTIBIOTICS — Amber Glass Prescription Pill Bottle with White Cap & Rx Cross Label
+# ---------------------------------------------------------------------------
+
+static func _draw_antibiotics(canvas: CanvasItem, c: Vector2, u: float, ol: float, thin: float) -> void:
+	var bw: float = u * 0.48
+	var top_y: float = c.y - u * 0.44
+	var bot_y: float = c.y + u * 0.74
+
+	# Amber glass cylindrical bottle body
+	var body_rect := Rect2(c.x - bw, top_y, bw * 2.0, bot_y - top_y)
+	var body_pts: PackedVector2Array = _round_rect_pts(body_rect, u * 0.11, 3)
+	_poly(canvas, body_pts, Color("#cf6a17"))
+
+	# Deeper amber right bevel shadow + golden translucent left specular streak
+	canvas.draw_rect(Rect2(c.x + bw * 0.45, top_y + ol, bw * 0.50, bot_y - top_y - ol * 2.0), Color("#8c3e08"), true)
+	canvas.draw_rect(Rect2(c.x - bw * 0.80, top_y + ol, bw * 0.26, bot_y - top_y - ol * 2.0), Color("#f7ae3e"), true)
+
+	# Capsules peeking inside bottom of amber glass
+	for cap_data in [Vector3(-0.22, 0.56, -0.32), Vector3(0.20, 0.58, 0.28)]:
+		var v: Vector3 = cap_data
+		var pc := Vector2(c.x + u * v.x, c.y + u * v.y)
+		_poly(canvas, _rot_rect_pts(pc, Vector2(u * 0.14, u * 0.065), v.z), COL_CREAM, COL_INK, thin * 0.75)
+		_poly(canvas, _rot_rect_pts(pc - Vector2(cos(v.z), sin(v.z)) * (u * 0.06), Vector2(u * 0.07, u * 0.06), v.z), COL_ATOMIC_RED)
+
+	# Wrap-around white prescription pharmacy label
+	var lbl_rect := Rect2(c.x - bw + ol * 0.35, c.y - u * 0.18, bw * 2.0 - ol * 0.70, u * 0.58)
+	canvas.draw_rect(lbl_rect, COL_CREAM, true)
+	canvas.draw_rect(Rect2(lbl_rect.position.x, lbl_rect.position.y, lbl_rect.size.x, u * 0.10), Color("#2b6ca3"), true)
+	canvas.draw_line(lbl_rect.position, Vector2(lbl_rect.end.x, lbl_rect.position.y), COL_INK, thin)
+	canvas.draw_line(Vector2(lbl_rect.position.x, lbl_rect.end.y), lbl_rect.end, COL_INK, thin)
+
+	# Crisp "Rx" glyph on left of label + red medical cross on right
+	var rx_o := Vector2(c.x - bw * 0.68, c.y + u * 0.02)
+	canvas.draw_line(rx_o, rx_o + Vector2(0.0, u * 0.26), COL_INK, thin * 1.25)
+	canvas.draw_arc(rx_o + Vector2(u * 0.06, u * 0.07), u * 0.075, -PI * 0.5, PI * 0.5, 8, COL_INK, thin * 1.15)
+	canvas.draw_line(rx_o + Vector2(u * 0.04, u * 0.13), rx_o + Vector2(u * 0.22, u * 0.30), COL_INK, thin * 1.2)
+	canvas.draw_line(rx_o + Vector2(u * 0.22, u * 0.16), rx_o + Vector2(u * 0.08, u * 0.30), COL_INK, thin * 1.15)
+
+	var cc := Vector2(c.x + bw * 0.38, c.y + u * 0.16)
+	var arm_l: float = u * 0.15
+	var arm_t: float = u * 0.055
+	canvas.draw_rect(Rect2(cc.x - arm_t, cc.y - arm_l, arm_t * 2.0, arm_l * 2.0), Color("#d93426"), true)
+	canvas.draw_rect(Rect2(cc.x - arm_l, cc.y - arm_t, arm_l * 2.0, arm_t * 2.0), Color("#d93426"), true)
+
+	# Outer bottle ink contour
+	_poly(canvas, body_pts, Color(0, 0, 0, 0), COL_INK, ol)
+
+	# Ribbed white child-safe prescription cap
+	var cap_rect := Rect2(c.x - bw * 1.12, c.y - u * 0.76, bw * 2.24, u * 0.34)
+	_poly(canvas, _round_rect_pts(cap_rect, u * 0.06, 2), COL_CREAM, COL_INK, ol)
+	for rx_f in [-0.72, -0.36, 0.0, 0.36, 0.72]:
+		var gx: float = c.x + bw * float(rx_f)
+		canvas.draw_line(Vector2(gx, cap_rect.position.y + ol), Vector2(gx, cap_rect.end.y - ol), COL_STEEL, thin * 0.9)
+
+
+# ---------------------------------------------------------------------------
+# 22. ANTIRAD — CONELRAD Yellow/Black Potassium Iodide Foil Blister Pack with Radiation Trefoil
+# ---------------------------------------------------------------------------
+
+static func _draw_antirad(canvas: CanvasItem, c: Vector2, u: float, ol: float, thin: float) -> void:
+	var pw: float = u * 1.26
+	var ph: float = u * 1.50
+	var card_rect := Rect2(c.x - pw * 0.5, c.y - ph * 0.5, pw, ph)
+	var card_pts: PackedVector2Array = _round_rect_pts(card_rect, u * 0.12, 3)
+
+	# Brushed silver foil blister pack base + diagonal metallic sheen
+	_poly(canvas, card_pts, COL_STEEL_LIGHT)
+	var sheen := PackedVector2Array([
+		card_rect.position + Vector2(pw * 0.12, 0.0),
+		card_rect.position + Vector2(pw * 0.48, 0.0),
+		Vector2(card_rect.position.x + pw * 0.22, card_rect.end.y),
+		Vector2(card_rect.position.x, card_rect.end.y - ph * 0.18)
+	])
+	_poly(canvas, sheen, Color(1.0, 1.0, 1.0, 0.45))
+
+	# Top CONELRAD black-and-yellow hazard strip
+	var hdr_h: float = u * 0.32
+	var hdr_rect := Rect2(card_rect.position.x, card_rect.position.y, pw, hdr_h)
+	canvas.draw_rect(hdr_rect, COL_INK, true)
+	for sx in [-0.38, 0.0, 0.38]:
+		var stripe_c := Vector2(c.x + pw * float(sx), hdr_rect.position.y + hdr_h * 0.5)
+		_poly(canvas, _rot_rect_pts(stripe_c, Vector2(u * 0.11, hdr_h * 0.36), 0.35), COL_HAZARD_YELLOW)
+	canvas.draw_line(Vector2(card_rect.position.x, hdr_rect.end.y), Vector2(card_rect.end.x, hdr_rect.end.y), COL_HAZARD_YELLOW, thin * 1.2)
+
+	# Central CONELRAD Hazard Yellow disc with 3-blade black Radiation Trefoil
+	var tc := Vector2(c.x, c.y - u * 0.06)
+	var tr: float = u * 0.34
+	canvas.draw_circle(tc, tr + thin * 0.9, COL_INK)
+	canvas.draw_circle(tc, tr, COL_HAZARD_YELLOW)
+
+	for blade_ang in [-PI * 5.0 / 6.0, -PI / 6.0, PI * 0.5]:
+		var a0: float = float(blade_ang) - PI / 6.0
+		var a1: float = float(blade_ang) + PI / 6.0
+		var r_in: float = tr * 0.28
+		var r_out: float = tr * 0.86
+		var am: float = (a0 + a1) * 0.5
+		var wedge := PackedVector2Array([
+			tc + Vector2(cos(a0) * r_in, sin(a0) * r_in),
+			tc + Vector2(cos(a0) * r_out, sin(a0) * r_out),
+			tc + Vector2(cos(am) * r_out * 1.03, sin(am) * r_out * 1.03),
+			tc + Vector2(cos(a1) * r_out, sin(a1) * r_out),
+			tc + Vector2(cos(a1) * r_in, sin(a1) * r_in)
+		])
+		_poly(canvas, wedge, COL_INK)
+	canvas.draw_circle(tc, tr * 0.17, COL_INK)
+
+	# Row of 3 raised KI tablet blisters along bottom of foil pack
+	for bx in [-0.36, 0.0, 0.36]:
+		var bc := Vector2(c.x + pw * float(bx) * 0.88, c.y + u * 0.49)
+		var br: float = u * 0.13
+		canvas.draw_circle(bc, br + thin * 0.7, COL_INK)
+		canvas.draw_circle(bc, br, COL_CREAM)
+		canvas.draw_arc(bc, br * 0.62, PI * 1.1, PI * 1.85, 6, COL_HAZARD_YELLOW, thin)
+		canvas.draw_line(bc + Vector2(-br * 0.65, 0.0), bc + Vector2(br * 0.65, 0.0), COL_STEEL_DARK, thin * 0.8)
+
+	# Crisp outer foil pack border
+	_poly(canvas, card_pts, Color(0, 0, 0, 0), COL_INK, ol)
+
+
+# ---------------------------------------------------------------------------
+# 23. SCRAP — Crossed Steel Wrench, Brass Gear & Riveted Hull Repair Plate
+# ---------------------------------------------------------------------------
+
+static func _draw_scrap(canvas: CanvasItem, c: Vector2, u: float, ol: float, thin: float) -> void:
+	# 1. Riveted steel hull repair plate in background
+	var pl_c: Vector2 = c + Vector2(-u * 0.10, -u * 0.06)
+	var pl_ang: float = 0.14
+	var pl_pts: PackedVector2Array = _rot_rect_pts(pl_c, Vector2(u * 0.56, u * 0.46), pl_ang)
+	_poly(canvas, pl_pts, COL_STEEL, COL_INK, ol)
+	_poly(canvas, _rot_rect_pts(pl_c + Vector2(-u * 0.05, -u * 0.05), Vector2(u * 0.42, u * 0.32), pl_ang), COL_STEEL_LIGHT)
+	var cr_p: float = cos(pl_ang)
+	var sr_p: float = sin(pl_ang)
+	for rx in [-0.42, 0.42]:
+		for ry in [-0.32, 0.32]:
+			var lx: float = float(rx) * u
+			var ly: float = float(ry) * u
+			var rv := Vector2(pl_c.x + lx * cr_p - ly * sr_p, pl_c.y + lx * sr_p + ly * cr_p)
+			canvas.draw_circle(rv, maxf(u * 0.05, 1.0), COL_INK)
+
+	# 2. 8-tooth brass gear wheel overlapping lower-right
+	var gc: Vector2 = c + Vector2(u * 0.28, u * 0.24)
+	var teeth: int = 8
+	var r_tip: float = u * 0.42
+	var r_root: float = u * 0.30
+	var gear_pts := PackedVector2Array()
+	for i in range(teeth * 2):
+		var a0: float = TAU * float(i) / float(teeth * 2)
+		var a1: float = TAU * (float(i) + 0.45) / float(teeth * 2)
+		var rad: float = r_tip if (i % 2 == 0) else r_root
+		gear_pts.append(gc + Vector2(cos(a0) * rad, sin(a0) * rad))
+		gear_pts.append(gc + Vector2(cos(a1) * rad, sin(a1) * rad))
+	_poly(canvas, gear_pts, COL_HAZARD_YELLOW, COL_INK, ol * 0.95)
+	canvas.draw_circle(gc, u * 0.20, COL_HAZARD_GOLD)
+	canvas.draw_circle(gc, u * 0.11, COL_SLATE)
+	canvas.draw_arc(gc, u * 0.11, 0.0, TAU, 10, COL_INK, thin)
+
+	# 3. Crossed open-end steel mechanic's wrench diagonally across foreground
+	var w_ang: float = -PI * 0.25
+	var w_dir := Vector2(cos(w_ang), sin(w_ang))
+	var w_perp := Vector2(-w_dir.y, w_dir.x)
+	var wc: Vector2 = c + Vector2(-u * 0.02, -u * 0.02)
+	_poly(canvas, _rot_rect_pts(wc, Vector2(u * 0.56, u * 0.11), w_ang), COL_STEEL_LIGHT, COL_INK, ol)
+	canvas.draw_line(wc - w_dir * (u * 0.36), wc + w_dir * (u * 0.36), COL_STEEL_DARK, thin * 1.1)
+
+	for end_sgn in [-1.0, 1.0]:
+		var es: float = float(end_sgn)
+		var hc: Vector2 = wc + w_dir * (es * u * 0.58)
+		canvas.draw_circle(hc, u * 0.23 + ol * 0.5, COL_INK)
+		canvas.draw_circle(hc, u * 0.21, COL_STEEL_LIGHT)
+		# Open jaw notch
+		var notch_c: Vector2 = hc + w_dir * (es * u * 0.11) + w_perp * (es * u * 0.02)
+		_poly(canvas, _rot_rect_pts(notch_c, Vector2(u * 0.15, u * 0.095), w_ang), COL_SLATE)
+
+
+# ---------------------------------------------------------------------------
+# 24. FUEL — Red Steel Military Jerrycan with Embossed X Ribs & Yellow Spout
+# ---------------------------------------------------------------------------
+
+static func _draw_fuel(canvas: CanvasItem, c: Vector2, u: float, ol: float, thin: float) -> void:
+	# Flexible yellow metal pour spout protruding from top-left
+	var sp_base: Vector2 = c + Vector2(-u * 0.30, -u * 0.52)
+	var sp_tip: Vector2 = c + Vector2(-u * 0.68, -u * 0.80)
+	canvas.draw_line(sp_base, sp_tip, COL_INK, ol * 3.1)
+	canvas.draw_line(sp_base, sp_tip, COL_HAZARD_YELLOW, ol * 1.8)
+	_poly(canvas, _rot_rect_pts(sp_base, Vector2(u * 0.13, u * 0.08), -0.65), COL_HAZARD_GOLD, COL_INK, thin)
+
+	# Red steel 5-gallon jerrycan body with beveled spout shoulder
+	var x_l: float = c.x - u * 0.56
+	var x_r: float = c.x + u * 0.60
+	var y_t: float = c.y - u * 0.58
+	var y_b: float = c.y + u * 0.74
+	var can_pts := PackedVector2Array([
+		Vector2(x_l + u * 0.26, y_t),
+		Vector2(x_r - u * 0.08, y_t),
+		Vector2(x_r, y_t + u * 0.08),
+		Vector2(x_r, y_b - u * 0.08),
+		Vector2(x_r - u * 0.08, y_b),
+		Vector2(x_l + u * 0.08, y_b),
+		Vector2(x_l, y_b - u * 0.08),
+		Vector2(x_l, y_t + u * 0.26)
+	])
+	_poly(canvas, can_pts, Color("#cf3526"))
+
+	# Right-side shadow & left highlight edge
+	canvas.draw_rect(Rect2(x_r - u * 0.18, y_t + u * 0.10, u * 0.14, y_b - y_t - u * 0.20), COL_ATOMIC_DARK, true)
+	canvas.draw_line(Vector2(x_l + u * 0.09, y_t + u * 0.30), Vector2(x_l + u * 0.09, y_b - u * 0.12), Color("#f26b57"), thin * 1.3)
+
+	# Military triple-bar carry handle cutout at top-right
+	var h_rect := Rect2(c.x - u * 0.08, y_t + u * 0.10, u * 0.54, u * 0.15)
+	canvas.draw_rect(h_rect, COL_SLATE, true)
+	canvas.draw_rect(h_rect, COL_INK, false, thin)
+	canvas.draw_line(Vector2(h_rect.position.x, h_rect.position.y + h_rect.size.y * 0.5), Vector2(h_rect.end.x, h_rect.position.y + h_rect.size.y * 0.5), Color("#e64a38"), thin * 1.1)
+
+	# Recessed side panel with embossed X stiffening ribs
+	var p_rect := Rect2(x_l + u * 0.16, y_t + u * 0.34, (x_r - x_l) - u * 0.32, (y_b - y_t) - u * 0.48)
+	_poly(canvas, _round_rect_pts(p_rect, u * 0.07, 2), COL_ATOMIC_DARK, COL_INK, thin)
+
+	canvas.draw_line(p_rect.position + Vector2(u * 0.07, u * 0.07), p_rect.end - Vector2(u * 0.07, u * 0.07), COL_INK, ol * 1.35)
+	canvas.draw_line(Vector2(p_rect.end.x - u * 0.07, p_rect.position.y + u * 0.07), Vector2(p_rect.position.x + u * 0.07, p_rect.end.y - u * 0.07), COL_INK, ol * 1.35)
+	canvas.draw_line(p_rect.position + Vector2(u * 0.07, u * 0.07), p_rect.end - Vector2(u * 0.07, u * 0.07), Color("#f06651"), thin * 1.45)
+	canvas.draw_line(Vector2(p_rect.end.x - u * 0.07, p_rect.position.y + u * 0.07), Vector2(p_rect.position.x + u * 0.07, p_rect.end.y - u * 0.07), Color("#f06651"), thin * 1.45)
+
+	# Central stamped hub square with yellow fuel hazard diamond
+	var hub_c: Vector2 = p_rect.get_center()
+	var hub_r := Rect2(hub_c.x - u * 0.15, hub_c.y - u * 0.15, u * 0.30, u * 0.30)
+	canvas.draw_rect(hub_r, Color("#cf3526"), true)
+	canvas.draw_rect(hub_r, COL_INK, false, thin)
+	_poly(canvas, _rot_rect_pts(hub_c, Vector2(u * 0.08, u * 0.08), PI * 0.25), COL_HAZARD_YELLOW)
+
+	# Outer ink contour
+	_poly(canvas, can_pts, Color(0, 0, 0, 0), COL_INK, ol)
+
+
+# ---------------------------------------------------------------------------
+# 25. BATTERY — 12V Lead-Acid Car Battery with + Red and - Black Posts & Lightning Bolt
+# ---------------------------------------------------------------------------
+
+static func _draw_battery(canvas: CanvasItem, c: Vector2, u: float, ol: float, thin: float) -> void:
+	var bw: float = u * 1.38
+	var lid_y: float = c.y - u * 0.42
+	var lid_h: float = u * 0.22
+	var bot_y: float = c.y + u * 0.72
+
+	# Left (+) Red & Right (-) Black/Steel lead terminal posts on top
+	var pos_post := Rect2(c.x - bw * 0.38, lid_y - u * 0.24, u * 0.24, u * 0.26)
+	_poly(canvas, _round_rect_pts(pos_post, u * 0.04, 2), COL_ATOMIC_RED, COL_INK, ol * 0.9)
+	canvas.draw_rect(Rect2(pos_post.position.x + u * 0.05, pos_post.position.y - u * 0.06, u * 0.14, u * 0.08), COL_STEEL_LIGHT, true)
+
+	var neg_post := Rect2(c.x + bw * 0.38 - u * 0.24, lid_y - u * 0.24, u * 0.24, u * 0.26)
+	_poly(canvas, _round_rect_pts(neg_post, u * 0.04, 2), Color("#262b30"), COL_INK, ol * 0.9)
+	canvas.draw_rect(Rect2(neg_post.position.x + u * 0.05, neg_post.position.y - u * 0.06, u * 0.14, u * 0.08), COL_STEEL, true)
+
+	# Three yellow acid-cell filler caps between terminals
+	for vx in [-0.14, 0.0, 0.14]:
+		var vc := Vector2(c.x + bw * float(vx), lid_y - u * 0.05)
+		canvas.draw_circle(vc, maxf(u * 0.06, 1.1), COL_INK)
+		canvas.draw_circle(vc, maxf(u * 0.042, 0.8), COL_HAZARD_YELLOW)
+
+	# Heavy dark slate ebonite casing
+	var body_rect := Rect2(c.x - bw * 0.48, lid_y + lid_h - u * 0.02, bw * 0.96, bot_y - (lid_y + lid_h))
+	_poly(canvas, _round_rect_pts(body_rect, u * 0.08, 2), Color("#2a3036"), COL_INK, ol)
+	canvas.draw_rect(Rect2(body_rect.position.x + ol, body_rect.position.y + ol, u * 0.18, body_rect.size.y - ol * 2.0), Color("#3c464f"), true)
+
+	# Molded battery top cover lip
+	var lid_rect := Rect2(c.x - bw * 0.52, lid_y, bw * 1.04, lid_h)
+	_poly(canvas, _round_rect_pts(lid_rect, u * 0.06, 2), Color("#465059"), COL_INK, ol)
+
+	# Crisp (+) Red and (-) Steel polarity symbols on upper face
+	var pc := Vector2(c.x - bw * 0.28, body_rect.position.y + u * 0.20)
+	var sym_r: float = u * 0.10
+	canvas.draw_line(pc + Vector2(-sym_r, 0.0), pc + Vector2(sym_r, 0.0), COL_ATOMIC_RED, thin * 1.6)
+	canvas.draw_line(pc + Vector2(0.0, -sym_r), pc + Vector2(0.0, sym_r), COL_ATOMIC_RED, thin * 1.6)
+
+	var nc := Vector2(c.x + bw * 0.28, body_rect.position.y + u * 0.20)
+	canvas.draw_line(nc + Vector2(-sym_r, 0.0), nc + Vector2(sym_r, 0.0), COL_STEEL_LIGHT, thin * 1.6)
+
+	# High-voltage CONELRAD yellow lightning bolt emblem in center
+	var bc := Vector2(c.x, body_rect.position.y + body_rect.size.y * 0.54)
+	var bolt_pts := PackedVector2Array([
+		bc + Vector2(u * 0.08, -u * 0.34),
+		bc + Vector2(-u * 0.22, u * 0.04),
+		bc + Vector2(-u * 0.02, u * 0.04),
+		bc + Vector2(-u * 0.12, u * 0.36),
+		bc + Vector2(u * 0.22, -u * 0.04),
+		bc + Vector2(u * 0.02, -u * 0.04)
+	])
+	_poly(canvas, bolt_pts, COL_HAZARD_YELLOW, COL_INK, thin * 1.1)
+
+
+# ---------------------------------------------------------------------------
+# 26. ALTERNATOR — Finned Copper-Wound Dynamo Alternator Pulley
+# ---------------------------------------------------------------------------
+
+static func _draw_alternator(canvas: CanvasItem, c: Vector2, u: float, ol: float, thin: float) -> void:
+	var hc: Vector2 = c + Vector2(-u * 0.10, u * 0.06)
+	var hr: float = u * 0.56
+
+	# Cast-aluminum mounting bracket ears with bolt holes
+	for ear_ang in [-PI * 0.68, PI * 0.42]:
+		var ea: float = float(ear_ang)
+		var ep: Vector2 = hc + Vector2(cos(ea), sin(ea)) * (hr * 1.12)
+		canvas.draw_circle(ep, u * 0.18, COL_INK)
+		canvas.draw_circle(ep, u * 0.15, COL_STEEL_DARK)
+		canvas.draw_circle(ep, u * 0.065, COL_SLATE)
+
+	# Finned cast-aluminum stator housing
+	canvas.draw_circle(hc, hr + ol * 0.7, COL_INK)
+	canvas.draw_circle(hc, hr, COL_STEEL)
+	canvas.draw_arc(hc, hr * 0.88, PI * 0.95, PI * 1.75, 12, COL_STEEL_LIGHT, thin * 1.4)
+
+	# Radial cooling fins around rim
+	for fi in range(10):
+		var fa: float = TAU * float(fi) / 10.0
+		canvas.draw_line(hc + Vector2(cos(fa), sin(fa)) * (hr * 0.78), hc + Vector2(cos(fa), sin(fa)) * (hr * 0.98), COL_INK, thin)
+
+	# Ventilation cutouts revealing bright copper-wound stator coils!
+	for ci in range(5):
+		var ca: float = TAU * float(ci) / 5.0 + 0.3
+		var slot_c: Vector2 = hc + Vector2(cos(ca), sin(ca)) * (hr * 0.52)
+		_poly(canvas, _rot_rect_pts(slot_c, Vector2(u * 0.14, u * 0.085), ca), COL_INK)
+		_poly(canvas, _rot_rect_pts(slot_c, Vector2(u * 0.11, u * 0.06), ca), Color("#d96b27"))
+		canvas.draw_line(slot_c - Vector2(cos(ca), sin(ca)) * (u * 0.08), slot_c + Vector2(cos(ca), sin(ca)) * (u * 0.08), Color("#f79f4a"), thin * 0.9)
+
+	# Front radial cooling fan + V-belt pulley wheel on upper-right shaft
+	var pc: Vector2 = c + Vector2(u * 0.24, -u * 0.14)
+	var fan_r: float = u * 0.42
+	var fan_pts := PackedVector2Array()
+	for bi in range(16):
+		var ba: float = TAU * float(bi) / 16.0
+		var rad: float = fan_r if (bi % 2 == 0) else (fan_r * 0.80)
+		fan_pts.append(pc + Vector2(cos(ba) * rad, sin(ba) * rad))
+	_poly(canvas, fan_pts, COL_STEEL_DARK, COL_INK, ol * 0.85)
+
+	# Stepped V-belt pulley groove & brass center hex shaft nut
+	var pul_r: float = u * 0.28
+	canvas.draw_circle(pc, pul_r + thin * 0.8, COL_INK)
+	canvas.draw_circle(pc, pul_r, COL_STEEL_LIGHT)
+	canvas.draw_circle(pc, pul_r * 0.66, Color("#2c3238"))
+	canvas.draw_circle(pc, pul_r * 0.36, COL_HAZARD_YELLOW)
+	canvas.draw_arc(pc, pul_r * 0.36, 0.0, TAU, 8, COL_INK, thin * 0.9)
+
+
+# ---------------------------------------------------------------------------
+# 27. SPARK PLUGS — White Ceramic Ribbed Spark Plug with Brass Hex Nut & Electrode Spark
+# ---------------------------------------------------------------------------
+
+static func _draw_spark_plugs(canvas: CanvasItem, c: Vector2, u: float, ol: float, thin: float) -> void:
+	var ang: float = -PI * 0.24
+	var dir := Vector2(cos(ang), sin(ang))
+	var perp := Vector2(-dir.y, dir.x)
+
+	# Top brass ignition terminal stud
+	var stud_c: Vector2 = c + dir * (u * 0.68)
+	_poly(canvas, _rot_rect_pts(stud_c, Vector2(u * 0.11, u * 0.08), ang), COL_HAZARD_YELLOW, COL_INK, ol * 0.85)
+
+	# White alumina-ceramic insulator with 3 corrugated ribs
+	var cer_c: Vector2 = c + dir * (u * 0.30)
+	_poly(canvas, _rot_rect_pts(cer_c, Vector2(u * 0.32, u * 0.17), ang), Color("#f2f7fa"), COL_INK, ol)
+	for rib_off in [-0.14, 0.02, 0.18]:
+		var rc: Vector2 = cer_c + dir * (u * float(rib_off))
+		_poly(canvas, _rot_rect_pts(rc, Vector2(u * 0.055, u * 0.21), ang), COL_CREAM, COL_INK, thin * 0.85)
+	# Manufacturer cyan-blue insulator stripe
+	var band_c: Vector2 = cer_c - dir * (u * 0.23)
+	_poly(canvas, _rot_rect_pts(band_c, Vector2(u * 0.035, u * 0.155), ang), COL_WATER_BLUE)
+
+	# Brass hex wrench nut (3 faceted panels)
+	var hex_c: Vector2 = c - dir * (u * 0.07)
+	_poly(canvas, _rot_rect_pts(hex_c, Vector2(u * 0.15, u * 0.27), ang), COL_HAZARD_YELLOW, COL_INK, ol)
+	_poly(canvas, _rot_rect_pts(hex_c - perp * (u * 0.16), Vector2(u * 0.13, u * 0.08), ang), Color("#ffe484"))
+	_poly(canvas, _rot_rect_pts(hex_c + perp * (u * 0.16), Vector2(u * 0.13, u * 0.08), ang), COL_HAZARD_GOLD)
+	canvas.draw_line(hex_c - dir * (u * 0.14) - perp * (u * 0.08), hex_c + dir * (u * 0.14) - perp * (u * 0.08), COL_INK, thin * 0.85)
+	canvas.draw_line(hex_c - dir * (u * 0.14) + perp * (u * 0.08), hex_c + dir * (u * 0.14) + perp * (u * 0.08), COL_INK, thin * 0.85)
+
+	# Threaded dark-steel reach barrel
+	var thr_c: Vector2 = c - dir * (u * 0.36)
+	_poly(canvas, _rot_rect_pts(thr_c, Vector2(u * 0.17, u * 0.18), ang), COL_STEEL_DARK, COL_INK, ol)
+	for ti in [-0.09, 0.0, 0.09]:
+		var tp: Vector2 = thr_c + dir * (u * float(ti))
+		canvas.draw_line(tp - perp * (u * 0.19), tp + perp * (u * 0.19), COL_STEEL_LIGHT, thin)
+
+	# Center tip & L-shaped ground electrode hook + bright blue/yellow ignition spark!
+	var tip_base: Vector2 = c - dir * (u * 0.54)
+	canvas.draw_line(tip_base, tip_base - dir * (u * 0.10), COL_HAZARD_YELLOW, thin * 1.4)
+	var hook_pts := PackedVector2Array([
+		tip_base + perp * (u * 0.13),
+		tip_base - dir * (u * 0.20) + perp * (u * 0.13),
+		tip_base - dir * (u * 0.20) - perp * (u * 0.04)
+	])
+	canvas.draw_polyline(hook_pts, COL_INK, ol * 1.35)
+	canvas.draw_polyline(hook_pts, COL_STEEL_LIGHT, thin * 1.2)
+
+	var spk_c: Vector2 = tip_base - dir * (u * 0.14)
+	for sa in [0.0, PI * 0.33, PI * 0.66]:
+		var sv := Vector2(cos(float(sa)), sin(float(sa))) * (u * 0.20)
+		canvas.draw_line(spk_c - sv, spk_c + sv, Color("#70d6ff"), thin * 1.35)
+	canvas.draw_circle(spk_c, maxf(u * 0.075, 1.3), COL_HAZARD_YELLOW)
+	canvas.draw_circle(spk_c, maxf(u * 0.04, 0.9), Color.WHITE)
+
+
+# ---------------------------------------------------------------------------
+# 28. RADIATOR HOSE / VEHICLE PART — Curved Reinforced Rubber Hose with Steel Clamps
+# ---------------------------------------------------------------------------
+
+static func _draw_radiator_hose(canvas: CanvasItem, c: Vector2, u: float, ol: float, thin: float) -> void:
+	# Smooth S-curved coolant hose spine sampled via cubic Bezier
+	var p0: Vector2 = c + Vector2(-u * 0.54, -u * 0.52)
+	var p1: Vector2 = c + Vector2(u * 0.42, -u * 0.54)
+	var p2: Vector2 = c + Vector2(-u * 0.42, u * 0.54)
+	var p3: Vector2 = c + Vector2(u * 0.54, u * 0.52)
+
+	var steps: int = 16
+	var hw: float = u * 0.23
+	var left_side := PackedVector2Array()
+	var right_side := PackedVector2Array()
+	var spine := PackedVector2Array()
+
+	for i in range(steps + 1):
+		var t: float = float(i) / float(steps)
+		var omt: float = 1.0 - t
+		var pt: Vector2 = (omt * omt * omt) * p0 + (3.0 * omt * omt * t) * p1 + (3.0 * omt * t * t) * p2 + (t * t * t) * p3
+		var tang: Vector2 = 3.0 * omt * omt * (p1 - p0) + 6.0 * omt * t * (p2 - p1) + 3.0 * t * t * (p3 - p2)
+		var dir: Vector2 = tang.normalized() if tang.length_squared() > 0.0001 else Vector2.RIGHT
+		var nrm := Vector2(-dir.y, dir.x)
+		spine.append(pt - nrm * (hw * 0.34))
+		left_side.append(pt + nrm * hw)
+		right_side.append(pt - nrm * hw)
+
+	var hose_poly := PackedVector2Array()
+	for pt_l in left_side:
+		hose_poly.append(pt_l)
+	for idx in range(right_side.size() - 1, -1, -1):
+		hose_poly.append(right_side[idx])
+
+	# Vulcanized charcoal rubber body + glossy highlight + braided reinforcement ribs
+	_poly(canvas, hose_poly, Color("#2b3136"), COL_INK, ol)
+	canvas.draw_polyline(spine, Color("#606c76"), thin * 1.45)
+
+	for rib_idx in [4, 8, 12]:
+		var rl: Vector2 = left_side[rib_idx]
+		var rr: Vector2 = right_side[rib_idx]
+		canvas.draw_line(rl.lerp(rr, 0.12), rl.lerp(rr, 0.88), Color("#191d20"), thin * 1.1)
+
+	# Stainless-steel worm-gear clamps near both cuffs
+	for clamp_idx in [2, 14]:
+		var cl_a: Vector2 = left_side[clamp_idx]
+		var cl_b: Vector2 = right_side[clamp_idx]
+		var cl_mid: Vector2 = (cl_a + cl_b) * 0.5
+		var cl_nrm: Vector2 = (cl_a - cl_b).normalized()
+		var cl_ang: float = Vector2(-cl_nrm.y, cl_nrm.x).angle()
+		_poly(canvas, _rot_rect_pts(cl_mid, Vector2(u * 0.065, hw * 1.18), cl_ang), COL_STEEL_LIGHT, COL_INK, ol * 0.85)
+		# Brass tensioner screw head on outer clamp edge
+		var screw_pos: Vector2 = cl_a + cl_nrm * (u * 0.07)
+		canvas.draw_circle(screw_pos, maxf(u * 0.07, 1.2), COL_INK)
+		canvas.draw_circle(screw_pos, maxf(u * 0.048, 0.9), COL_HAZARD_YELLOW)
+
+	# Open reinforced red-lined rubber mouths at upper-left & lower-right ends
+	_poly(canvas, _ellipse_pts(p0, u * 0.10, hw, 0.04, 12), Color("#b83d28"), COL_INK, ol * 0.9)
+	_poly(canvas, _ellipse_pts(p0, u * 0.055, hw * 0.58, 0.04, 10), COL_INK)
+
+	_poly(canvas, _ellipse_pts(p3, u * 0.10, hw, 0.04, 12), Color("#b83d28"), COL_INK, ol * 0.9)
+	_poly(canvas, _ellipse_pts(p3, u * 0.055, hw * 0.58, 0.04, 10), COL_INK)
 
 
 # ---------------------------------------------------------------------------

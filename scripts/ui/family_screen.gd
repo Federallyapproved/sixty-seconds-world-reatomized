@@ -56,6 +56,10 @@ var _trait_desc_label: Label
 var _hair_style_label: Label
 var _facial_hair_label: Label
 var _shirt_style_label: Label
+var _hat_row: HBoxContainer
+var _hat_prev_btn: Button
+var _hat_label: Label
+var _hat_next_btn: Button
 var _glasses_check: CheckBox
 
 var _skin_swatch_btns: Array[Button] = []
@@ -63,6 +67,10 @@ var _hair_color_btns: Array[Button] = []
 var _eye_color_btns: Array[Button] = []
 var _outfit_color_btns: Array[Button] = []
 
+var _title_lbl: Label
+var _sub_lbl: Label
+var _mode_badge_panel: PanelContainer
+var _mode_badge_label: Label
 var _footer_summary_label: Label
 var _demo_banner_panel: PanelContainer
 var _demo_banner_label: Label
@@ -151,7 +159,8 @@ func _ensure_valid_household() -> void:
 	while GameState.family_members.size() > 4:
 		GameState.family_members.pop_back()
 
-	# Normalize roles, slots, and guarantee exactly 1 leader with age >= 13
+	var unlocked_hats: Array[String] = _get_unlocked_hats()
+	# Normalize roles, slots, headgear, and guarantee exactly 1 leader with age >= 13
 	var leader_found: bool = false
 	for i in range(GameState.family_members.size()):
 		var m: Dictionary = GameState.family_members[i]
@@ -161,6 +170,11 @@ func _ensure_valid_household() -> void:
 		var role_str: String = CharacterArtist.get_role_for_age(age_val)
 		m["role"] = role_str
 		m["scavenge_slots"] = 2 if age_val < 18 else 3
+		var cur_hat: String = str(m.get("hat_id", "none"))
+		if cur_hat.is_empty() or (not GameState.demo_mode and not unlocked_hats.has(cur_hat)):
+			m["hat_id"] = "none"
+		else:
+			m["hat_id"] = cur_hat
 		if bool(m.get("is_leader", false)) and age_val >= 13 and not leader_found:
 			m["is_leader"] = true
 			leader_found = true
@@ -184,6 +198,56 @@ func _ensure_valid_household() -> void:
 
 	selected_index = clampi(selected_index, 0, GameState.family_members.size() - 1)
 
+func _get_unlocked_hats() -> Array[String]:
+	var res: Array[String] = ["none"]
+	if SaveManager != null and SaveManager.has_method("get_unlocked_hats"):
+		var raw: Array = SaveManager.get_unlocked_hats()
+		for item in raw:
+			var hs: String = str(item).strip_edges()
+			if hs != "" and not res.has(hs):
+				res.append(hs)
+	return res
+
+func _build_hat_unlock_tooltip() -> String:
+	var unlocked: Array[String] = _get_unlocked_hats()
+	var unlocked_bonus_cnt: int = maxi(0, unlocked.size() - 1)
+	var lines: Array[String] = [
+		"UNLOCKABLE SURVIVOR HEADGEAR (%d / 4 Unlocked via Achievements):" % unlocked_bonus_cnt,
+		"%s CD Brodie Helmet — \"Duck and Cover\" (Seal hatch & survive Day 1)" % ("✓ [UNLOCKED]" if unlocked.has("cd_helmet") else "• [LOCKED]"),
+		"%s Aviator Bomber Cap — \"Suitcase Strategist\" (Secure 18+ items in 60s scavenge)" % ("✓ [UNLOCKED]" if unlocked.has("aviator") else "• [LOCKED]"),
+		"%s Field Medic Cap — \"Paging Doctor Atomic\" (Doctor's Office) or \"Sanctuary Bells\"" % ("✓ [UNLOCKED]" if unlocked.has("medic_cap") else "• [LOCKED]"),
+		"%s Winter Fur Ushanka — \"Highway Breakout\" (Station Wagon) or \"Tsar Bomba Veteran\"" % ("✓ [UNLOCKED]" if unlocked.has("ushanka") else "• [LOCKED]")
+	]
+	return "\n".join(lines)
+
+func _get_difficulty_short_label() -> String:
+	match GameState.difficulty:
+		"little_boy":
+			return "LITTLE BOY (CASUAL)"
+		"tsar_bomba":
+			return "TSAR BOMBA (APOCALYPSE)"
+		_:
+			return "FAT MAN (REATOMIZED)"
+
+func _get_mode_short_label() -> String:
+	match GameState.game_mode:
+		"scavenge_drill":
+			return "60s SCAVENGE DRILL"
+		"survival_only":
+			return "SURVIVAL ONLY"
+		"challenge":
+			match GameState.active_challenge_id:
+				"cul_de_sac_odyssey":
+					return "CHALLENGE: CUL-DE-SAC"
+				"nuclear_winter_zero":
+					return "CHALLENGE: WINTER ZERO"
+				"lone_wolf_pets":
+					return "CHALLENGE: LONE WOLF"
+				_:
+					return "CHALLENGE PROTOCOL"
+		_:
+			return "FULL PROTOCOL"
+
 func _get_selected_member() -> Dictionary:
 	_ensure_valid_household()
 	return GameState.family_members[selected_index]
@@ -206,18 +270,23 @@ func _get_trait_info(trait_id: String) -> Dictionary:
 func _build_preview_member_dict(base_member: Dictionary) -> Dictionary:
 	var copy_m: Dictionary = base_member.duplicate(true)
 	copy_m["alive"] = true
+	copy_m["betrayed"] = false
 	copy_m["on_expedition"] = false
 	copy_m["hunger"] = 0
 	copy_m["thirst"] = 0
 	copy_m["sickness"] = 0
 	copy_m["injury"] = 0
 	copy_m["sanity"] = 0
+	copy_m["fatigue"] = 0
+	copy_m["soot_days"] = 0
+	copy_m["breakdown_days"] = 0
 	copy_m["is_mutant"] = false
 
 	match condition_preview_mode:
 		"starving":
 			copy_m["hunger"] = 3
 			copy_m["thirst"] = 2
+			copy_m["fatigue"] = 1
 		"sick":
 			copy_m["sickness"] = 2
 			copy_m["injury"] = 1
@@ -225,6 +294,14 @@ func _build_preview_member_dict(base_member: Dictionary) -> Dictionary:
 			copy_m["sanity"] = 3
 		"mutant":
 			copy_m["is_mutant"] = true
+		"soot":
+			copy_m["soot_days"] = 2
+			copy_m["fatigue"] = 1
+		"breakdown":
+			copy_m["breakdown_days"] = 2
+			copy_m["sanity"] = 2
+		"betrayed":
+			copy_m["betrayed"] = true
 	return copy_m
 
 func _play_sfx(sfx_name: String) -> void:
@@ -263,35 +340,49 @@ func _style_button(btn: Button, bg: Color, fg: Color, border: Color = COL_INK, f
 
 func _build_ui() -> void:
 	# Header Title Labels
-	var title_lbl := Label.new()
-	title_lbl.text = "CIVIL DEFENSE FORM CD-60  //  FAMILY SURVIVOR DOSSIER"
-	title_lbl.position = Vector2(66, 9)
-	title_lbl.size = Vector2(760, 24)
-	title_lbl.add_theme_font_size_override("font_size", 19)
-	title_lbl.add_theme_color_override("font_color", COL_HAZARD_YELLOW)
-	add_child(title_lbl)
+	_title_lbl = Label.new()
+	_title_lbl.text = "CIVIL DEFENSE FORM CD-60  //  FAMILY SURVIVOR DOSSIER"
+	_title_lbl.position = Vector2(66, 9)
+	_title_lbl.size = Vector2(746, 24)
+	_title_lbl.add_theme_font_size_override("font_size", 18)
+	_title_lbl.add_theme_color_override("font_color", COL_HAZARD_YELLOW)
+	add_child(_title_lbl)
 
-	var sub_lbl := Label.new()
-	sub_lbl.text = "CUSTOMIZE AGES, HAIR, OUTFITS & SCAVENGE LEADER BEFORE SELECTING YOUR REAL-WORLD HOUSE"
-	sub_lbl.position = Vector2(66, 32)
-	sub_lbl.size = Vector2(820, 18)
-	sub_lbl.add_theme_font_size_override("font_size", 11)
-	sub_lbl.add_theme_color_override("font_color", COL_PARCHMENT)
-	add_child(sub_lbl)
+	_sub_lbl = Label.new()
+	_sub_lbl.text = "CUSTOMIZE AGES, HATS, OUTFITS & SCAVENGE LEADER BEFORE SELECTING YOUR HOUSE"
+	_sub_lbl.position = Vector2(66, 32)
+	_sub_lbl.size = Vector2(746, 18)
+	_sub_lbl.add_theme_font_size_override("font_size", 11)
+	_sub_lbl.add_theme_color_override("font_color", COL_PARCHMENT)
+	add_child(_sub_lbl)
 
-	# Demo Mode Top Right/Center Banner
+	# Active Difficulty & Game Mode Header Badge
+	_mode_badge_panel = PanelContainer.new()
+	_mode_badge_panel.position = Vector2(820, 9)
+	_mode_badge_panel.size = Vector2(444, 38)
+	_mode_badge_panel.add_theme_stylebox_override("panel", _make_stylebox(Color("#181c18"), COL_HAZARD_YELLOW, 2, 4, 8, 4))
+	_mode_badge_label = Label.new()
+	_mode_badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mode_badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_mode_badge_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_mode_badge_label.add_theme_font_size_override("font_size", 12)
+	_mode_badge_label.add_theme_color_override("font_color", COL_HAZARD_YELLOW)
+	_mode_badge_panel.add_child(_mode_badge_label)
+	add_child(_mode_badge_panel)
+
+	# Demo Mode Top Right Banner (coexists cleanly beside Mode Badge in Demo Mode)
 	_demo_banner_panel = PanelContainer.new()
-	_demo_banner_panel.position = Vector2(760, 9)
-	_demo_banner_panel.size = Vector2(502, 38)
-	_demo_banner_panel.add_theme_stylebox_override("panel", _make_stylebox(COL_ATOMIC_ORANGE, COL_HAZARD_YELLOW, 2, 4, 10, 4))
+	_demo_banner_panel.position = Vector2(888, 9)
+	_demo_banner_panel.size = Vector2(376, 38)
+	_demo_banner_panel.add_theme_stylebox_override("panel", _make_stylebox(COL_ATOMIC_ORANGE, COL_HAZARD_YELLOW, 2, 4, 8, 4))
 	_demo_banner_label = Label.new()
-	_demo_banner_label.text = "DEMO: CUSTOMIZING FAMILY AGES, HAIR & LOOKS..."
+	_demo_banner_label.text = "DEMO: CUSTOMIZING FAMILY & HATS..."
 	_demo_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_demo_banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_demo_banner_label.add_theme_font_size_override("font_size", 13)
+	_demo_banner_label.add_theme_font_size_override("font_size", 12)
 	_demo_banner_label.add_theme_color_override("font_color", Color.WHITE)
 	_demo_banner_panel.add_child(_demo_banner_label)
-	_demo_banner_panel.visible = GameState.demo_mode
+	_demo_banner_panel.visible = GameState.demo_mode and not GameState.promo_video_mode
 	add_child(_demo_banner_panel)
 
 	# --------------------------------------------------------------------------
@@ -383,7 +474,7 @@ func _build_ui() -> void:
 	center_vbox.add_child(prev_hdr)
 
 	_preview_canvas = Control.new()
-	_preview_canvas.custom_minimum_size = Vector2(368, 412)
+	_preview_canvas.custom_minimum_size = Vector2(368, 380)
 	_preview_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_preview_canvas.draw.connect(_on_draw_preview_stage)
 	center_vbox.add_child(_preview_canvas)
@@ -407,8 +498,10 @@ func _build_ui() -> void:
 	cond_title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	center_vbox.add_child(cond_title)
 
-	var cond_row := HBoxContainer.new()
-	cond_row.add_theme_constant_override("separation", 4)
+	var cond_row := GridContainer.new()
+	cond_row.columns = 4
+	cond_row.add_theme_constant_override("h_separation", 4)
+	cond_row.add_theme_constant_override("v_separation", 4)
 	center_vbox.add_child(cond_row)
 
 	var cond_defs: Array[Dictionary] = [
@@ -416,14 +509,18 @@ func _build_ui() -> void:
 		{"id": "starving", "label": "Starving"},
 		{"id": "sick", "label": "Sick"},
 		{"id": "insane", "label": "Insane"},
-		{"id": "mutant", "label": "Mutant!"}
+		{"id": "mutant", "label": "Mutant!"},
+		{"id": "soot", "label": "Soot"},
+		{"id": "breakdown", "label": "Breakdown"},
+		{"id": "betrayed", "label": "Betrayed"}
 	]
 	for cd in cond_defs:
 		var cid: String = str(cd["id"])
 		var cbtn := Button.new()
 		cbtn.text = str(cd["label"])
 		cbtn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cbtn.custom_minimum_size = Vector2(0, 30)
+		cbtn.custom_minimum_size = Vector2(0, 26)
+		cbtn.add_theme_font_size_override("font_size", 12)
 		cbtn.pressed.connect(_on_condition_preview_selected.bind(cid))
 		cond_row.add_child(cbtn)
 		_cond_buttons[cid] = cbtn
@@ -438,7 +535,7 @@ func _build_ui() -> void:
 	add_child(right_panel)
 
 	var rv := VBoxContainer.new()
-	rv.add_theme_constant_override("separation", 8)
+	rv.add_theme_constant_override("separation", 6)
 	right_panel.add_child(rv)
 
 	var edit_hdr := Label.new()
@@ -460,9 +557,9 @@ func _build_ui() -> void:
 	_name_edit.max_length = 18
 	_name_edit.placeholder_text = "Survivor Name"
 	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_name_edit.custom_minimum_size = Vector2(150, 32)
-	_name_edit.add_theme_stylebox_override("normal", _make_stylebox(Color("#fbf6ea"), COL_INK, 2, 3, 8, 4))
-	_name_edit.add_theme_stylebox_override("focus", _make_stylebox(Color.WHITE, COL_ATOMIC_ORANGE, 2, 3, 8, 4))
+	_name_edit.custom_minimum_size = Vector2(150, 30)
+	_name_edit.add_theme_stylebox_override("normal", _make_stylebox(Color("#fbf6ea"), COL_INK, 2, 3, 8, 3))
+	_name_edit.add_theme_stylebox_override("focus", _make_stylebox(Color.WHITE, COL_ATOMIC_ORANGE, 2, 3, 8, 3))
 	_name_edit.add_theme_color_override("font_color", COL_INK)
 	_name_edit.add_theme_color_override("font_placeholder_color", Color("#6e6556"))
 	_name_edit.add_theme_color_override("caret_color", COL_INK)
@@ -472,7 +569,7 @@ func _build_ui() -> void:
 
 	_leader_btn = Button.new()
 	_leader_btn.text = "★ MAKE LEADER"
-	_leader_btn.custom_minimum_size = Vector2(168, 32)
+	_leader_btn.custom_minimum_size = Vector2(168, 30)
 	_leader_btn.pressed.connect(_on_make_leader_pressed)
 	r_name.add_child(_leader_btn)
 
@@ -488,12 +585,12 @@ func _build_ui() -> void:
 	_age_slider.max_value = 85.0
 	_age_slider.step = 1.0
 	_age_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_age_slider.custom_minimum_size = Vector2(180, 28)
+	_age_slider.custom_minimum_size = Vector2(180, 26)
 	_age_slider.value_changed.connect(_on_age_slider_changed)
 	r_age.add_child(_age_slider)
 
 	_age_value_label = Label.new()
-	_age_value_label.custom_minimum_size = Vector2(172, 28)
+	_age_value_label.custom_minimum_size = Vector2(172, 26)
 	_age_value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_age_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_age_value_label.add_theme_font_size_override("font_size", 13)
@@ -503,11 +600,11 @@ func _build_ui() -> void:
 
 	# Row 3: Perk / Trait Selector + Description
 	var trait_box := PanelContainer.new()
-	trait_box.add_theme_stylebox_override("panel", _make_stylebox(COL_PARCHMENT_DARK, COL_INK, 2, 4, 8, 5))
+	trait_box.add_theme_stylebox_override("panel", _make_stylebox(COL_PARCHMENT_DARK, COL_INK, 2, 4, 8, 4))
 	rv.add_child(trait_box)
 
 	var trait_v := VBoxContainer.new()
-	trait_v.add_theme_constant_override("separation", 3)
+	trait_v.add_theme_constant_override("separation", 2)
 	trait_box.add_child(trait_v)
 
 	var r_trait := HBoxContainer.new()
@@ -534,7 +631,7 @@ func _build_ui() -> void:
 	r_skin.add_child(_make_field_label("SKIN:", 82))
 	_skin_swatch_btns.clear()
 	for s_idx in range(CharacterArtist.SKIN_TONES.size()):
-		var sw := _make_swatch_button(Color(CharacterArtist.SKIN_TONES[s_idx]), Vector2(42, 28))
+		var sw := _make_swatch_button(Color(CharacterArtist.SKIN_TONES[s_idx]), Vector2(42, 26))
 		sw.pressed.connect(_on_skin_tone_selected.bind(s_idx))
 		r_skin.add_child(sw)
 		_skin_swatch_btns.append(sw)
@@ -556,12 +653,12 @@ func _build_ui() -> void:
 	r_hcol.add_child(_make_field_label("HAIR DYE:", 82))
 	_hair_color_btns.clear()
 	for hex_c in CharacterArtist.HAIR_COLOR_SWATCHES:
-		var hb := _make_swatch_button(Color(hex_c), Vector2(32, 28))
+		var hb := _make_swatch_button(Color(hex_c), Vector2(32, 26))
 		hb.pressed.connect(_on_hair_color_selected.bind(hex_c))
 		r_hcol.add_child(hb)
 		_hair_color_btns.append(hb)
 
-	# Row 7: Eye Color Swatches (6) + Horn-Rimmed Glasses CheckBox
+	# Row 7: Eye Color Swatches (6) + Horn-Rimmed Glasses CheckBox (>= 12:1 WCAG Contrast)
 	var r_eyes := HBoxContainer.new()
 	r_eyes.add_theme_constant_override("separation", 5)
 	rv.add_child(r_eyes)
@@ -577,20 +674,21 @@ func _build_ui() -> void:
 	spacer_e.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	r_eyes.add_child(spacer_e)
 
+	var glasses_ink := Color("#12100d")
 	_glasses_check = CheckBox.new()
 	_glasses_check.text = "Glasses"
 	_glasses_check.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	_glasses_check.add_theme_stylebox_override("normal", _make_stylebox(Color("#faf5e8"), COL_INK, 2, 4, 8, 4))
-	_glasses_check.add_theme_stylebox_override("hover", _make_stylebox(Color("#f5ebcf"), COL_INK, 2, 4, 8, 4))
-	_glasses_check.add_theme_stylebox_override("pressed", _make_stylebox(Color("#f2b82e"), COL_INK, 2, 4, 8, 4))
-	_glasses_check.add_theme_stylebox_override("hover_pressed", _make_stylebox(Color("#f5c43d"), COL_INK, 2, 4, 8, 4))
+	_glasses_check.add_theme_stylebox_override("normal", _make_stylebox(Color("#faf5e8"), COL_INK, 2, 4, 8, 3))
+	_glasses_check.add_theme_stylebox_override("hover", _make_stylebox(Color("#f5ebcf"), COL_INK, 2, 4, 8, 3))
+	_glasses_check.add_theme_stylebox_override("pressed", _make_stylebox(Color("#f7cc48"), COL_INK, 2, 4, 8, 3))
+	_glasses_check.add_theme_stylebox_override("hover_pressed", _make_stylebox(Color("#f9d660"), COL_INK, 2, 4, 8, 3))
 	_glasses_check.add_theme_icon_override("checked", ThemeHelper.make_checkbox_icon(true))
 	_glasses_check.add_theme_icon_override("unchecked", ThemeHelper.make_checkbox_icon(false))
-	_glasses_check.add_theme_color_override("font_color", COL_INK)
-	_glasses_check.add_theme_color_override("font_pressed_color", COL_INK)
-	_glasses_check.add_theme_color_override("font_hover_color", COL_INK)
-	_glasses_check.add_theme_color_override("font_hover_pressed_color", COL_INK)
-	_glasses_check.add_theme_color_override("font_focus_color", COL_INK)
+	_glasses_check.add_theme_color_override("font_color", glasses_ink)
+	_glasses_check.add_theme_color_override("font_pressed_color", glasses_ink)
+	_glasses_check.add_theme_color_override("font_hover_color", glasses_ink)
+	_glasses_check.add_theme_color_override("font_hover_pressed_color", glasses_ink)
+	_glasses_check.add_theme_color_override("font_focus_color", glasses_ink)
 	_glasses_check.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	_glasses_check.add_theme_font_size_override("font_size", 13)
 	_glasses_check.toggled.connect(_on_glasses_toggled)
@@ -613,7 +711,7 @@ func _build_ui() -> void:
 	r_ocol.add_child(_make_field_label("COLOR:", 82))
 	_outfit_color_btns.clear()
 	for o_hex in CharacterArtist.OUTFIT_COLOR_SWATCHES:
-		var ob := _make_swatch_button(Color(o_hex), Vector2(39, 28))
+		var ob := _make_swatch_button(Color(o_hex), Vector2(39, 26))
 		ob.pressed.connect(_on_outfit_color_selected.bind(o_hex))
 		r_ocol.add_child(ob)
 		_outfit_color_btns.append(ob)
@@ -628,10 +726,25 @@ func _build_ui() -> void:
 	r_shirt.add_child(_shirt_style_label)
 	r_shirt.add_child(_make_cycle_btn(">", _on_cycle_shirt_style.bind(1)))
 
+	# Row 11: Unlockable Survivor Headgear / Hat Cycle (SaveManager.get_unlocked_hats())
+	_hat_row = HBoxContainer.new()
+	_hat_row.add_theme_constant_override("separation", 6)
+	rv.add_child(_hat_row)
+	var hat_field_lbl := _make_field_label("HEADGEAR:", 82)
+	hat_field_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	_hat_row.add_child(hat_field_lbl)
+	_hat_prev_btn = _make_cycle_btn("<", _on_cycle_hat.bind(-1))
+	_hat_row.add_child(_hat_prev_btn)
+	_hat_label = _make_cycle_value_label()
+	_hat_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_hat_row.add_child(_hat_label)
+	_hat_next_btn = _make_cycle_btn(">", _on_cycle_hat.bind(1))
+	_hat_row.add_child(_hat_next_btn)
+
 	# Quick Randomize Selected Member Look button at bottom of Right Column
 	var rand_one_btn := Button.new()
 	rand_one_btn.text = "SHUFFLE THIS SURVIVOR'S LOOK"
-	rand_one_btn.custom_minimum_size = Vector2(0, 32)
+	rand_one_btn.custom_minimum_size = Vector2(0, 30)
 	_style_button(rand_one_btn, COL_PARCHMENT_DARK, COL_INK, COL_INK, 12)
 	rand_one_btn.pressed.connect(_on_shuffle_selected_look)
 	rv.add_child(rand_one_btn)
@@ -677,7 +790,7 @@ func _make_field_label(txt: String, min_w: float) -> Label:
 func _make_cycle_btn(txt: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = txt
-	b.custom_minimum_size = Vector2(36, 30)
+	b.custom_minimum_size = Vector2(36, 28)
 	_style_button(b, COL_BG_PANEL, COL_HAZARD_YELLOW, COL_INK, 14)
 	b.pressed.connect(cb)
 	return b
@@ -688,8 +801,8 @@ func _make_cycle_value_label() -> Label:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	l.custom_minimum_size = Vector2(120, 30)
-	l.add_theme_stylebox_override("normal", _make_stylebox(Color("#faf5e8"), COL_INK, 1, 3, 6, 3))
+	l.custom_minimum_size = Vector2(120, 28)
+	l.add_theme_stylebox_override("normal", _make_stylebox(Color("#faf5e8"), COL_INK, 1, 3, 6, 2))
 	l.add_theme_font_size_override("font_size", 13)
 	l.add_theme_color_override("font_color", COL_INK)
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
@@ -905,6 +1018,60 @@ func _refresh_all_ui() -> void:
 	var sh_idx: int = clampi(int(m.get("shirt_style", 0)), 0, CharacterArtist.SHIRT_STYLE_NAMES.size() - 1)
 	_shirt_style_label.text = CharacterArtist.SHIRT_STYLE_NAMES[sh_idx]
 
+	# Headgear / Unlockable Hat sync + Achievement unlock tooltip
+	var unlocked_hats: Array[String] = _get_unlocked_hats()
+	var cur_hat: String = str(m.get("hat_id", "none"))
+	var hat_idx: int = unlocked_hats.find(cur_hat)
+	var hat_disp: String = CharacterArtist.get_hat_name(cur_hat)
+	if cur_hat != "none" and hat_idx < 0:
+		_hat_label.text = "%s (Preview)" % hat_disp
+	elif unlocked_hats.size() <= 1 and cur_hat == "none":
+		_hat_label.text = "No Headgear (Hover: Unlock 4 Hats!)"
+	else:
+		if hat_idx < 0:
+			hat_idx = 0
+		_hat_label.text = "%s (%d/%d)" % [hat_disp, hat_idx + 1, unlocked_hats.size()]
+
+	var hat_tip: String = _build_hat_unlock_tooltip()
+	if _hat_row != null:
+		_hat_row.tooltip_text = hat_tip
+		for ch in _hat_row.get_children():
+			if ch is Control:
+				(ch as Control).tooltip_text = hat_tip
+
+	# Active Difficulty & Game Mode Header Badge sync (non-overlapping in both normal & demo modes)
+	if _mode_badge_panel != null and _mode_badge_label != null:
+		var diff_col: Color = COL_HAZARD_YELLOW
+		if GameState.difficulty == "little_boy":
+			diff_col = COL_TOXIC_GREEN
+		elif GameState.difficulty == "tsar_bomba":
+			diff_col = COL_ATOMIC_ORANGE
+		_mode_badge_panel.add_theme_stylebox_override("panel", _make_stylebox(Color("#161a16"), diff_col, 2, 4, 8, 4))
+		_mode_badge_label.add_theme_color_override("font_color", diff_col if GameState.difficulty != "tsar_bomba" else Color("#ff9c7d"))
+		_mode_badge_label.text = "%s  •  %s" % [_get_difficulty_short_label(), _get_mode_short_label()]
+		var diff_cfg: Dictionary = GameState.get_difficulty_config()
+		_mode_badge_panel.tooltip_text = "Active Difficulty: %s (%.0fs Scavenge)\nActive Mode: %s" % [
+			str(diff_cfg.get("label", "FAT MAN")),
+			float(diff_cfg.get("scavenge_seconds", 60.0)),
+			_get_mode_short_label()
+		]
+		if GameState.demo_mode:
+			_title_lbl.text = "CD-60 // FAMILY SURVIVOR DOSSIER"
+			_title_lbl.size = Vector2(474, 24)
+			_sub_lbl.text = "CUSTOMIZE AGES, HATS, OUTFITS & SCAVENGE LEADER"
+			_sub_lbl.size = Vector2(474, 18)
+			_mode_badge_panel.position = Vector2(548, 9)
+			_mode_badge_panel.size = Vector2(332, 38)
+			_demo_banner_panel.visible = not GameState.promo_video_mode
+		else:
+			_title_lbl.text = "CIVIL DEFENSE FORM CD-60  //  FAMILY SURVIVOR DOSSIER"
+			_title_lbl.size = Vector2(746, 24)
+			_sub_lbl.text = "CUSTOMIZE AGES, HATS, OUTFITS & SCAVENGE LEADER BEFORE SELECTING YOUR HOUSE"
+			_sub_lbl.size = Vector2(746, 18)
+			_mode_badge_panel.position = Vector2(820, 9)
+			_mode_badge_panel.size = Vector2(444, 38)
+			_demo_banner_panel.visible = false
+
 	_glasses_check.button_pressed = bool(m.get("glasses", false))
 
 	# Highlight selected color swatches
@@ -1046,10 +1213,14 @@ func _on_randomize_household_pressed() -> void:
 		var fhair: int = GameState.rng.randi_range(0, 3) if (age >= 19 and GameState.rng.randf() < 0.35) else 0
 		var ocol: String = CharacterArtist.OUTFIT_COLOR_SWATCHES[GameState.rng.randi_range(0, CharacterArtist.OUTFIT_COLOR_SWATCHES.size() - 1)]
 		var sstyle: int = GameState.rng.randi_range(0, CharacterArtist.SHIRT_STYLE_NAMES.size() - 1)
-		new_list.append(GameState.make_family_member(
+		var new_m: Dictionary = GameState.make_family_member(
 			"member_%d" % i, nm, role, age, (i == 0), trait_id,
 			skin, hstyle, hcol, ecol, glasses, fhair, ocol, sstyle
-		))
+		)
+		var unl: Array[String] = _get_unlocked_hats()
+		if unl.size() > 1 and GameState.rng.randf() < 0.45:
+			new_m["hat_id"] = unl[GameState.rng.randi_range(0, unl.size() - 1)]
+		new_list.append(new_m)
 	GameState.family_members = new_list
 	selected_index = 0
 	_emit_family_updated()
@@ -1066,6 +1237,9 @@ func _on_shuffle_selected_look() -> void:
 	m["facial_hair"] = GameState.rng.randi_range(0, 3) if (age >= 18 and GameState.rng.randf() < 0.4) else 0
 	m["outfit_color"] = CharacterArtist.OUTFIT_COLOR_SWATCHES[GameState.rng.randi_range(0, CharacterArtist.OUTFIT_COLOR_SWATCHES.size() - 1)]
 	m["shirt_style"] = GameState.rng.randi_range(0, CharacterArtist.SHIRT_STYLE_NAMES.size() - 1)
+	var unl: Array[String] = _get_unlocked_hats()
+	if unl.size() > 1:
+		m["hat_id"] = unl[GameState.rng.randi_range(0, unl.size() - 1)]
 	_emit_family_updated()
 
 func _on_condition_preview_selected(mode: String) -> void:
@@ -1190,6 +1364,20 @@ func _on_cycle_shirt_style(dir: int) -> void:
 	m["shirt_style"] = posmod(cur + dir, CharacterArtist.SHIRT_STYLE_NAMES.size())
 	_emit_family_updated()
 
+func _on_cycle_hat(dir: int) -> void:
+	_play_sfx("button_click")
+	var unlocked: Array[String] = _get_unlocked_hats()
+	if unlocked.is_empty():
+		return
+	var m: Dictionary = _get_selected_member()
+	var cur_hat: String = str(m.get("hat_id", "none"))
+	var idx: int = unlocked.find(cur_hat)
+	if idx < 0:
+		idx = 0
+	idx = posmod(idx + dir, unlocked.size())
+	m["hat_id"] = unlocked[idx]
+	_emit_family_updated()
+
 func _on_back_pressed() -> void:
 	_play_sfx("button_click")
 	condition_preview_mode = "healthy"
@@ -1212,7 +1400,7 @@ func _update_demo_mode(delta: float) -> void:
 	_demo_elapsed += delta * speed_mult
 
 	if _demo_banner_panel != null:
-		_demo_banner_panel.visible = true
+		_demo_banner_panel.visible = not GameState.promo_video_mode
 
 	var step: int = int(_demo_elapsed / 0.55)
 	if step != _demo_step_idx:
@@ -1237,6 +1425,7 @@ func _apply_demo_step(step: int) -> void:
 			m0["hair_style"] = 1 # 50s Pompadour
 			m0["facial_hair"] = 2 # Full Beard
 			m0["shirt_style"] = 4 # Utility Jacket
+			m0["hat_id"] = "cd_helmet" # Civil Defense Brodie Helmet
 			m0["trait"] = "sprinter"
 			_play_sfx("button_click")
 			_emit_family_updated()
@@ -1261,6 +1450,7 @@ func _apply_demo_step(step: int) -> void:
 			m2["hair_style"] = 7 # Spiky Punk
 			m2["hair_color"] = "#2bc4d8" # Atomic Cyan!
 			m2["shirt_style"] = 3 # Ringer Tee
+			m2["hat_id"] = "aviator" # Leather Bomber Cap & Brass Goggles
 			m2["trait"] = "scout"
 			_play_sfx("button_click")
 			_emit_family_updated()
