@@ -1,8 +1,8 @@
-# Gameplay Improvement Pass — validation report
+# The End Is Near — Gameplay Improvement Pass validation report
 
 Branch `gameplay-improvement-pass` · Godot 4.3 · preview build: <https://federallyapproved.github.io/the-end-is-near/next/> · footage & before/after images: [`/next/media.html`](https://federallyapproved.github.io/the-end-is-near/next/media.html)
 
-The preview goes live at `/next/` when the small additive PR #2 (`docs/next/` only) is merged; the root build changes only when this branch (PR #1) is merged. Both run the new code on the same 4.3 engine files.
+The preview at `/next/` was published by PR #2 (renamed in PR #3); the root build changes when this branch (PR #1) is merged. Both run the new code on the same 4.3 engine files. Links use the new repository name `the-end-is-near`.
 
 ## Before → after
 
