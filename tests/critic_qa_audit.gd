@@ -300,8 +300,15 @@ func _verify_house_layout(tag: String, layout: Dictionary, expected_family_spawn
 	var hatch_pos: Vector2 = layout.get("hatch_pos", Vector2.ZERO)
 	var start_pos: Vector2 = layout.get("leader_start_pos", Vector2.ZERO)
 
-	if rooms.size() != 6:
-		_record_fail("%s expected 6 rooms, got %d" % [tag, rooms.size()])
+	# Pass 2: room count follows the real footprint size (procedural subdivision), not a fixed 6.
+	var open_rooms: int = 0
+	for r_v in rooms:
+		if not bool((r_v as Dictionary).get("sealed", false)):
+			open_rooms += 1
+	# Degenerate synthetic strips (e.g. 3 m x 50 m) are correctly a single long room.
+	var min_rooms: int = 1 if tag.begins_with("degenerate") else 2
+	if open_rooms < min_rooms:
+		_record_fail("%s expected at least %d open rooms, got %d" % [tag, min_rooms, open_rooms])
 		return false
 	if fspawns.size() != expected_family_spawns:
 		_record_fail("%s expected %d family spawns, got %d" % [tag, expected_family_spawns, fspawns.size()])
@@ -433,20 +440,32 @@ func _audit_ui_screens_and_scavenge_edge_cases() -> void:
 	var fake_soup2 := {"uid": 9993, "item_id": "soup", "pos": scav.get("_player_pos"), "slots": 1, "name": "Soup", "short_name": "Soup", "collected": false}
 	var fake_suit := {"uid": 9994, "item_id": "suitcase", "pos": scav.get("_player_pos"), "slots": 2, "name": "Suitcase", "short_name": "Suitcase", "collected": false}
 
-	var ok1: bool = scav.call("_attempt_pickup_target", {"kind": "item", "uid": 9994, "pos": fake_suit["pos"], "slots": 2, "name": "Suitcase", "item_id": "suitcase", "ref": fake_suit})
-	var ok2: bool = scav.call("_attempt_pickup_target", {"kind": "item", "uid": 9992, "pos": fake_soup1["pos"], "slots": 1, "name": "Soup", "item_id": "soup", "ref": fake_soup1})
-	# Now at 3/4 slots -> picking up 2-slot Rifle MUST fail!
-	var blocked_2slot: bool = scav.call("_attempt_pickup_target", {"kind": "item", "uid": 9991, "pos": fake_rifle["pos"], "slots": 2, "name": "Rifle", "item_id": "rifle", "ref": fake_rifle})
+	# Pass 2 rules: grabs are timed (completed immediately here), SPACE at the hatch deposits, and the
+	# suitcase raises capacity only while it is carried.
+	var t_suit := {"kind": "item", "uid": 9994, "pos": fake_suit["pos"], "slots": 2, "name": "Suitcase", "item_id": "suitcase", "ref": fake_suit}
+	var t_soup1 := {"kind": "item", "uid": 9992, "pos": fake_soup1["pos"], "slots": 1, "name": "Soup", "item_id": "soup", "ref": fake_soup1}
+	var t_rifle := {"kind": "item", "uid": 9991, "pos": fake_rifle["pos"], "slots": 2, "name": "Rifle", "item_id": "rifle", "ref": fake_rifle}
+	var t_soup2 := {"kind": "item", "uid": 9993, "pos": fake_soup2["pos"], "slots": 1, "name": "Soup", "item_id": "soup", "ref": fake_soup2}
+	var ok1: bool = _grab_now(scav, t_soup1)
+	var ok2: bool = _grab_now(scav, t_rifle)
+	# Now at 3/4 slots -> picking up the 2-slot Suitcase MUST fail!
+	var blocked_2slot: bool = _grab_now(scav, t_suit)
 	# Picking up 1-slot Soup -> 4/4 slots MUST succeed!
-	var ok3: bool = scav.call("_attempt_pickup_target", {"kind": "item", "uid": 9993, "pos": fake_soup2["pos"], "slots": 1, "name": "Soup", "item_id": "soup", "ref": fake_soup2})
-
+	var ok3: bool = _grab_now(scav, t_soup2)
 	if not (ok1 and ok2 and (not blocked_2slot) and ok3):
 		_record_fail("Scavenge slot enforcement failed: ok1=%s ok2=%s blocked_2slot=%s ok3=%s" % [str(ok1), str(ok2), str(blocked_2slot), str(ok3)])
 
-	# Deposit Suitcase at hatch -> verify _max_slots upgrades from 4 to 5!
-	scav.call("_deposit_carried_into_hatch")
-	if int(scav.get("_max_slots")) != 5:
-		_record_fail("Suitcase deposit failed to upgrade _max_slots to 5 (got %d)" % int(scav.get("_max_slots")))
+	# SPACE at the hatch empties the hands; then the suitcase in hand raises capacity.
+	_space_deposit(scav)
+	var ok_case: bool = _grab_now(scav, t_suit)
+	var case_cap: int = 4 + int(ScavengeSceneScript.get("SUITCASE_EXTRA_SLOTS"))
+	if not ok_case or int(scav.get("_max_slots")) != case_cap:
+		_record_fail("Carried suitcase failed to raise _max_slots to %d (got %d)" % [case_cap, int(scav.get("_max_slots"))])
+	var fake_soup3 := {"uid": 9995, "item_id": "soup", "pos": scav.get("_player_pos"), "slots": 1, "name": "Soup", "short_name": "Soup", "collected": false}
+	_grab_now(scav, {"kind": "item", "uid": 9995, "pos": fake_soup3["pos"], "slots": 1, "name": "Soup", "item_id": "soup", "ref": fake_soup3})
+	_space_deposit(scav)
+	if int(scav.get("_max_slots")) != case_cap or not bool(scav.call("_is_carrying_item", "suitcase")):
+		_record_fail("Suitcase should stay in hand (and keep capacity) when SPACE deposits at the hatch")
 
 	# Test timer expiry far from hatch with 0 survivors in bunker -> leader caught outside
 	scav.set("_player_pos", (scav.get("_hatch_pos") as Vector2) + Vector2(500.0, 500.0))
@@ -978,3 +997,20 @@ func _audit_full_demo_showcase() -> void:
 	main_inst.queue_free()
 	await process_frame
 	await process_frame
+
+
+# Pass 2 helpers: a grab takes GRAB_TIME_*; complete it immediately for unit-level checks.
+func _grab_now(scav: Node, target: Dictionary) -> bool:
+	if not bool(scav.call("_attempt_pickup_target", target)):
+		return false
+	scav.set("_pending_action", {})
+	return bool(scav.call("_complete_pickup", target))
+
+
+func _space_deposit(scav: Node) -> void:
+	scav.set("_player_pos", scav.get("_hatch_pos"))
+	scav.call("_context_action")
+	for _i in range(60):
+		if (scav.get("_pending_action") as Dictionary).is_empty():
+			break
+		scav.call("_process_pending_action", 0.05)

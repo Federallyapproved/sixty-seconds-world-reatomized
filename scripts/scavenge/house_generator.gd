@@ -146,7 +146,13 @@ static func generate_from_osm_house(
 ## Metres (x = east, y = south) from the building centroid to the nearest mapped road point,
 ## used to put the front door on the street-facing wall. Zero when no roads are known.
 static func road_hint_for_house(house_data: Dictionary) -> Vector2:
-	var roads: Array = GameState.map_roads if GameState != null else []
+	# Looked up at runtime so this generator stays usable from script-mode tools.
+	var roads: Array = []
+	var ml: MainLoop = Engine.get_main_loop()
+	if ml is SceneTree:
+		var gs: Node = (ml as SceneTree).root.get_node_or_null("GameState")
+		if gs != null:
+			roads = gs.get("map_roads")
 	if roads.is_empty():
 		return Vector2.ZERO
 	var h_lat: float = float(house_data.get("lat", 0.0))

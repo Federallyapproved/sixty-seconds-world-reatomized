@@ -1509,12 +1509,15 @@ func _process_demo_autopilot(dt: float, cur_speed: float) -> void:
 	var home_dist: float = _player_pos.distance_to(_hatch_pos)
 	var return_budget_sec: float = (home_dist / maxf(cur_speed, 130.0)) * 1.55 + 3.1
 	var house_empty: bool = (_count_remaining_world_items() == 0 and _count_remaining_world_family() == 0)
-	var must_head_home: bool = (_scavenge_time_left <= maxf(4.2, return_budget_sec)) or house_empty
+	# The showcase demo dives once the family is safe and ~25 s have passed (keeps it short);
+	# difficulty probes set GameState.autopilot_full_run to play the whole timer.
+	var showcase_done: bool = GameState.demo_mode and not GameState.autopilot_full_run and _count_remaining_world_family() == 0 and (_scavenge_total - _scavenge_time_left) >= 25.0
+	var must_head_home: bool = (_scavenge_time_left <= maxf(4.2, return_budget_sec)) or house_empty or showcase_done
 
 	if must_head_home:
 		var only_case_left: bool = _carried_entries.size() == 1 and _is_carrying_item("suitcase")
 		if _player_pos.distance_to(_hatch_pos) <= _hatch_radius + 14.0 and (_carried_entries.is_empty() or only_case_left):
-			if _scavenge_time_left <= 2.7 or house_empty:
+			if _scavenge_time_left <= 2.7 or house_empty or showcase_done:
 				_dive_into_bunker()
 				return
 			_apply_player_movement(Vector2.ZERO, dt, false)

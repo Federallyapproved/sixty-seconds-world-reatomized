@@ -496,7 +496,7 @@ static func advance_day(
 				day_lines.append("%s's body could not recover from %s of radiation in a week. %s died in the night." % [m_name, RadiationModel.format_dose(recent_msv), m_name])
 				continue
 		if not is_mutant and rad_val > 65.0:
-			if rng.randf() < 0.06:
+			if rng.randf() < 0.18:
 				m["is_mutant"] = true
 				is_mutant = true
 				m["sickness"] = 0

@@ -214,7 +214,7 @@ static func generate(house_data: Dictionary, family_members: Array, rng: RandomN
 	var entrances: Array = _plan_entrances(poly, rooms, road_hint_m, obb_angle, real_area)
 
 	# 11. Hatch position: deepest point of the hub room near its centroid.
-	var hatch_pos: Vector2 = _pick_hatch_pos(rooms[hub_idx] if hub_idx >= 0 else {}, walls, poly)
+	var hatch_pos: Vector2 = _pick_hatch_pos_any(rooms, hub_idx, walls, poly)
 
 	# 11b. Self-heal: BFS from the hatch must reach every open room before furniture goes in.
 	var heal_log: Array = []
@@ -232,6 +232,8 @@ static func generate(house_data: Dictionary, family_members: Array, rng: RandomN
 	var leader_start: Vector2 = _pick_leader_start(nav, hatch_pos)
 	var family_spawns: Array = _spawn_family(family_members, rooms, nav, hatch_pos, local_rng)
 	var items: Array = _spawn_items(rooms, furniture, nav, hatch_pos, family_spawns, real_area, local_rng)
+	_snap_to_walkable(nav, items)
+	_snap_to_walkable(nav, family_spawns)
 
 	var out_rooms: Array = []
 	for r_v in rooms:
@@ -248,7 +250,14 @@ static func generate(house_data: Dictionary, family_members: Array, rng: RandomN
 	for r_v2 in rooms:
 		var rs: Dictionary = r_v2
 		if bool(rs["solid"]):
-			furniture.append({"rect": _poly_bounds(rs["polygon"]).grow(-INT_WALL * 0.5), "type": "built_in", "label": "Built-in closet", "solid": true, "sealed_room": true})
+			# Fit the closet block inside the real outline (odd-shaped slivers shrink or are left empty).
+			var cr: Rect2 = _poly_bounds(rs["polygon"]).grow(-INT_WALL * 0.5)
+			var tries: int = 0
+			while tries < 6 and cr.size.x > 12.0 and cr.size.y > 12.0 and not (_rect_inside_poly(cr, poly) and _rect_inside_poly(cr, rs["polygon"])):
+				cr = cr.grow(-6.0)
+				tries += 1
+			if cr.size.x > 12.0 and cr.size.y > 12.0 and _rect_inside_poly(cr, poly):
+				furniture.append({"rect": cr, "type": "built_in", "label": "Built-in closet", "solid": true, "sealed_room": true})
 
 	return {
 		"engine": ENGINE_TAG,
@@ -412,6 +421,16 @@ static func _bsp(poly: PackedVector2Array, rect: Rect2, target: int, leaves: Arr
 		if ra.size.x < 2.4 * PX_PER_M and split_x or ra.size.y < 2.4 * PX_PER_M and not split_x:
 			continue
 		if rb.size.x < 2.4 * PX_PER_M and split_x or rb.size.y < 2.4 * PX_PER_M and not split_x:
+			continue
+		# A cut must leave room for a doorway somewhere along it, otherwise the far side can
+		# only become a sealed closet (e.g. narrow row buildings cut crosswise).
+		var cut := PackedVector2Array([Vector2(t, ib.position.y - 1.0), Vector2(t, ib.end.y + 1.0)]) if split_x else PackedVector2Array([Vector2(ib.position.x - 1.0, t), Vector2(ib.end.x + 1.0, t)])
+		var longest: float = 0.0
+		for piece in Geometry2D.intersect_polyline_with_polygon(cut, poly):
+			var pv: PackedVector2Array = piece
+			if pv.size() >= 2:
+				longest = maxf(longest, pv[0].distance_to(pv[pv.size() - 1]))
+		if longest < DOOR_W + DOOR_MARGIN * 2.0 + EXT_WALL:
 			continue
 		var aa: float = _clip_area(poly, ra)
 		var ab: float = _clip_area(poly, rb)
@@ -821,6 +840,8 @@ static func _pick_hatch_pos(room: Dictionary, walls: Array, poly: PackedVector2A
 	var rb: Rect2 = _poly_bounds(rpoly)
 	var best: Vector2 = c
 	var best_s: float = -1e20
+	var loose: Vector2 = c
+	var loose_clear: float = -1e20
 	var y: float = rb.position.y + 8.0
 	while y < rb.end.y:
 		var x: float = rb.position.x + 8.0
@@ -833,9 +854,42 @@ static func _pick_hatch_pos(room: Dictionary, walls: Array, poly: PackedVector2A
 					if s > best_s:
 						best_s = s
 						best = p
+				if clear > loose_clear:
+					loose_clear = clear
+					loose = p
 			x += 8.0
 		y += 8.0
+	if best_s <= -1e19:
+		return loose
 	return best
+
+
+## The hub room is preferred, but a narrow hub (a hallway) can't hold the hatch with room to
+## move around it; then the open room with the most clearance takes it. Never outside the house.
+static func _pick_hatch_pos_any(rooms: Array, hub_idx: int, walls: Array, poly: PackedVector2Array) -> Vector2:
+	var order: Array = []
+	if hub_idx >= 0:
+		order.append(hub_idx)
+	for i in range(rooms.size()):
+		if i != hub_idx and not bool((rooms[i] as Dictionary).get("solid", false)):
+			order.append(i)
+	var fallback: Vector2 = Vector2.INF
+	var fallback_clear: float = -1e9
+	for i in order:
+		var room: Dictionary = rooms[i]
+		var rpoly: PackedVector2Array = room["polygon"]
+		var p: Vector2 = _pick_hatch_pos(room, walls, poly)
+		if not Geometry2D.is_point_in_polygon(p, rpoly):
+			continue
+		var cl: float = _clearance(p, walls)
+		if cl >= HATCH_R + 22.0:
+			return p
+		if cl > fallback_clear:
+			fallback_clear = cl
+			fallback = p
+	if fallback != Vector2.INF:
+		return fallback
+	return _poly_centroid(poly)
 
 
 static func _clearance(p: Vector2, walls: Array) -> float:
@@ -972,6 +1026,25 @@ static func _nearest_cell(nav: Dictionary, mask: PackedByteArray, c: Vector2i) -
 				if x >= 0 and y >= 0 and x < cols and y < rows and mask[y * cols + x] == 1:
 					return Vector2i(x, y)
 	return Vector2i(-1, -1)
+
+
+## Moves anything that landed in the wall-clearance band onto the nearest walkable cell centre
+## (never more than ~2 cells), so loot never looks half-buried in a wall and is always standable.
+static func _snap_to_walkable(nav: Dictionary, entries: Array) -> void:
+	var reach: PackedByteArray = nav.get("reachable", PackedByteArray())
+	if reach.is_empty():
+		return
+	for e_v in entries:
+		var e: Dictionary = e_v
+		var p: Vector2 = e["pos"]
+		if is_reachable(nav, p):
+			continue
+		var c: Vector2i = _nearest_cell(nav, reach, HouseGenerator.world_to_cell(nav, p))
+		if c.x < 0:
+			continue
+		var q: Vector2 = HouseGenerator.cell_to_world(nav, c)
+		if q.distance_to(p) <= float(NAV_CELL) * 4.0:
+			e["pos"] = q
 
 
 static func is_reachable(nav: Dictionary, p: Vector2) -> bool:
@@ -1195,17 +1268,20 @@ static func _spawn_items(rooms: Array, furniture: Array, nav: Dictionary, hatch:
 	for _i in range(rng.randi_range(5, 8)):
 		ids.append("water")
 	ids.append_array(["medkit", "gas_mask", "radio", "suitcase"])
+	# Durable items are unique per house (as in the original game); a bigger house gets
+	# more of them and, once the durable pool is exhausted, extra food and water instead.
 	var bonus: int = rng.randi_range(10, 12) + clampi(int((real_area - 100.0) / 40.0), 0, 7)
-	var pool: Array[String] = BONUS_POOL.duplicate()
+	var pool: Array[String] = []
+	for b_id in BONUS_POOL:
+		if not ids.has(b_id):
+			pool.append(b_id)
 	for i in range(bonus):
 		if pool.is_empty():
-			pool = BONUS_POOL.duplicate()
+			ids.append("soup" if i % 2 == 0 else "water")
+			continue
 		var pick: int = rng.randi_range(0, pool.size() - 1)
-		var iid: String = pool[pick]
+		ids.append(pool[pick])
 		pool.remove_at(pick)
-		if iid == "suitcase" and ids.has("suitcase"):
-			iid = "map"
-		ids.append(iid)
 
 	# Candidate spots: reachable floor + furniture tops reachable within arm's reach.
 	var room_spots: Dictionary = {}
@@ -1234,6 +1310,7 @@ static func _spawn_items(rooms: Array, furniture: Array, nav: Dictionary, hatch:
 	# Spread loot: no room may hold more than ~1.7x its fair share.
 	var per_room_cap: int = maxi(3, int(ceil(float(ids.size()) / maxf(1.0, float(all_names.size())) * 1.7)))
 	var room_load: Dictionary = {}
+	var fallback_spots: Array = []
 	for iid in ids:
 		var prefs: Array = ITEM_ROOMS.get(iid, [])
 		var cands: Array = []
@@ -1267,7 +1344,29 @@ static func _spawn_items(rooms: Array, furniture: Array, nav: Dictionary, hatch:
 				best_s = s
 				best = p
 		if best == Vector2.INF:
-			continue
+			# Small footprints run out of well-spaced spots: tighten the spacing and use any
+			# reachable floor away from the hatch, so even a tiny house has the full manifest.
+			if fallback_spots.is_empty():
+				for r_v3 in rooms:
+					if bool((r_v3 as Dictionary)["solid"]):
+						continue
+					for fp in _reachable_points_in_room(nav, r_v3):
+						if (fp as Vector2).distance_to(hatch) > HATCH_R + 20.0:
+							fallback_spots.append(fp)
+			if fallback_spots.is_empty():
+				continue
+			for _t2 in range(40):
+				var p2: Vector2 = fallback_spots[rng.randi_range(0, fallback_spots.size() - 1)]
+				var clash2: bool = false
+				for q2 in taken:
+					if (q2 as Vector2).distance_to(p2) < 18.0:
+						clash2 = true
+						break
+				if not clash2:
+					best = p2
+					break
+			if best == Vector2.INF:
+				best = fallback_spots[rng.randi_range(0, fallback_spots.size() - 1)]
 		taken.append(best)
 		var rname: String = _room_name_at(rooms, best)
 		room_load[rname] = int(room_load.get(rname, 0)) + 1
@@ -1376,10 +1475,15 @@ static func _los(nav: Dictionary, a: Vector2, b: Vector2) -> bool:
 	var cs: float = float(nav["cell_size"]) * 0.4
 	var d: float = a.distance_to(b)
 	var steps: int = maxi(1, int(ceil(d / cs)))
+	# A shortcut is only taken if a body-sized box around every sample stays on walkable
+	# cells; otherwise smoothed paths shave corners and a 14 px leader scrapes door jambs.
+	var h: float = float(nav["cell_size"]) * 0.5
+	var offs: Array[Vector2] = [Vector2.ZERO, Vector2(h, 0), Vector2(-h, 0), Vector2(0, h), Vector2(0, -h), Vector2(h, h), Vector2(-h, h), Vector2(h, -h), Vector2(-h, -h)]
 	for k in range(1, steps):
 		var p: Vector2 = a.lerp(b, float(k) / float(steps))
-		if not is_reachable(nav, p):
-			return false
+		for o in offs:
+			if not is_reachable(nav, p + o):
+				return false
 	return true
 
 

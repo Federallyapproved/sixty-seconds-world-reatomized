@@ -24,7 +24,7 @@ func _setup_preset(pid: String) -> Dictionary:
 	GameState.selected_house = house.duplicate(true)
 	GameState.nearby_pois = OsmService.build_nearby_targets_for_house(house, parsed["buildings"], parsed["pois"], parsed["roads"])
 	HouseSelectScreen.store_map_context(house, parsed["buildings"], meta, [])
-	var tgt: Dictionary = NukePhysics.pick_local_target(float(house["lat"]), float(house["lon"]))
+	var tgt: Dictionary = NukePhysics.pick_local_target(float(house["lat"]), float(house["lon"]), GameState.map_landmarks)
 	var wind: float = NukePhysics.bearing_deg(float(tgt["lat"]), float(tgt["lon"]), float(house["lat"]), float(house["lon"]))
 	GameState.nuke_config = NukePhysics.compute_impact(float(house["lat"]), float(house["lon"]), float(tgt["lat"]), float(tgt["lon"]), 250, wind, str(tgt["target_name"]))
 	return parsed
@@ -103,10 +103,10 @@ func _test_location_honesty() -> void:
 	_ok(all_labelled, "fictional expedition targets are labelled fictional")
 	# Strike targets
 	_setup_preset("seattle")
-	var lt: Dictionary = NukePhysics.pick_local_target(float(GameState.selected_house["lat"]), float(GameState.selected_house["lon"]))
+	var lt: Dictionary = NukePhysics.pick_local_target(float(GameState.selected_house["lat"]), float(GameState.selected_house["lon"]), GameState.map_landmarks)
 	_ok(str(lt["target_name"]).find("Downtown") == -1 and str(lt.get("source", "")).find("OSM node") != -1, "local strike uses a sourced landmark: %s [%s]" % [lt["target_name"], lt.get("source", "")])
 	GameState.map_landmarks = []
-	var lt2: Dictionary = NukePhysics.pick_local_target(float(GameState.selected_house["lat"]), float(GameState.selected_house["lon"]))
+	var lt2: Dictionary = NukePhysics.pick_local_target(float(GameState.selected_house["lat"]), float(GameState.selected_house["lon"]), GameState.map_landmarks)
 	_ok(str(lt2["target_name"]).find("of home") != -1, "without landmarks the strike target is an honest offset: %s" % lt2["target_name"])
 
 

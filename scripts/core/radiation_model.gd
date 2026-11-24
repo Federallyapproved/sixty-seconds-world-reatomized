@@ -234,28 +234,19 @@ static func risk_short(rate_msv_h: float) -> String:
 
 
 static func format_rate(rate_msv_h: float) -> String:
-	if rate_msv_h >= 1000.0:
-		return "%.1f Sv/h" % (rate_msv_h / 1000.0)
-	if rate_msv_h >= 10.0:
-		return "%.0f mSv/h" % rate_msv_h
-	if rate_msv_h >= 0.1:
-		return "%.1f mSv/h" % rate_msv_h
-	return "%.0f µSv/h" % (rate_msv_h * 1000.0)
+	return DoseFormat.rate(rate_msv_h)
 
 
 static func format_dose(dose_msv: float) -> String:
-	if dose_msv >= 1000.0:
-		return "%.2f Sv" % (dose_msv / 1000.0)
-	if dose_msv >= 1.0:
-		return "%.0f mSv" % dose_msv
-	return "%.2f mSv" % dose_msv
+	return DoseFormat.dose(dose_msv)
 
 
 ## Expected dose (mSv) for a scavenging trip to a place, starting tonight.
+## Expeditions planned today leave at the start of tomorrow, so the estimate starts there.
 static func expedition_dose_estimate(lat: float, lon: float, days: int, has_gas_mask: bool) -> float:
 	var total: float = 0.0
 	for d in range(maxi(1, days)):
-		var day_n: int = GameState.day + d
+		var day_n: int = GameState.day + 1 + d
 		var start_h: float = hours_since_detonation(day_n) + 4.0
 		var outside: float = outdoor_dose_msv(lat, lon, start_h, HOURS_OUTSIDE_PER_TRIP_DAY, day_n)
 		var inside_hours: float = 24.0 - HOURS_OUTSIDE_PER_TRIP_DAY

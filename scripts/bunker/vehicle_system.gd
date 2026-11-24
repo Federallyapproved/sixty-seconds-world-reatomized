@@ -183,7 +183,7 @@ static func part_sources(part: String) -> Array:
 		var inv: Dictionary = LootInventory.get_inventory(p)
 		var n: int = int((inv["items"] as Dictionary).get(part, 0))
 		if n > 0:
-			out.append({"name": str(p.get("name", "")), "count": n, "category": str(p.get("category", ""))})
+			out.append({"name": str(p.get("name", "")), "count": n, "category": str(p.get("category", "")), "kind_label": str(p.get("kind_label", ""))})
 	return out
 
 

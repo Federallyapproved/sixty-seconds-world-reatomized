@@ -134,7 +134,9 @@ func _audit_1_item_db_and_carry_slots(gs: Node) -> void:
 				var it: Dictionary = it_v
 				var ipos: Vector2 = it["pos"]
 				var iid: String = str(it["item_id"])
-				var w_ok: bool = bool(HouseGenRef.call("is_walkable", nav, ipos))
+				# Pass 2: loot may sit on furniture or against a wall; it counts as reachable when the
+				# leader can stand within ScavengeScene.INTERACT_RADIUS of it (the actual pickup rule).
+				var w_ok: bool = bool(HouseGenRef.call("is_walkable", nav, ipos)) or bool(load("res://scripts/scavenge/floorplan_generator.gd").call("reachable_near", nav, ipos, float(ScavengeSceneRef.get("INTERACT_RADIUS")) - 4.0))
 				var p_arr: PackedVector2Array = HouseGenRef.call("find_path", nav, h_pos, ipos)
 				if not w_ok or p_arr.size() < 2:
 					unreachable_found += 1
@@ -191,44 +193,47 @@ func _audit_1_item_db_and_carry_slots(gs: Node) -> void:
 	var rifle_target: Dictionary = scav.call("_get_target_by_uid", "item", 9002)
 	var toolbox_target: Dictionary = scav.call("_get_target_by_uid", "item", 9003)
 
-	var ok_adult: bool = bool(scav.call("_attempt_pickup_target", fam_adult_target))
-	var ok_axe_overflow: bool = bool(scav.call("_attempt_pickup_target", axe_target))
-	var ok_soup_fit: bool = bool(scav.call("_attempt_pickup_target", soup_target))
+	# Pass 2 rules: grabbing takes time, nothing is deposited by walking over the hatch (SPACE at the
+	# hatch deposits), and the suitcase adds capacity only while it is in your hands.
+	var ok_adult: bool = _grab_now(scav, fam_adult_target)
+	var ok_axe_overflow: bool = _grab_now(scav, axe_target)
+	var ok_soup_fit: bool = _grab_now(scav, soup_target)
 	_check(ok_adult and (not ok_axe_overflow) and ok_soup_fit and int(scav.call("_get_used_slots")) == 4,
 		"4-slot hands hold 3-slot Adult + 1-slot Soup (4/4) and reject 2-slot Axe overflow")
 
 	scav.set("_player_pos", hatch_pos_val)
 	scav.call("_process_scavenge_phase", 0.016)
+	_check(not (scav.get("_carried_entries") as Array).is_empty(), "Walking onto the hatch alone deposits nothing (no automatic depositing)")
+	_space_deposit(scav, hatch_pos_val)
 	var gs_fams: Array = gs.get("family_members")
 	_check((scav.get("_carried_entries") as Array).is_empty() and bool((gs_fams[1] as Dictionary)["in_bunker"]) and int(gs.get("soup_quarters")) == 4,
-		"Walking onto hatch deposits 3-slot Adult and 1 Soup (+4/4 quarters)")
+		"SPACE at the hatch deposits 3-slot Adult and 1 Soup (+4/4 quarters)")
 
-	var ok_sc: bool = bool(scav.call("_attempt_pickup_target", suitcase_target))
-	var ok_ax: bool = bool(scav.call("_attempt_pickup_target", axe_target))
-	_check(ok_sc and ok_ax and int(scav.call("_get_used_slots")) == 4, "4-slot hands hold 2-slot Suitcase + 2-slot Axe (4/4)")
-	scav.set("_player_pos", hatch_pos_val)
-	scav.call("_process_scavenge_phase", 0.016)
-	_check(int(scav.get("_max_slots")) == 5 and bool(scav.get("_suitcase_upgraded")), "Depositing Suitcase upgrades _max_slots from 4 to 5!", "got %d" % int(scav.get("_max_slots")))
+	var ok_sc: bool = _grab_now(scav, suitcase_target)
+	_check(ok_sc and int(scav.get("_max_slots")) == 4 + int(ScavengeSceneRef.get("SUITCASE_EXTRA_SLOTS")),
+		"Carrying the suitcase raises hand capacity while it is held", "max=%d" % int(scav.get("_max_slots")))
+	var ok_ax: bool = _grab_now(scav, axe_target)
+	var ok_rf0: bool = _grab_now(scav, rifle_target)
+	_check(ok_ax and ok_rf0 and int(scav.call("_get_used_slots")) == 6, "Suitcase (2) + Axe (2) + Rifle (2) = 6 slots in suitcase hands")
+	_space_deposit(scav, hatch_pos_val)
+	_check(bool(gs.call("has_working_item", "axe")) and bool(gs.call("has_working_item", "rifle")) and bool(scav.call("_is_carrying_item", "suitcase")),
+		"SPACE at the hatch drops Axe & Rifle down the chute and keeps the suitcase in hand")
 
 	var fam_elder_target: Dictionary = scav.call("_get_target_by_uid", "family", int((wf[1] as Dictionary)["uid"]))
-	var ok_el: bool = bool(scav.call("_attempt_pickup_target", fam_elder_target))
-	var ok_rf: bool = bool(scav.call("_attempt_pickup_target", rifle_target))
-	_check(ok_el and ok_rf and int(scav.call("_get_used_slots")) == 5, "Suitcase 5-slot hands hold 3-slot Elder + 2-slot Rifle (5/5)!")
-	scav.set("_player_pos", hatch_pos_val)
-	scav.call("_process_scavenge_phase", 0.016)
-	_check(bool((gs_fams[2] as Dictionary)["in_bunker"]) and bool(gs.call("has_working_item", "rifle")), "Elder and Rifle deposited cleanly")
+	var ok_el: bool = _grab_now(scav, fam_elder_target)
+	var ok_tb0: bool = _grab_now(scav, toolbox_target)
+	_check(ok_el and ok_tb0 and int(scav.call("_get_used_slots")) == 7, "Suitcase hands hold Suitcase (2) + Elder (3) + Toolbox (2) = 7/7")
+	_space_deposit(scav, hatch_pos_val)
+	_check(bool((gs_fams[2] as Dictionary)["in_bunker"]) and bool(gs.call("has_working_item", "toolbox")), "Elder and Toolbox deposited cleanly")
 
 	var fam_teen_target: Dictionary = scav.call("_get_target_by_uid", "family", int((wf[2] as Dictionary)["uid"]))
 	var fam_child_target: Dictionary = scav.call("_get_target_by_uid", "family", int((wf[3] as Dictionary)["uid"]))
-	var ok_tn: bool = bool(scav.call("_attempt_pickup_target", fam_teen_target))
-	var ok_ch: bool = bool(scav.call("_attempt_pickup_target", fam_child_target))
-	scav.set("_player_pos", hatch_pos_val)
-	scav.call("_process_scavenge_phase", 0.016)
-	var ok_tb: bool = bool(scav.call("_attempt_pickup_target", toolbox_target))
-	scav.set("_player_pos", hatch_pos_val)
-	scav.call("_process_scavenge_phase", 0.016)
-	_check(ok_tn and ok_ch and ok_tb and bool((gs_fams[3] as Dictionary)["in_bunker"]) and bool((gs_fams[4] as Dictionary)["in_bunker"]) and bool(gs.call("has_working_item", "toolbox")),
-		"Every family role (Adult, Elder, Teen, Child) and all 4 2-slot items picked up & deposited!")
+	var ok_tn: bool = _grab_now(scav, fam_teen_target)
+	_space_deposit(scav, hatch_pos_val)
+	var ok_ch: bool = _grab_now(scav, fam_child_target)
+	_space_deposit(scav, hatch_pos_val)
+	_check(ok_tn and ok_ch and bool((gs_fams[3] as Dictionary)["in_bunker"]) and bool((gs_fams[4] as Dictionary)["in_bunker"]),
+		"Every family role (Adult, Elder, Teen, Child) picked up & deposited with SPACE")
 
 	scav.queue_free()
 	await _wait_frames(2)
@@ -284,9 +289,10 @@ func _audit_2_scavenge_sequence(gs: Node) -> void:
 
 	# 2B. Encumbrance & Sprinter speed math vs UI tooltip
 	var spd_0: float = float(scav.call("_compute_move_speed"))
-	scav.call("_attempt_pickup_target", any_item)
+	_grab_now(scav, any_item)
 	var spd_1: float = float(scav.call("_compute_move_speed"))
-	_check(spd_1 < spd_0 and is_equal_approx(spd_1 / spd_0, 0.94), "Encumbrance slows movement by 6% per used slot", "ratio=%.3f" % (spd_1 / spd_0))
+	var slow: float = float(ScavengeSceneRef.get("SLOT_SLOW_PER_UNIT")) * float(int(any_item.get("slots", 1)))
+	_check(spd_1 < spd_0 and is_equal_approx(spd_1 / spd_0, 1.0 - slow), "Encumbrance slows movement by SLOT_SLOW_PER_UNIT per used slot", "ratio=%.3f" % (spd_1 / spd_0))
 
 	var trait_list: Array = FamilyScreenRef.get("TRAIT_LIST")
 	var sprinter_desc: String = ""
@@ -304,7 +310,7 @@ func _audit_2_scavenge_sequence(gs: Node) -> void:
 	var wi1: Dictionary = wi0[1]
 	scav.set("_player_pos", wi1["pos"])
 	scav.call("_process_scavenge_phase", 0.016)
-	_check(bool(wi1["collected"]), "Auto-pickup grabs nearby fitting item automatically within AUTO_PICKUP_RADIUS")
+	_check(not bool(wi1["collected"]), "No automatic pickup: standing on an item does not grab it (SPACE does)")
 
 	scav.queue_free()
 	await _wait_frames(2)
@@ -331,7 +337,7 @@ func _audit_2_scavenge_sequence(gs: Node) -> void:
 	scav_in.call("_start_scavenge_phase")
 	var wi_in: Array = scav_in.get("_world_items")
 	var item0: Dictionary = scav_in.call("_get_target_by_uid", "item", int((wi_in[0] as Dictionary)["uid"]))
-	scav_in.call("_attempt_pickup_target", item0)
+	_grab_now(scav_in, item0)
 	var hp_in: Vector2 = scav_in.get("_hatch_pos")
 	var hr_in: float = float(scav_in.get("_hatch_radius"))
 	scav_in.set("_player_pos", hp_in + Vector2(hr_in + 30.0, 0.0))
@@ -367,10 +373,9 @@ func _audit_2_scavenge_sequence(gs: Node) -> void:
 	scav_partial.call("_start_scavenge_phase")
 	var wf_p: Array = scav_partial.get("_world_family")
 	var dolores_t: Dictionary = scav_partial.call("_get_target_by_uid", "family", int((wf_p[0] as Dictionary)["uid"]))
-	scav_partial.call("_attempt_pickup_target", dolores_t)
+	_grab_now(scav_partial, dolores_t)
 	var hp_p: Vector2 = scav_partial.get("_hatch_pos")
-	scav_partial.set("_player_pos", hp_p)
-	scav_partial.call("_process", 0.02)
+	_space_deposit(scav_partial, hp_p)
 	scav_partial.set("_player_pos", hp_p + Vector2(260.0, 0.0))
 	scav_partial.set("_scavenge_time_left", 0.02)
 	scav_partial.call("_process", 0.03)
@@ -657,7 +662,8 @@ func _audit_3_bunker_survival_math(gs: Node) -> void:
 		gs.set("water_quarters", 20)
 		gs.set("soup_quarters", 20)
 		BunkerSimRef.call("start_bunker_run")
-		rm["radiation"] = 80.0
+		# Pass 2: radiation is a real dose; 3.5 Sv in a week is the old ">65 rads" band.
+		load("res://scripts/core/radiation_model.gd").call("add_dose", rm, 3500.0, int(gs.get("day")))
 		BunkerSimRef.call("advance_day", {"m0": {"soup_q": 1, "water_q": 1}})
 		if bool(rm["is_mutant"]):
 			rad_mutated = true
@@ -919,7 +925,7 @@ func _audit_4_event_deck_and_rescue_chains(gs: Node) -> void:
 	BunkerSimRef.call("start_bunker_run")
 
 	var all_ev_ids: Array = EventDeckRef.call("get_all_event_ids")
-	_check(all_ev_ids.size() == 60, "EventDeck contains 60 distinct events", "got %d" % all_ev_ids.size())
+	_check(all_ev_ids.size() == 61, "EventDeck contains 61 distinct events (60 originals + distant second strike)", "got %d" % all_ev_ids.size())
 
 	var softlocked_events: int = 0
 	var empty_text_events: int = 0
@@ -1219,3 +1225,21 @@ func _simulate_natural_rescue_victory(gs: Node, target_chain: String, rng: Rando
 			print("    Chain '%s' won on Day %d (stage=%d, title='%s')" % [target_chain, int(gs.get("day")), stage_now, str(gs.get("ending_title"))])
 			return stage_now >= 3
 	return false
+
+
+# Pass 2 helpers: a grab takes GRAB_TIME_*; complete it immediately for unit-level checks.
+func _grab_now(scav: Node, target: Dictionary) -> bool:
+	if not bool(scav.call("_attempt_pickup_target", target)):
+		return false
+	scav.set("_pending_action", {})
+	return bool(scav.call("_complete_pickup", target))
+
+
+# SPACE at the hatch: start the deposit and let the timed action finish.
+func _space_deposit(scav: Node, hatch_pos: Vector2) -> void:
+	scav.set("_player_pos", hatch_pos)
+	scav.call("_context_action")
+	for _i in range(60):
+		if (scav.get("_pending_action") as Dictionary).is_empty():
+			break
+		scav.call("_process_pending_action", 0.05)

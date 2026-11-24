@@ -827,30 +827,10 @@ static func get_category_label(category: String) -> String:
 		_:
 			return "Landmark"
 
+## What a place of this kind can actually hold: read from the same finite stock table the
+## expedition raids use, so the preview never promises something that cannot be found.
 static func get_loot_profile_for_category(category: String) -> Array:
-	match category:
-		"grocery":
-			return ["soup", "water"]
-		"church":
-			return ["water", "medkit", "book"]
-		"pharmacy":
-			return ["medkit", "gas_mask", "water"]
-		"civic":
-			return ["rifle", "ammo", "gas_mask", "radio"]
-		"hardware":
-			return ["toolbox", "axe", "padlock", "flashlight", "spark_plugs"]
-		"auto":
-			return ["car_battery", "fuel_can", "spark_plugs", "toolbox"]
-		"school":
-			return ["book", "map", "flashlight", "checkers"]
-		"restaurant":
-			return ["soup", "water", "cards"]
-		"park":
-			return ["water", "flashlight", "harmonica"]
-		"neighbor_house":
-			return ["soup", "water", "cards", "padlock", "bug_spray"]
-		_:
-			return ["soup", "water"]
+	return LootTables.preview_for_category(category)
 
 static func format_building_type(raw_type: String) -> String:
 	var key: String = raw_type.strip_edges().to_lower()

@@ -52,6 +52,7 @@ func _run() -> void:
 		gs.call("init_default_family")
 		gs.get("rng").seed = 1000 + s
 		gs.set("demo_mode", true)
+		gs.set("autopilot_full_run", true)
 		gs.call("request_screen", "scavenge")
 		await process_frame
 		await process_frame

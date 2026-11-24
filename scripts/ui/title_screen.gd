@@ -128,7 +128,7 @@ func _build_ui() -> void:
 		_status_label.text = "● AUTO-DEMO SHOWCASE ACTIVE — INITIALIZING ATOMIC PROTOCOL IN 2.4s..."
 		_status_label.add_theme_color_override("font_color", ThemeHelper.COLOR_HAZARD_YELLOW)
 	else:
-		var house_addr: String = str(GameState.selected_house.get("address", "518 E Roy St, Capitol Hill, Seattle, WA"))
+		var house_addr: String = LocationText.area_header()
 		_status_label.text = "ACTIVE SECTOR: %s   •   CONELRAD FREQ: 640 / 1240 KC" % house_addr.to_upper()
 		_status_label.add_theme_color_override("font_color", Color("#dccba6"))
 	footer_panel.add_child(_status_label)

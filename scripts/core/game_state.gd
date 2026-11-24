@@ -24,6 +24,7 @@ var current_screen: String = SCREEN_TITLE
 # Demo / Automated QA Showcase flags
 var demo_mode: bool = false
 var headless_fast_test: bool = false
+var autopilot_full_run: bool = false   # bots/probes: autopilot plays the full scavenge timer
 var rng := RandomNumberGenerator.new()
 
 # Family customization list (Array of Dictionaries)

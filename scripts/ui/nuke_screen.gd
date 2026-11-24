@@ -136,7 +136,7 @@ func refresh_from_game_state() -> void:
 		_wind_deg = float(existing_cfg.get("wind_bearing_deg", 45.0))
 		_target_name = str(existing_cfg.get("target_name", "Strategic Target"))
 	else:
-		var local_pick: Dictionary = NukePhysics.pick_local_target(_house_lat, _house_lon)
+		var local_pick: Dictionary = NukePhysics.pick_local_target(_house_lat, _house_lon, GameState.map_landmarks)
 		_nuke_lat = float(local_pick["lat"])
 		_nuke_lon = float(local_pick["lon"])
 		_yield_kt = 800
@@ -193,7 +193,7 @@ func _tick_demo_mode(delta: float) -> void:
 		# Switch to Regional Metro Radar and place an 800kt strike ~3.2 km from selected house
 		set_map_mode(MODE_REGIONAL)
 		set_yield_kt(800)
-		var local_strike: Dictionary = NukePhysics.pick_local_target(_house_lat, _house_lon)
+		var local_strike: Dictionary = NukePhysics.pick_local_target(_house_lat, _house_lon, GameState.map_landmarks)
 		var s_lat: float = float(local_strike["lat"])
 		var s_lon: float = float(local_strike["lon"])
 		var downwind_brng: float = NukePhysics.bearing_deg(s_lat, s_lon, _house_lat, _house_lon)
@@ -504,7 +504,7 @@ func _refresh_difficulty_labels() -> void:
 
 
 func _rebuild_presets() -> void:
-	_preset_defs = NukePhysics.get_preset_targets(_house_lat, _house_lon)
+	_preset_defs = NukePhysics.get_preset_targets(_house_lat, _house_lon, GameState.map_landmarks)
 	for i in range(mini(_preset_buttons.size(), _preset_defs.size())):
 		var pdef: Dictionary = _preset_defs[i]
 		_preset_buttons[i].text = str(pdef.get("button_label", "Preset"))

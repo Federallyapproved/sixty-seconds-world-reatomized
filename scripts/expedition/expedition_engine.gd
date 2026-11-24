@@ -268,8 +268,10 @@ static func tick_active_expedition() -> Dictionary:
 	exp_data["days_remaining"] = days_remaining
 
 	var member: Dictionary = _find_member_any_state(member_id)
-	if not member.is_empty():
-		member["days_away"] = maxi(0, days_remaining)
+	if member.is_empty() or not bool(member.get("alive", false)):
+		# The explorer died while away: settle the expedition now so gear is not left "OUT".
+		return _resolve_expedition_return(exp_data, member)
+	member["days_away"] = maxi(0, days_remaining)
 
 	if days_remaining > 0:
 		if not member.is_empty():
@@ -529,8 +531,20 @@ static func _loot_priorities() -> Array:
 			break
 	for part in veh_needs:
 		pri.append(str(part))
-	pri.append_array(["medkit", "water", "soup", "gas_mask", "radio", "toolbox", "car_battery", "fuel_can", "spark_plugs", "fan_belt", "tire_patch", "map", "flashlight", "rifle", "axe", "ammo"])
+	for iid in ["medkit", "water", "soup", "gas_mask", "radio", "toolbox", "car_battery", "fuel_can", "spark_plugs", "fan_belt", "tire_patch", "map", "flashlight", "rifle", "axe", "ammo"]:
+		# Durable gear the family already has (or has with them) is only taken if room is left.
+		if iid in DURABLE_GEAR and (GameState.has_working_item(iid) or _is_checked_out(iid)):
+			continue
+		pri.append(iid)
 	return pri
+
+
+const DURABLE_GEAR: Array[String] = ["gas_mask", "radio", "toolbox", "map", "flashlight", "rifle", "axe", "book", "cards", "checkers", "harmonica", "padlock", "suitcase"]
+
+
+static func _is_checked_out(iid: String) -> bool:
+	var e: Variant = GameState.bunker_items.get(iid, {})
+	return e is Dictionary and bool((e as Dictionary).get("checked_out", false))
 
 
 static func _pick_needed_durable(pool: Array[String], rng: RandomNumberGenerator) -> String:
@@ -688,23 +702,7 @@ static func _format_target_display(base_name: String, dist_m: float, bearing: St
 
 
 static func _expected_loot_for_category(cat: String) -> Array:
-	match cat:
-		"grocery", "restaurant":
-			return ["soup", "water"]
-		"pharmacy":
-			return ["medkit", "water", "bug_spray"]
-		"hardware":
-			return ["toolbox", "axe", "rifle", "ammo", "flashlight", "padlock"]
-		"church":
-			return ["soup", "water", "medkit", "book"]
-		"school":
-			return ["map", "book", "soup", "flashlight"]
-		"civic":
-			return ["rifle", "ammo", "gas_mask", "radio"]
-		"park":
-			return ["water", "soup", "harmonica"]
-		_:
-			return ["soup", "water", "ammo", "cards"]
+	return LootTables.preview_for_category(cat)
 
 
 ## Only used when no real buildings exist at all (unmapped coordinates): clearly fictional places.

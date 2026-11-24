@@ -74,6 +74,9 @@ static func distances_from(net: Dictionary, lat: float, lon: float) -> Dictionar
 	var dist := PackedFloat32Array()
 	dist.resize(n)
 	dist.fill(1e20)
+	var prev := PackedInt32Array()
+	prev.resize(n)
+	prev.fill(-1)
 	var s: Dictionary = snap(net, lat, lon)
 	if not bool(s.get("ok", false)):
 		return {"ok": false, "dist": dist, "source_off_m": float(s.get("off_m", 1e9))}
@@ -98,8 +101,43 @@ static func distances_from(net: Dictionary, lat: float, lon: float) -> Dictionar
 			var nd: float = cur_f + float(e[1])
 			if nd < dist[nb]:
 				dist[nb] = nd
+				prev[nb] = cur
 				_push(heap_f, heap_i, nd, nb)
-	return {"ok": true, "dist": dist, "source_off_m": float(s["off_m"]), "source_snap": s}
+	return {"ok": true, "dist": dist, "prev": prev, "source_off_m": float(s["off_m"]), "source_snap": s}
+
+
+## Walking route (local metres, x east / y north) from the Dijkstra source to a target.
+static func route_to(net: Dictionary, dists: Dictionary, lat: float, lon: float) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if not bool(dists.get("ok", false)):
+		return out
+	var t: Dictionary = snap(net, lat, lon)
+	if not bool(t.get("ok", false)):
+		return out
+	var pos: PackedVector2Array = net["pos"]
+	var dist: PackedFloat32Array = dists["dist"]
+	var prev: PackedInt32Array = dists["prev"]
+	var tp: Vector2 = t["point"]
+	var a: int = int(t["a"])
+	var b: int = int(t["b"])
+	var end_node: int = a if dist[a] + tp.distance_to(pos[a]) <= dist[b] + tp.distance_to(pos[b]) else b
+	var chain: Array[int] = []
+	var cur: int = end_node
+	var guard: int = 0
+	while cur != -1 and guard < 100000:
+		chain.append(cur)
+		cur = prev[cur]
+		guard += 1
+	chain.reverse()
+	out.append(Vector2.ZERO)
+	var src: Dictionary = dists.get("source_snap", {})
+	if not src.is_empty():
+		out.append(src["point"])
+	for idx in chain:
+		out.append(pos[idx])
+	out.append(tp)
+	out.append(to_local(net, lat, lon))
+	return out
 
 
 ## Walking metres from the Dijkstra source to a target, or -1 if not on the mapped network.
