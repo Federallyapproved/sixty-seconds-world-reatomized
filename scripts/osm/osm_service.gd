@@ -934,8 +934,9 @@ static func _classify_poi_tags(tags: Dictionary) -> Dictionary:
 
 	# 2. Pharmacy / Clinic / Medical
 	if amenity in PHARMACY_AMENITIES or not healthcare.is_empty():
-		var med_kind: String = amenity if not amenity.is_empty() else healthcare
-		return {"category": "pharmacy", "osm_tag": "amenity=" + med_kind, "subkind": med_kind}
+		if amenity in PHARMACY_AMENITIES:
+			return {"category": "pharmacy", "osm_tag": "amenity=" + amenity, "subkind": amenity}
+		return {"category": "pharmacy", "osm_tag": "healthcare=" + healthcare, "subkind": healthcare}
 	for tok in shop_tokens:
 		var st: String = tok.strip_edges()
 		if st in PHARMACY_SHOPS:
