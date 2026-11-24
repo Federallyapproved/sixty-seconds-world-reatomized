@@ -34,6 +34,18 @@ var selected_house: Dictionary = {}
 var nearby_pois: Array = []
 var current_neighborhood_label: String = "Capitol Hill, Seattle, WA"
 
+# Real map geometry around the chosen house (from the same OSM payload as the POIs).
+# roads: [{osm_id, name, kind, points_latlon: Array[Vector2(lon, lat)]}], parks: [{kind, name, polygon_latlon}]
+var map_roads: Array = []
+var map_parks: Array = []
+var map_buildings: Array = []      # lightweight {osm_id, lat, lon, polygon_latlon, is_residential}
+var map_bounds: Dictionary = {}    # {minlat, minlon, maxlat, maxlon} of the loaded data
+var map_source: String = ""        # "preset:<id>" | "live" | "unmapped"
+var place_names: Dictionary = {}   # {street, neighborhood, city, region, country, postcode}
+
+# Difficulty: "normal" (60 s scavenge) or "hard" (30 s scavenge). Recon time is separate.
+var difficulty: String = "normal"
+
 # Global Nuke Detonation configuration & computed impact conditions
 var nuke_config: Dictionary = {}
 
@@ -93,6 +105,8 @@ func _parse_cli_args() -> void:
 			rng.seed = 60602026
 		elif a.begins_with("--seed="):
 			rng.seed = int(a.split("=")[1])
+		elif a.begins_with("--difficulty="):
+			difficulty = "hard" if a.split("=")[1] == "hard" else "normal"
 
 func reset_to_defaults() -> void:
 	day = 1

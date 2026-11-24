@@ -69,6 +69,7 @@ var _wind_status_lbl: Label
 var _forecast_panel: _ForecastPanelControl
 var _back_btn: Button
 var _launch_btn: _HazardSirenButton
+var _difficulty_btn: Button
 
 # Animation & Demo state
 var _anim_time: float = 0.0
@@ -465,6 +466,19 @@ func _build_ui() -> void:
 	)
 	add_child(_back_btn)
 
+	_difficulty_btn = Button.new()
+	_difficulty_btn.position = Vector2(252.0, 658.0)
+	_difficulty_btn.size = Vector2(464.0, 48.0)
+	_difficulty_btn.focus_mode = Control.FOCUS_NONE
+	_difficulty_btn.add_theme_font_size_override("font_size", 14)
+	_apply_tactical_button_style(_difficulty_btn, false, false)
+	_difficulty_btn.pressed.connect(func() -> void:
+		_play_sfx("button_click")
+		GameState.difficulty = "normal" if GameState.difficulty == "hard" else "hard"
+		_refresh_difficulty_labels()
+	)
+	add_child(_difficulty_btn)
+
 	_launch_btn = _HazardSirenButton.new()
 	_launch_btn.text = "[ SOUND THE SIREN — BEGIN 60 SECONDS! > ]"
 	_launch_btn.position = Vector2(732.0, 658.0)
@@ -474,8 +488,18 @@ func _build_ui() -> void:
 		launch_scavenge()
 	)
 	add_child(_launch_btn)
+	_refresh_difficulty_labels()
 
 	_update_mode_tab_styles()
+
+
+func _refresh_difficulty_labels() -> void:
+	var hard: bool = GameState.difficulty == "hard"
+	if _difficulty_btn != null:
+		_difficulty_btn.text = "DIFFICULTY: HARD — 30 s SCAVENGE  [click to change]" if hard else "DIFFICULTY: NORMAL — 60 s SCAVENGE  [click to change]"
+	if _launch_btn != null:
+		_launch_btn.text = "[ SOUND THE SIREN — BEGIN %d SECONDS! > ]" % (30 if hard else 60)
+	queue_redraw()
 
 
 func _rebuild_presets() -> void:
@@ -1575,7 +1599,7 @@ class _ForecastPanelControl extends Control:
 		var temp_sub: String = "SCORCHING HEAT" if temp_c >= 30.0 else ("FREEZING WINTER!" if temp_c <= -3.0 else ("NUCLEAR AUTUMN" if temp_c <= 4.5 else ("CHILLY DUSK" if temp_c <= 14.0 else "BLAST WARMTH")))
 
 		var scout_s: float = float(_impact.get("scout_seconds", 8.0))
-		var scav_s: float = float(_impact.get("scavenge_seconds", 60.0))
+		var scav_s: float = 30.0 if GameState.difficulty == "hard" else 60.0
 
 		_draw_telemetry_card(
 			font,
@@ -1606,7 +1630,7 @@ class _ForecastPanelControl extends Control:
 			Rect2(24.0 + card_w, 164.0, card_w, card_h),
 			"WARNING + GRAB TIMER",
 			"%.0fs + %.0fs" % [scout_s, scav_s],
-			"%.0fs Recon / 60.0s Scavenge" % scout_s,
+			"%.0fs Recon / %.0fs Scavenge (%s)" % [scout_s, scav_s, GameState.difficulty.to_upper()],
 			Color("#1b1917")
 		)
 

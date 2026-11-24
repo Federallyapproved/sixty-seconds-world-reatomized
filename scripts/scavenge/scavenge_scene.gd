@@ -40,16 +40,23 @@ const COL_TOXIC_GREEN := Color("#7ec850")
 const COL_WATER_BLUE := Color("#3b8ec2")
 
 # Gameplay & Physics Constants
-const BASE_MOVE_SPEED: float = 255.0
+const BASE_MOVE_SPEED: float = 165.0
 const SPRINTER_MULT: float = 1.15
-const SLOT_SLOW_PER_UNIT: float = 0.06
-const PLAYER_ACCEL: float = 2400.0
+const SLOT_SLOW_PER_UNIT: float = 0.1
+const PLAYER_ACCEL: float = 1600.0
 const PLAYER_RADIUS: float = 14.0
-const INTERACT_RADIUS: float = 52.0
+const INTERACT_RADIUS: float = 46.0
 const AUTO_PICKUP_RADIUS: float = 42.0
 const HATCH_DROP_MARGIN: float = 18.0
 const HATCH_END_MARGIN: float = 42.0
 const OUTRO_DURATION: float = 1.8
+const BASE_CARRY_SLOTS: int = 4
+const SUITCASE_EXTRA_SLOTS: int = 3      # only while the suitcase is in your hands (it uses 2 itself)
+const GRAB_TIME_ITEM: float = 0.45
+const GRAB_TIME_HEAVY: float = 0.7
+const GRAB_TIME_FAMILY: float = 0.95
+const DEPOSIT_TIME_BASE: float = 0.35
+const DEPOSIT_TIME_PER_ITEM: float = 0.1
 
 # House Layout Data
 var _house_layout: Dictionary = {}
@@ -102,7 +109,12 @@ var _family_deposited_count: int = 0
 var _non_leader_total: int = 0
 var _deposited_by_id: Dictionary = {}
 var _secured_gear_order: Array[String] = []
-var _auto_pickup: bool = false
+var _auto_pickup: bool = false          # legacy flag; automatic grabbing was removed
+var _selected_slot: int = 0               # index into _carried_entries
+var _pending_action: Dictionary = {}      # timed hands action: {"type", "t", "dur", "target"}
+var _floorplan_meta: Dictionary = {}
+var _entrances: Array = []
+var _room_patterns: Array = []            # precomputed clipped floor pattern lines per room
 
 # Phase & Timers
 var _phase: int = Phase.SCOUT
@@ -160,9 +172,13 @@ func _ready() -> void:
 		GameState.rng
 	)
 	_parse_house_layout(_house_layout)
+	_floorplan_meta = _house_layout.get("meta", {})
+	_entrances = _house_layout.get("entrances", [])
+	_build_room_patterns()
 	_build_local_fallback_grid()
 
-	_scavenge_total = clampf(float(GameState.nuke_config.get("scavenge_seconds", 60.0)), 15.0, 120.0)
+	# Normal = 60 s of active scavenging, Hard = 30 s. Recon (scout) time is separate.
+	_scavenge_total = 30.0 if GameState.difficulty == "hard" else 60.0
 	_scavenge_time_left = _scavenge_total
 	if GameState.demo_mode:
 		_scout_total = 2.5
@@ -527,12 +543,16 @@ func _unhandled_input(event: InputEvent) -> void:
 				_start_scavenge_phase()
 				get_viewport().set_input_as_handled()
 				return
-			elif ke.keycode == KEY_G:
-				_toggle_auto_pickup()
+			elif (ke.keycode == KEY_E or ke.keycode == KEY_SPACE) and _phase == Phase.SCAVENGE and not GameState.demo_mode:
+				_context_action()
 				get_viewport().set_input_as_handled()
 				return
-			elif (ke.keycode == KEY_E or ke.keycode == KEY_SPACE) and _phase == Phase.SCAVENGE and not GameState.demo_mode:
-				_try_interact_nearest()
+			elif ke.keycode == KEY_Q and _phase == Phase.SCAVENGE and not GameState.demo_mode:
+				_cycle_selected_slot(1)
+				get_viewport().set_input_as_handled()
+				return
+			elif ke.keycode >= KEY_1 and ke.keycode <= KEY_7 and _phase == Phase.SCAVENGE and not GameState.demo_mode:
+				_select_entry_at_slot(int(ke.keycode - KEY_1))
 				get_viewport().set_input_as_handled()
 				return
 			elif ke.keycode == KEY_F and _phase == Phase.SCAVENGE and not GameState.demo_mode:
@@ -543,6 +563,15 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseButton and not GameState.demo_mode:
 		var mb: InputEventMouseButton = event
+		if mb.pressed and _phase == Phase.SCAVENGE and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_cycle_selected_slot(-1)
+			return
+		if mb.pressed and _phase == Phase.SCAVENGE and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_cycle_selected_slot(1)
+			return
+		if mb.pressed and _phase == Phase.SCAVENGE and mb.button_index == MOUSE_BUTTON_RIGHT:
+			_drop_selected_entry()
+			return
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 			var world_click: Vector2 = get_global_mouse_position()
 			_handle_world_left_click(world_click)
@@ -680,7 +709,9 @@ func _process_scavenge_phase(dt: float) -> void:
 
 	# Movement (Demo Auto-Pilot vs Player Control)
 	var cur_speed: float = _compute_move_speed()
-	if GameState.demo_mode:
+	if not _pending_action.is_empty():
+		_process_pending_action(dt)
+	elif GameState.demo_mode:
 		_process_demo_autopilot(dt, cur_speed)
 	else:
 		_process_manual_scavenge_control(dt, cur_speed)
@@ -688,16 +719,7 @@ func _process_scavenge_phase(dt: float) -> void:
 	# Refresh closest highlightable target within 52 px
 	_hovered_target = _find_target_near_point(_player_pos, INTERACT_RADIUS)
 
-	# Auto-pickup check (manual toggle)
-	if not GameState.demo_mode and _auto_pickup:
-		var auto_t: Dictionary = _find_fitting_target_near_point(_player_pos, AUTO_PICKUP_RADIUS)
-		if not auto_t.is_empty():
-			_attempt_pickup_target(auto_t)
-			_hovered_target = _find_target_near_point(_player_pos, INTERACT_RADIUS)
-
-	# Automatic Bunker Hatch chute deposit when stepping within hatch_radius + 18.0
-	if not _carried_entries.is_empty() and _player_pos.distance_to(_hatch_pos) <= _hatch_radius + HATCH_DROP_MARGIN:
-		_deposit_carried_into_hatch()
+	# Nothing is grabbed or deposited automatically any more: SPACE (or a click on an item) does it.
 
 	# Check 0.0s detonation!
 	if _scavenge_time_left <= 0.0 and _phase == Phase.SCAVENGE:
@@ -801,7 +823,7 @@ func _compute_move_speed() -> float:
 	if trait_id == "sprinter":
 		speed *= SPRINTER_MULT
 	var used_slots: int = _get_used_slots()
-	var encumbrance: float = maxf(0.56, 1.0 - SLOT_SLOW_PER_UNIT * float(used_slots))
+	var encumbrance: float = maxf(0.5, 1.0 - SLOT_SLOW_PER_UNIT * float(used_slots))
 	return speed * encumbrance
 
 
@@ -1032,19 +1054,35 @@ func _try_interact_nearest() -> void:
 	_attempt_pickup_target(target)
 
 
+## Starts a timed grab (the runner stops for a moment while reaching for it).
 func _attempt_pickup_target(target: Dictionary) -> bool:
-	if target.is_empty() or _phase != Phase.SCAVENGE:
+	if target.is_empty() or _phase != Phase.SCAVENGE or not _pending_action.is_empty():
 		return false
-
 	var needed_slots: int = int(target.get("slots", 1))
-	var used_slots: int = _get_used_slots()
-	if used_slots + needed_slots > _max_slots:
+	if _get_used_slots() + needed_slots > _max_slots:
 		if _hands_full_timer <= 0.45:
 			SoundManager.play_sfx("button_click", -2.0, 0.72)
-			_spawn_popup(_player_pos + Vector2(0.0, -32.0), "HANDS FULL! RUN TO HATCH!", COL_ATOMIC_ORANGE, 1.35)
+			_spawn_popup(_player_pos + Vector2(0.0, -32.0), "HANDS FULL! DROP AT HATCH (SPACE)", COL_ATOMIC_ORANGE, 1.35)
 		_hands_full_timer = 1.55
 		return false
+	var entity_ref: Dictionary = target.get("ref", {})
+	if entity_ref.is_empty() or bool(entity_ref.get("collected", false)):
+		return false
+	var kind: String = str(target.get("kind", ""))
+	var dur: float = GRAB_TIME_ITEM
+	if kind == "family":
+		dur = GRAB_TIME_FAMILY
+	elif needed_slots >= 2:
+		dur = GRAB_TIME_HEAVY
+	_pending_action = {"type": "grab", "t": 0.0, "dur": dur, "target": target}
+	_has_click_target = false
+	return true
 
+
+func _complete_pickup(target: Dictionary) -> bool:
+	var needed_slots: int = int(target.get("slots", 1))
+	if _get_used_slots() + needed_slots > _max_slots:
+		return false
 	var kind: String = str(target.get("kind", ""))
 	var entity_ref: Dictionary = target.get("ref", {})
 	if entity_ref.is_empty() or bool(entity_ref.get("collected", false)):
@@ -1060,7 +1098,8 @@ func _attempt_pickup_target(target: Dictionary) -> bool:
 			"kind": "family",
 			"member": m,
 			"name": fname,
-			"slots": needed_slots
+			"slots": needed_slots,
+			"ref": entity_ref
 		})
 		_spawn_popup(entity_ref["pos"] + Vector2(0.0, -24.0), "+%s [%d SLOTS]" % [fname.to_upper(), needed_slots], COL_HAZARD_YELLOW, 1.25)
 		family_picked_up.emit(str(m.get("id", "")), needed_slots)
@@ -1072,19 +1111,150 @@ func _attempt_pickup_target(target: Dictionary) -> bool:
 			"item_id": iid,
 			"name": str(entity_ref.get("name", sname)),
 			"short_name": sname,
-			"slots": needed_slots
+			"slots": needed_slots,
+			"ref": entity_ref
 		})
+		if iid == "suitcase":
+			_suitcase_flash_timer = 2.6
 		_spawn_popup(entity_ref["pos"] + Vector2(0.0, -20.0), "+%s" % sname.to_upper(), COL_PARCHMENT, 1.1)
 		item_picked_up.emit(iid, needed_slots)
 
+	_selected_slot = _carried_entries.size() - 1
+	_refresh_capacity()
 	if GameState.demo_mode:
-		_ai_pause_timer = 0.16
+		_ai_pause_timer = 0.06
 	return true
 
 
-func _deposit_carried_into_hatch() -> void:
+# ------------------------------------------------------------------------------
+# Hands: capacity, selection, context action, timed actions, dropping
+# ------------------------------------------------------------------------------
+
+func _refresh_capacity() -> void:
+	var carrying_case: bool = _is_carrying_item("suitcase")
+	_suitcase_upgraded = carrying_case
+	_max_slots = BASE_CARRY_SLOTS + (SUITCASE_EXTRA_SLOTS if carrying_case else 0)
+	_selected_slot = clampi(_selected_slot, 0, maxi(0, _carried_entries.size() - 1))
+
+
+func _cycle_selected_slot(step: int) -> void:
 	if _carried_entries.is_empty():
 		return
+	_selected_slot = posmod(_selected_slot + step, _carried_entries.size())
+	SoundManager.play_sfx("tick", -10.0, 1.6)
+
+
+func _select_entry_at_slot(slot_index: int) -> void:
+	var cur: int = 0
+	for i in range(_carried_entries.size()):
+		var span: int = int((_carried_entries[i] as Dictionary).get("slots", 1))
+		if slot_index >= cur and slot_index < cur + span:
+			_selected_slot = i
+			SoundManager.play_sfx("tick", -10.0, 1.6)
+			return
+		cur += span
+
+
+func _is_at_hatch() -> bool:
+	return _player_pos.distance_to(_hatch_pos) <= _hatch_radius + HATCH_DROP_MARGIN
+
+
+## SPACE / E: deposit at the hatch, otherwise grab what is in reach, otherwise drop the selected item.
+func _context_action() -> void:
+	if _phase != Phase.SCAVENGE or not _pending_action.is_empty():
+		return
+	if _is_at_hatch() and not _carried_entries.is_empty():
+		_begin_deposit()
+		return
+	var target: Dictionary = _find_target_near_point(_player_pos, INTERACT_RADIUS)
+	if not target.is_empty():
+		if _get_used_slots() + int(target.get("slots", 1)) <= _max_slots:
+			_attempt_pickup_target(target)
+			return
+		if not _carried_entries.is_empty():
+			_drop_selected_entry()
+			return
+		_attempt_pickup_target(target)
+		return
+	if not _carried_entries.is_empty():
+		_drop_selected_entry()
+
+
+func _begin_deposit() -> bool:
+	if _carried_entries.is_empty() or not _pending_action.is_empty():
+		return false
+	var n: int = 0
+	for e_v in _carried_entries:
+		var e: Dictionary = e_v
+		if not (str(e.get("item_id", "")) == "suitcase" and _carried_entries.size() > 1):
+			n += 1
+	_pending_action = {"type": "deposit", "t": 0.0, "dur": DEPOSIT_TIME_BASE + DEPOSIT_TIME_PER_ITEM * float(n), "target": {}}
+	return true
+
+
+func _process_pending_action(dt: float) -> void:
+	_apply_player_movement(Vector2.ZERO, dt, false)
+	_pending_action["t"] = float(_pending_action.get("t", 0.0)) + dt
+	if float(_pending_action["t"]) < float(_pending_action.get("dur", 0.3)):
+		return
+	var act: Dictionary = _pending_action
+	_pending_action = {}
+	match str(act.get("type", "")):
+		"grab":
+			var tgt: Dictionary = act.get("target", {})
+			var tpos: Vector2 = tgt.get("pos", _player_pos)
+			if _player_pos.distance_to(tpos) <= INTERACT_RADIUS + 12.0:
+				_complete_pickup(tgt)
+		"deposit":
+			if _is_at_hatch():
+				_deposit_carried_into_hatch(true)
+
+
+func _drop_selected_entry() -> bool:
+	if _carried_entries.is_empty() or _phase != Phase.SCAVENGE or not _pending_action.is_empty():
+		return false
+	_selected_slot = clampi(_selected_slot, 0, _carried_entries.size() - 1)
+	var entry: Dictionary = _carried_entries[_selected_slot]
+	if _is_at_hatch():
+		# At the hatch the selected item goes down the chute instead of onto the floor.
+		_carried_entries.remove_at(_selected_slot)
+		_carried_entries.push_front(entry)
+		var rest: Array = _carried_entries.slice(1)
+		_carried_entries = [entry]
+		_deposit_carried_into_hatch(false)
+		_carried_entries = rest
+		_refresh_capacity()
+		return true
+	var is_case: bool = str(entry.get("item_id", "")) == "suitcase"
+	if is_case and _get_used_slots() - 2 > BASE_CARRY_SLOTS:
+		_spawn_popup(_player_pos + Vector2(0.0, -32.0), "UNPACK THE SUITCASE FIRST", COL_ATOMIC_ORANGE, 1.2)
+		SoundManager.play_sfx("button_click", -2.0, 0.72)
+		return false
+	_carried_entries.remove_at(_selected_slot)
+	var ref: Dictionary = entry.get("ref", {})
+	var drop_pos: Vector2 = _resolve_collisions(_player_pos + _player_facing * 20.0, false)
+	if not ref.is_empty():
+		ref["collected"] = false
+		ref["pos"] = drop_pos
+	SoundManager.play_sfx("pickup", -6.0, 0.7)
+	_spawn_popup(drop_pos + Vector2(0.0, -20.0), "DROPPED %s" % str(entry.get("short_name", entry.get("name", "ITEM"))).to_upper(), COL_PARCHMENT_DARK, 1.0)
+	_refresh_capacity()
+	return true
+
+
+func _deposit_carried_into_hatch(keep_suitcase: bool = false) -> void:
+	if _carried_entries.is_empty():
+		return
+	var kept: Array = []
+	if keep_suitcase and _carried_entries.size() > 1:
+		var send: Array = []
+		for e_v in _carried_entries:
+			var e: Dictionary = e_v
+			if str(e.get("item_id", "")) == "suitcase":
+				kept.append(e)
+			else:
+				send.append(e)
+		_carried_entries = send
 
 	SoundManager.play_sfx("hatch_drop")
 	var dropped_items_batch: int = 0
@@ -1124,11 +1294,6 @@ func _deposit_carried_into_hatch() -> void:
 				if not _secured_gear_order.has(iid):
 					_secured_gear_order.append(iid)
 
-			if iid == "suitcase" and not _suitcase_upgraded:
-				_suitcase_upgraded = true
-				_max_slots = 5
-				_suitcase_flash_timer = 2.8
-				unlocked_suitcase_now = true
 
 			_falling_chute_fx.append({
 				"kind": "item",
@@ -1139,7 +1304,8 @@ func _deposit_carried_into_hatch() -> void:
 			})
 		idx_offset += 1
 
-	_carried_entries.clear()
+	_carried_entries = kept
+	_refresh_capacity()
 	_hands_full_timer = 0.0
 	_tally_pop_timer = 0.5
 
@@ -1153,9 +1319,7 @@ func _deposit_carried_into_hatch() -> void:
 		"time_remaining": maxf(0.0, snappedf(_scavenge_time_left, 0.1))
 	}
 
-	if unlocked_suitcase_now:
-		_spawn_popup(_hatch_pos + Vector2(0.0, -56.0), "+1 CARRY SLOT (SUITCASE)!", COL_HAZARD_YELLOW, 2.1)
-	elif dropped_items_batch > 0 and dropped_family_batch == 0:
+	if dropped_items_batch > 0 and dropped_family_batch == 0:
 		_spawn_popup(_hatch_pos + Vector2(0.0, -28.0), "CHUTE +%d SUPPLIES!" % dropped_items_batch, COL_TOXIC_GREEN, 1.25)
 
 	if GameState.demo_mode:
@@ -1264,8 +1428,9 @@ func _finalize_scavenge_and_enter_outro(caught_outside: bool) -> void:
 
 
 func _toggle_auto_pickup() -> void:
-	_auto_pickup = not _auto_pickup
-	SoundManager.play_sfx("button_click")
+	# Automatic grabbing was removed in pass 2: SPACE picks up and drops items.
+	_auto_pickup = false
+	_spawn_popup(_player_pos + Vector2(0.0, -32.0), "PRESS SPACE TO GRAB", COL_HAZARD_YELLOW, 1.0)
 
 
 func trigger_hud_skip_scout() -> void:
@@ -1298,6 +1463,18 @@ func _process_demo_autopilot(dt: float, cur_speed: float) -> void:
 			_ai_blacklist[k] = rem
 	for ek in expired_keys:
 		_ai_blacklist.erase(ek)
+
+	# Deposit whenever we pass the hatch with loot in hand (same SPACE action a player uses).
+	if _is_at_hatch():
+		var has_drop: bool = false
+		for e_v in _carried_entries:
+			if str((e_v as Dictionary).get("item_id", "")) != "suitcase" or _carried_entries.size() == 1:
+				has_drop = true
+				break
+		var only_case: bool = _carried_entries.size() == 1 and _is_carrying_item("suitcase")
+		if has_drop and not only_case:
+			_begin_deposit()
+			return
 
 	# Opportunistically grab high-value 1-slot items right under our feet if they won't block our current multi-slot target
 	var free_slots: int = _max_slots - _get_used_slots()
@@ -1335,7 +1512,8 @@ func _process_demo_autopilot(dt: float, cur_speed: float) -> void:
 	var must_head_home: bool = (_scavenge_time_left <= maxf(4.2, return_budget_sec)) or house_empty
 
 	if must_head_home:
-		if _player_pos.distance_to(_hatch_pos) <= _hatch_radius + 14.0 and _carried_entries.is_empty():
+		var only_case_left: bool = _carried_entries.size() == 1 and _is_carrying_item("suitcase")
+		if _player_pos.distance_to(_hatch_pos) <= _hatch_radius + 14.0 and (_carried_entries.is_empty() or only_case_left):
 			if _scavenge_time_left <= 2.7 or house_empty:
 				_dive_into_bunker()
 				return
@@ -1348,7 +1526,7 @@ func _process_demo_autopilot(dt: float, cur_speed: float) -> void:
 	var has_carried_suitcase: bool = _is_carrying_item("suitcase")
 	var best_next: Dictionary = _pick_best_demo_target(free_slots)
 
-	if free_slots <= 0 or best_next.is_empty() or (has_carried_suitcase and _get_used_slots() >= 3):
+	if free_slots <= 0 or best_next.is_empty():
 		_ai_steer_toward(_hatch_pos, "hatch", -1, dt, cur_speed)
 		return
 
@@ -1370,7 +1548,13 @@ func _process_demo_autopilot(dt: float, cur_speed: float) -> void:
 			return
 
 	_ai_target_attempt_time += dt
-	if _ai_target_attempt_time > 4.2:
+	# Give up on a target only if it takes far longer than its path should (real-scale houses are big).
+	var path_len: float = 0.0
+	for wi in range(maxi(0, _ai_wp_index), _ai_waypoints.size()):
+		var from_pt: Vector2 = _player_pos if wi == _ai_wp_index else _ai_waypoints[wi - 1]
+		path_len += from_pt.distance_to(_ai_waypoints[wi])
+	var allowed: float = 3.0 + path_len / maxf(60.0, cur_speed) * 1.8
+	if _ai_target_attempt_time > maxf(4.2, allowed + 2.0):
 		_ai_blacklist[_ai_goal_uid] = 7.0
 		_ai_goal_kind = ""
 		_ai_goal_uid = -1
@@ -1855,6 +2039,7 @@ func _draw() -> void:
 	_draw_bunker_hatch(font)
 	_draw_furniture_layer()
 	_draw_walls_layer()
+	_draw_entrances(font)
 	_draw_falling_chute_items()
 	_draw_world_items_and_family(font)
 	_draw_player_and_navigation(font)
@@ -1903,6 +2088,14 @@ func _draw_house_floors_and_rooms(font: Font) -> void:
 
 		if poly_ok:
 			draw_colored_polygon(r_poly, r_col)
+			var r_index: int = _rooms.find(room)
+			if r_index >= 0 and r_index < _room_patterns.size():
+				var pat: Dictionary = _room_patterns[r_index]
+				var pcol: Color = pat["color"]
+				for ln in pat["lines"]:
+					draw_polyline(ln, pcol, 1.2)
+			if str(room.get("name", "")).begins_with("Sealed"):
+				draw_colored_polygon(r_poly, Color(0.18, 0.16, 0.13, 0.85))
 		elif r_rect.size.x > 1.0 and r_rect.size.y > 1.0:
 			draw_rect(r_rect, r_col, true)
 
@@ -1928,6 +2121,65 @@ func _draw_house_floors_and_rooms(font: Font) -> void:
 			if cpos.distance_to(_hatch_pos) < _hatch_radius + 26.0:
 				cpos += Vector2(0.0, _hatch_radius + 28.0)
 			_draw_text_centered(self, font, cpos, r_title, 12, Color(0.22, 0.19, 0.15, 0.52))
+
+
+## Pre-clips floor pattern lines (planks / tiles) to each non-rectangular room polygon once,
+## so real-footprint rooms keep their textures without per-frame clipping.
+func _build_room_patterns() -> void:
+	_room_patterns.clear()
+	for r_var in _rooms:
+		var room: Dictionary = r_var
+		var lines: Array = []
+		var poly: PackedVector2Array = room["polygon"]
+		if bool(room.get("poly_valid", false)) and poly.size() >= 3:
+			var kind: String = str(room.get("kind", ""))
+			var b: Rect2 = _poly_bounds(poly)
+			var step: float = 16.0
+			var col := Color(0.32, 0.22, 0.12, 0.13)
+			var both: bool = false
+			if kind.find("kitchen") >= 0 or kind.find("pantry") >= 0:
+				step = 24.0
+				col = Color(0.74, 0.36, 0.24, 0.16)
+				both = true
+			elif kind.find("bath") >= 0:
+				step = 18.0
+				col = Color(0.24, 0.52, 0.56, 0.2)
+				both = true
+			elif kind.find("utility") >= 0 or kind.find("garage") >= 0 or kind.find("storage") >= 0 or kind.find("hall") >= 0:
+				step = 40.0
+				col = Color(0.12, 0.13, 0.12, 0.16)
+				both = true
+			var y: float = b.position.y + step
+			while y < b.end.y:
+				for seg in Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([Vector2(b.position.x - 2.0, y), Vector2(b.end.x + 2.0, y)]), poly):
+					lines.append(seg)
+				y += step
+			if both:
+				var x: float = b.position.x + step
+				while x < b.end.x:
+					for seg2 in Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([Vector2(x, b.position.y - 2.0), Vector2(x, b.end.y + 2.0)]), poly):
+						lines.append(seg2)
+					x += step
+			_room_patterns.append({"lines": lines, "color": col})
+		else:
+			_room_patterns.append({"lines": [], "color": Color.TRANSPARENT})
+
+
+func _draw_entrances(font: Font) -> void:
+	for e_v in _entrances:
+		var e: Dictionary = e_v
+		var c: Vector2 = e.get("center", Vector2.ZERO)
+		var d: Vector2 = e.get("dir", Vector2.RIGHT)
+		var n: Vector2 = e.get("normal", Vector2.DOWN)
+		var half: float = float(e.get("width", 56.0)) * 0.5
+		var a: Vector2 = c - d * half
+		var b: Vector2 = c + d * half
+		draw_line(a, b, Color("#6b4426"), 13.0)
+		draw_line(a + n * 3.0, b + n * 3.0, Color("#8c5a32"), 5.0)
+		draw_circle(c + d * (half - 9.0) + n * 2.0, 3.0, COL_HAZARD_GOLD)
+		draw_line(a - n * 9.0, b - n * 9.0, Color(0.1, 0.1, 0.1, 0.25), 2.0)
+		var lbl_pos: Vector2 = c + n * 26.0
+		_draw_text_centered_outlined(self, font, lbl_pos, "%s (BARRICADED)" % str(e.get("label", "DOOR")), 10, COL_PARCHMENT, COL_INK)
 
 
 func _draw_checker_floor(rect: Rect2, tile: float, col_a: Color, col_b: Color) -> void:
@@ -2460,8 +2712,7 @@ class _ScavengeHUD extends Control:
 		var in_outro: bool = (scene_ref._phase == ScavengeScene.Phase.OUTRO)
 		_skip_btn.visible = (scene_ref._phase == ScavengeScene.Phase.SCOUT and not GameState.demo_mode and not in_outro)
 		_dive_btn.visible = (not in_outro and not GameState.demo_mode and scene_ref._can_dive_into_bunker())
-		_auto_btn.visible = not in_outro
-		_auto_btn.text = "Auto-Grab: ON [G]" if scene_ref._auto_pickup else "Auto-Grab: OFF [G]"
+		_auto_btn.visible = false
 
 	func _draw() -> void:
 		if not is_instance_valid(scene_ref):
@@ -2493,7 +2744,7 @@ class _ScavengeHUD extends Control:
 		draw_rect(Rect2(panel_r.position.x, panel_r.position.y, panel_r.size.x, 22.0), ScavengeScene.COL_SLATE, true)
 		draw_rect(panel_r, ScavengeScene.COL_HAZARD_YELLOW, false, 2.0)
 
-		draw_string(font, panel_r.position + Vector2(8.0, 16.0), "OSM HOUSE RADAR", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_HAZARD_YELLOW)
+		draw_string(font, panel_r.position + Vector2(8.0, 16.0), "REAL OSM FOOTPRINT", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_HAZARD_YELLOW)
 		draw_circle(panel_r.position + Vector2(panel_r.size.x - 12.0, 11.0), 4.0, ScavengeScene.COL_TOXIC_GREEN)
 
 		var map_area := Rect2(panel_r.position.x + 10.0, panel_r.position.y + 28.0, panel_r.size.x - 20.0, panel_r.size.y - 46.0)
@@ -2516,7 +2767,14 @@ class _ScavengeHUD extends Control:
 		for r_var in scene_ref._rooms:
 			var rm: Dictionary = r_var
 			var rr: Rect2 = rm["rect"]
-			if rr.size.x > 1.0 and rr.size.y > 1.0:
+			var rpoly: PackedVector2Array = rm.get("polygon", PackedVector2Array())
+			if bool(rm.get("poly_valid", false)) and rpoly.size() >= 3:
+				var mp_poly := PackedVector2Array()
+				for rpt in rpoly:
+					mp_poly.append(map_center + (rpt - world_center) * scale_f)
+				mp_poly.append(mp_poly[0])
+				draw_polyline(mp_poly, Color(0.55, 0.62, 0.55, 0.45), 1.0)
+			elif rr.size.x > 1.0 and rr.size.y > 1.0:
 				var mr := Rect2(map_center + (rr.position - world_center) * scale_f, rr.size * scale_f)
 				draw_rect(mr, Color(0.55, 0.62, 0.55, 0.35), false, 1.0)
 			var rc: Vector2 = map_center + ((rm["center"] as Vector2) - world_center) * scale_f
@@ -2559,10 +2817,11 @@ class _ScavengeHUD extends Control:
 		draw_circle(pp_mini, 3.6, Color.WHITE)
 		draw_arc(pp_mini, 3.6, 0.0, TAU, 12, ScavengeScene.COL_INK, 1.2)
 
-		var addr: String = str(GameState.selected_house.get("name", "Selected OSM House"))
-		if addr.length() > 28:
-			addr = addr.substr(0, 26) + ".."
-		draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y - 5.0), addr, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_PARCHMENT_DARK)
+		var meta: Dictionary = scene_ref._floorplan_meta
+		var foot_lbl: String = "%d m² · %d rooms · layout fictional" % [int(round(float(meta.get("real_area_m2", 0.0)))), int(meta.get("room_count", scene_ref._rooms.size()))]
+		draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y - 5.0), foot_lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_PARCHMENT_DARK)
+		if float(meta.get("scale", 1.0)) < 0.99 or float(meta.get("scale", 1.0)) > 1.01:
+			draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y + 12.0), "scaled ×%.2f to fit play time" % float(meta.get("scale", 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_HAZARD_YELLOW)
 
 	func _draw_stopwatch_and_banner(font: Font) -> void:
 		var is_scout: bool = (scene_ref._phase == ScavengeScene.Phase.SCOUT)
@@ -2727,11 +2986,15 @@ class _ScavengeHUD extends Control:
 
 		# Hands Full / Suitcase Upgrade alert banner above carry rack
 		if scene_ref._suitcase_flash_timer > 0.0:
-			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "+1 CARRY SLOT UNLOCKED (SUITCASE)!", 14, ScavengeScene.COL_INK, ScavengeScene.COL_HAZARD_YELLOW)
+			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "SUITCASE: +3 SLOTS WHILE YOU CARRY IT", 14, ScavengeScene.COL_INK, ScavengeScene.COL_HAZARD_YELLOW)
 		elif scene_ref._hands_full_timer > 0.0:
-			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "HANDS FULL! RUN TO HATCH!", 14, ScavengeScene.COL_INK, ScavengeScene.COL_ATOMIC_ORANGE)
+			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "HANDS FULL! SPACE AT THE HATCH TO DROP LOOT", 14, ScavengeScene.COL_INK, ScavengeScene.COL_ATOMIC_ORANGE)
+		if not scene_ref._pending_action.is_empty():
+			var act_t: String = str(scene_ref._pending_action.get("type", ""))
+			var label: String = "GRABBING..." if act_t == "grab" else "DROPPING DOWN THE CHUTE..."
+			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 590.0), label, 13, ScavengeScene.COL_INK, ScavengeScene.COL_PARCHMENT)
 
-		var cell_w: float = 82.0 if max_s == 4 else 74.0
+		var cell_w: float = 82.0 if max_s <= 4 else 66.0
 		var cell_h: float = 56.0
 		var gap: float = 8.0
 		var total_w: float = float(max_s) * cell_w + float(max_s - 1) * gap
@@ -2746,20 +3009,20 @@ class _ScavengeHUD extends Control:
 		draw_string(font, Vector2(rack_rect.position.x + 12.0, rack_rect.position.y + 18.0), hdr_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, ScavengeScene.COL_PARCHMENT)
 
 		if scene_ref._suitcase_upgraded:
-			var badge_r := Rect2(rack_rect.end.x - 134.0, rack_rect.position.y + 4.0, 124.0, 18.0)
+			var badge_r := Rect2(rack_rect.end.x - 170.0, rack_rect.position.y + 4.0, 160.0, 18.0)
 			draw_rect(badge_r, ScavengeScene.COL_HAZARD_YELLOW, true)
 			draw_rect(badge_r, ScavengeScene.COL_INK, false, 1.2)
-			ScavengeScene._draw_text_centered(self, font, badge_r.get_center(), "SUITCASE +1 SLOT", 10, ScavengeScene.COL_INK)
+			ScavengeScene._draw_text_centered(self, font, badge_r.get_center(), "SUITCASE IN HAND: +3", 10, ScavengeScene.COL_INK)
 
 		# Draw empty background slot frames first
 		var slots_x0: float = 640.0 - total_w * 0.5
 		var slots_y0: float = rack_rect.position.y + 24.0
 		for si in range(max_s):
 			var sr := Rect2(slots_x0 + float(si) * (cell_w + gap), slots_y0, cell_w, cell_h)
-			var is_bonus: bool = (si == 4)
+			var is_bonus: bool = (si >= ScavengeScene.BASE_CARRY_SLOTS)
 			draw_rect(sr, Color(0.2, 0.22, 0.19, 0.85), true)
 			draw_rect(sr, ScavengeScene.COL_HAZARD_YELLOW if is_bonus else Color(0.45, 0.44, 0.38, 0.8), false, 1.5)
-			ScavengeScene._draw_text_centered(self, font, sr.get_center(), "+1" if is_bonus else ("SLOT %d" % (si + 1)), 10, Color(0.65, 0.63, 0.56, 0.45))
+			ScavengeScene._draw_text_centered(self, font, sr.get_center(), ("CASE %d" % (si + 1)) if is_bonus else ("SLOT %d" % (si + 1)), 10, Color(0.65, 0.63, 0.56, 0.45))
 
 		# Draw carried item/family spanned cards over slots
 		var cur_slot: int = 0
@@ -2770,6 +3033,10 @@ class _ScavengeHUD extends Control:
 			var card_r := Rect2(slots_x0 + float(cur_slot) * (cell_w + gap), slots_y0, card_w, cell_h)
 
 			draw_rect(card_r, ScavengeScene.COL_PARCHMENT, true)
+			var entry_idx: int = scene_ref._carried_entries.find(entry)
+			if entry_idx == scene_ref._selected_slot:
+				draw_rect(card_r.grow(3.0), ScavengeScene.COL_HAZARD_YELLOW, false, 3.0)
+				draw_string(font, Vector2(card_r.position.x + 3.0, card_r.end.y - 3.0), "SEL", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, ScavengeScene.COL_ATOMIC_ORANGE)
 			draw_rect(card_r, ScavengeScene.COL_INK, false, 2.2)
 
 			var kind: String = str(entry.get("kind", "item"))
@@ -2796,9 +3063,9 @@ class _ScavengeHUD extends Control:
 		var hint_r := Rect2(14.0, 646.0, 396.0, 64.0)
 		draw_rect(hint_r, Color(0.12, 0.14, 0.12, 0.9), true)
 		draw_rect(hint_r, Color(0.45, 0.44, 0.36, 0.85), false, 1.5)
-		draw_string(font, Vector2(22.0, 666.0), "WASD / Arrows / Click: Run", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_PARCHMENT)
-		draw_string(font, Vector2(22.0, 684.0), "E / Space / Click: Grab Item", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_HAZARD_YELLOW)
-		draw_string(font, Vector2(22.0, 701.0), "Walk onto Hatch: Drop Loot  |  F: Dive In", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_PARCHMENT_DARK)
+		draw_string(font, Vector2(22.0, 666.0), "WASD/Arrows: run   Click: walk & grab   F: dive in", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_PARCHMENT)
+		draw_string(font, Vector2(22.0, 684.0), "SPACE: grab  |  at hatch: drop loot down the chute", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_HAZARD_YELLOW)
+		draw_string(font, Vector2(22.0, 701.0), "Q / 1-7 / wheel: select  |  SPACE elsewhere: drop selected", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_PARCHMENT_DARK)
 
 		# Bottom-right Hatch Compass & Speed Readout
 		var comp_r := Rect2(922.0, 646.0, 344.0, 64.0)

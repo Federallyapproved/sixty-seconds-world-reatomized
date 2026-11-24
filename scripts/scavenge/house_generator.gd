@@ -139,6 +139,44 @@ static func generate_from_osm_house(
 	family_members: Array,
 	rng: RandomNumberGenerator = null
 ) -> Dictionary:
+	# Pass 2: levels are generated inside the real OSM footprint (see FloorplanGenerator).
+	return FloorplanGenerator.generate(house_data, family_members, rng, road_hint_for_house(house_data))
+
+
+## Metres (x = east, y = south) from the building centroid to the nearest mapped road point,
+## used to put the front door on the street-facing wall. Zero when no roads are known.
+static func road_hint_for_house(house_data: Dictionary) -> Vector2:
+	var roads: Array = GameState.map_roads if GameState != null else []
+	if roads.is_empty():
+		return Vector2.ZERO
+	var h_lat: float = float(house_data.get("lat", 0.0))
+	var h_lon: float = float(house_data.get("lon", 0.0))
+	var cos_lat: float = cos(deg_to_rad(h_lat))
+	var best: Vector2 = Vector2.ZERO
+	var best_d: float = 1e20
+	for r_v in roads:
+		var r: Dictionary = r_v
+		var kind: String = str(r.get("kind", ""))
+		if kind in ["footway", "path", "steps", "cycleway", "service", "track", "corridor"]:
+			continue
+		var pts: Array = r.get("points_latlon", [])
+		for i in range(pts.size() - 1):
+			var a: Vector2 = pts[i]
+			var b: Vector2 = pts[i + 1]
+			var am := Vector2((a.x - h_lon) * 111320.0 * cos_lat, -(a.y - h_lat) * 110540.0)
+			var bm := Vector2((b.x - h_lon) * 111320.0 * cos_lat, -(b.y - h_lat) * 110540.0)
+			var q: Vector2 = Geometry2D.get_closest_point_to_segment(Vector2.ZERO, am, bm)
+			if q.length() < best_d:
+				best_d = q.length()
+				best = q
+	return best if best_d < 120.0 else Vector2.ZERO
+
+
+static func _legacy_generate_from_osm_house(
+	house_data: Dictionary,
+	family_members: Array,
+	rng: RandomNumberGenerator = null
+) -> Dictionary:
 	var local_rng: RandomNumberGenerator = rng
 	if local_rng == null:
 		local_rng = RandomNumberGenerator.new()
@@ -262,6 +300,8 @@ static func generate_from_osm_house(
 ## Uses corner-safe 8-directional A* plus walkable line-of-sight smoothing so neither
 ## the Demo AI nor Critic Agents ever clip doorframes or furniture corners.
 static func find_path(nav_grid: Dictionary, from_pos: Vector2, to_pos: Vector2) -> PackedVector2Array:
+	if str(nav_grid.get("engine", "")) == FloorplanGenerator.ENGINE_TAG:
+		return FloorplanGenerator.find_path(nav_grid, from_pos, to_pos)
 	var result := PackedVector2Array()
 	var cols: int = int(nav_grid.get("cols", 0))
 	var rows: int = int(nav_grid.get("rows", 0))
