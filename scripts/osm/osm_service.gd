@@ -9,11 +9,14 @@ signal search_failed(error_message: String)
 signal map_data_loaded(parsed_data: Dictionary, label: String)
 signal map_data_failed(error_message: String)
 signal status_changed(status_text: String, is_busy: bool)
+signal extended_data_loaded(extended: Dictionary)
 
-const USER_AGENT_HEADER := "User-Agent: SixtySecondsWorldReatomized/1.0"
+const USER_AGENT_HEADER := "User-Agent: TheEndIsNear/1.0 (+https://github.com/Federallyapproved/the-end-is-near)"
 const ACCEPT_JSON_HEADER := "Accept: application/json"
-const NOMINATIM_SEARCH_URL := "https://nominatim.openstreetmap.org/search?q=%s&format=json&limit=5"
+const NOMINATIM_SEARCH_URL := "https://nominatim.openstreetmap.org/search?q=%s&format=json&limit=5&addressdetails=1"
 const OSM_MAP_BBOX_URL := "https://api.openstreetmap.org/api/0.6/map.json?bbox=%.6f,%.6f,%.6f,%.6f"
+const OVERPASS_URL := "https://overpass-api.de/api/interpreter"
+const EXTENDED_RADIUS_M := 2200
 
 const LAT_HALF_SPAN := 0.0040
 const LON_HALF_SPAN := 0.0055
@@ -23,6 +26,11 @@ const PRESET_CONFIGS: Dictionary = {
 		"id": "seattle",
 		"button_label": "Seattle: Capitol Hill",
 		"neighborhood_label": "Capitol Hill, Seattle, WA",
+		"place_names": {"neighborhood": "Capitol Hill", "city": "Seattle", "region": "WA", "country": "USA"},
+		"landmarks": [
+			{"name": "Colman Dock ferry terminal", "lat": 47.6028956, "lon": -122.3398400, "source": "OSM node 668442224 (amenity=ferry_terminal)"},
+			{"name": "King Street Station", "lat": 47.5975188, "lon": -122.3297295, "source": "OSM node 3413447903"}
+		],
 		"path": "res://data/osm_presets/seattle_capitol_hill.json",
 		"lat": 47.6240,
 		"lon": -122.3195,
@@ -32,6 +40,10 @@ const PRESET_CONFIGS: Dictionary = {
 		"id": "concord",
 		"button_label": "Concord, MA",
 		"neighborhood_label": "Historic Center, Concord, MA",
+		"place_names": {"neighborhood": "Concord Center", "city": "Concord", "region": "MA", "country": "USA"},
+		"landmarks": [
+			{"name": "Old North Bridge", "lat": 42.4690, "lon": -71.3510, "source": "Wikipedia: Old North Bridge (42°28′08″N 71°21′04″W)"}
+		],
 		"path": "res://data/osm_presets/concord_massachusetts.json",
 		"lat": 42.4603,
 		"lon": -71.3490,
@@ -41,6 +53,10 @@ const PRESET_CONFIGS: Dictionary = {
 		"id": "brooklyn",
 		"button_label": "Brooklyn, NY",
 		"neighborhood_label": "Carroll Gardens, Brooklyn, NY",
+		"place_names": {"neighborhood": "Carroll Gardens", "city": "Brooklyn", "region": "NY", "country": "USA"},
+		"landmarks": [
+			{"name": "Brooklyn Borough Hall", "lat": 40.69278, "lon": -73.99000, "source": "Wikipedia / NYC DCAS: 209 Joralemon St (40°41′34″N 73°59′24″W)"}
+		],
 		"path": "res://data/osm_presets/brooklyn_carroll_gardens.json",
 		"lat": 40.6802,
 		"lon": -73.9930,
@@ -69,10 +85,15 @@ const CIVIC_EMERGENCIES: Array = [
 ]
 const HARDWARE_SHOPS: Array = [
 	"hardware", "doityourself", "outdoor", "sports", "electronics",
-	"car_repair", "car_parts", "locksmith", "tools", "garden_centre"
+	"locksmith", "tools", "garden_centre", "trade", "builders_merchant"
 ]
-const HARDWARE_AMENITIES: Array = [
-	"fuel"
+const HARDWARE_AMENITIES: Array = []
+## Vehicle-related places: the only real sources of car batteries, fuel and engine parts.
+const AUTO_SHOPS: Array = [
+	"car_repair", "car_parts", "car", "tyres", "motorcycle", "motorcycle_repair", "battery"
+]
+const AUTO_AMENITIES: Array = [
+	"fuel", "car_wash"
 ]
 const SCHOOL_AMENITIES: Array = [
 	"school", "library", "college", "university", "community_centre",
@@ -96,6 +117,8 @@ var _auto_fetch_after_search: bool = true
 var _pending_lat: float = 47.6240
 var _pending_lon: float = -122.3195
 var _pending_label: String = ""
+var _pending_address: Dictionary = {}
+var _extended_http: HTTPRequest
 
 func _ready() -> void:
 	_search_http = HTTPRequest.new()
@@ -152,6 +175,12 @@ static func load_preset(preset_id: String) -> Dictionary:
 	var parsed: Dictionary = parse_osm_json(root_dict, center_lat, center_lon)
 	parsed["label"] = label
 	parsed["preset_id"] = key
+	parsed["place_names"] = (cfg.get("place_names", {}) as Dictionary).duplicate()
+	parsed["landmarks"] = (cfg.get("landmarks", []) as Array).duplicate(true)
+	parsed["source"] = "preset:" + key
+	var bnd_v: Variant = root_dict.get("bounds", {})
+	if bnd_v is Dictionary:
+		parsed["bounds"] = bnd_v
 	parsed["preferred_osm_id"] = int(cfg.get("preferred_osm_id", -1))
 	return parsed
 
@@ -255,11 +284,13 @@ func _on_search_request_completed(result: int, response_code: int, _headers: Pac
 		var disp: String = str(entry.get("display_name", "")).strip_edges()
 		if disp.is_empty():
 			disp = "%.4f, %.4f" % [r_lat, r_lon]
+		var addr_v: Variant = entry.get("address", {})
 		clean_results.append({
 			"display_name": disp,
 			"short_name": _shorten_display_name(disp),
 			"lat": r_lat,
-			"lon": r_lon
+			"lon": r_lon,
+			"address": addr_v if addr_v is Dictionary else {}
 		})
 
 	if clean_results.is_empty():
@@ -271,6 +302,7 @@ func _on_search_request_completed(result: int, response_code: int, _headers: Pac
 
 	if _auto_fetch_after_search:
 		var top: Dictionary = clean_results[0]
+		_pending_address = top.get("address", {})
 		fetch_live_osm_bbox(
 			float(top.get("lat", 0.0)),
 			float(top.get("lon", 0.0)),
@@ -281,11 +313,13 @@ func _on_search_request_completed(result: int, response_code: int, _headers: Pac
 
 func _on_map_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
-		# Synthesize rural/emergency neighborhood at requested coordinates so player is never softlocked!
+		# No data: offer a clearly fictional homestead at these coordinates (no invented businesses).
 		var fallback_parsed: Dictionary = parse_osm_json({"elements": []}, _pending_lat, _pending_lon)
 		fallback_parsed["label"] = _pending_label
 		fallback_parsed["live_fallback"] = true
-		var warn_msg: String = "OSM API HTTP %d — synthesized roadside parcels at %s." % [response_code, _pending_label]
+		fallback_parsed["place_names"] = place_names_from_nominatim(_pending_address)
+		fallback_parsed["source"] = "unmapped"
+		var warn_msg: String = "OSM API HTTP %d — no map data; a FICTIONAL homestead stands in at %s." % [response_code, _pending_label]
 		status_changed.emit(warn_msg, false)
 		map_data_loaded.emit(fallback_parsed, _pending_label)
 		return
@@ -301,6 +335,11 @@ func _on_map_request_completed(result: int, response_code: int, _headers: Packed
 	var root_dict: Dictionary = json.data
 	var parsed: Dictionary = parse_osm_json(root_dict, _pending_lat, _pending_lon)
 	parsed["label"] = _pending_label
+	parsed["place_names"] = place_names_from_nominatim(_pending_address)
+	parsed["source"] = "live"
+	var bnd_v2: Variant = root_dict.get("bounds", {})
+	if bnd_v2 is Dictionary:
+		parsed["bounds"] = bnd_v2
 	var b_count: int = (parsed.get("buildings", []) as Array).size()
 	var p_count: int = (parsed.get("pois", []) as Array).size()
 	status_changed.emit(
@@ -337,6 +376,7 @@ static func parse_osm_json(data: Dictionary, ref_lat: float, ref_lon: float) -> 
 			var poi_info: Dictionary = _classify_poi_tags(tags)
 			if not poi_info.is_empty():
 				var poi_entry: Dictionary = _make_poi_record(nid, nlat, nlon, tags, poi_info)
+				poi_entry["osm_type"] = "node"
 				raw_pois.append(poi_entry)
 
 	# Pass 2: Extract roads, parks/landuse, building footprints, and area POIs
@@ -401,7 +441,8 @@ static func parse_osm_json(data: Dictionary, ref_lat: float, ref_lon: float) -> 
 				"osm_id": wid,
 				"name": str(tags.get("name", "")).strip_edges(),
 				"kind": area_kind,
-				"polygon_latlon": poly_pts
+				"polygon_latlon": poly_pts,
+				"centroid": _compute_polygon_centroid_lonlat(poly_pts)
 			})
 
 		# Check if this way is a scavengeable POI (church, supermarket, pharmacy, library, school, park...)
@@ -410,6 +451,8 @@ static func parse_osm_json(data: Dictionary, ref_lat: float, ref_lon: float) -> 
 			var poi_info_way: Dictionary = _classify_poi_tags(tags)
 			if not poi_info_way.is_empty():
 				var way_poi: Dictionary = _make_poi_record(wid, way_center.y, way_center.x, tags, poi_info_way)
+				way_poi["osm_type"] = "way"
+				way_poi["area_sqm"] = _compute_polygon_area_sqm(_latlon_to_local_m(poly_pts))
 				raw_pois.append(way_poi)
 
 		# Building ways
@@ -443,18 +486,17 @@ static func parse_osm_json(data: Dictionary, ref_lat: float, ref_lon: float) -> 
 			if not housenumber.is_empty() and not street.is_empty():
 				short_addr = "%s %s" % [housenumber, street]
 			elif not street.is_empty():
-				short_addr = "%s #%d" % [street, (wid % 899) + 101]
+				short_addr = "Building on %s" % street
 			elif not bldg_name.is_empty():
 				short_addr = bldg_name
 			else:
-				var pretty_type: String = _pretty_building_type(btype)
-				short_addr = "House #%d (%s)" % [wid % 1000, pretty_type]
+				short_addr = "Unaddressed %s" % _pretty_building_type(btype).to_lower()
 
 			var full_addr: String = short_addr
 			if not city.is_empty() and full_addr.find(city) == -1:
 				full_addr += ", " + city
 
-			var disp_name: String = bldg_name if not bldg_name.is_empty() else (short_addr + " Residence")
+			var disp_name: String = bldg_name if not bldg_name.is_empty() else short_addr
 			var est_rooms: int = clampi(int(round(area_sqm / 28.0)), 4, 8)
 			var is_res: bool = _is_residential_building(btype, tags)
 
@@ -468,9 +510,15 @@ static func parse_osm_json(data: Dictionary, ref_lat: float, ref_lon: float) -> 
 				"building_type": btype,
 				"is_residential": is_res,
 				"area_sqm": snappedf(area_sqm, 0.1),
-				"estimated_rooms": est_rooms,
+				"estimated_rooms": clampi(int(round(area_sqm / 18.0)), 3, 14),
 				"polygon_latlon": poly_pts,
-				"footprint_meters": footprint_meters
+				"footprint_meters": footprint_meters,
+				"housenumber": housenumber,
+				"street": street,
+				"city": city,
+				"postcode": str(tags.get("addr:postcode", "")).strip_edges(),
+				"source": "osm",
+				"osm_type": "way"
 			}
 			buildings.append(bldg_dict)
 			if not has_explicit_street and bldg_name.is_empty():
@@ -483,19 +531,12 @@ static func parse_osm_json(data: Dictionary, ref_lat: float, ref_lon: float) -> 
 	# Deduplicate POIs (e.g. a node inside a building way sharing the same name & category)
 	var pois: Array = _deduplicate_pois(raw_pois)
 
-	# Rural / Unmapped location safety net: guarantee 8 realistic houses + village POIs if 0 mapped!
+	# Unmapped location: never invent businesses or roads. Offer one clearly FICTIONAL homestead
+	# so the player can still play at these coordinates; it is labelled fictional everywhere.
 	var synthesized_rural: bool = false
 	if buildings.is_empty():
 		synthesized_rural = true
-		var synth: Dictionary = _synthesize_rural_settlement(ref_lat, ref_lon, roads)
-		buildings = synth.get("buildings", [])
-		var synth_roads: Array = synth.get("roads", [])
-		for r in synth_roads:
-			roads.append(r)
-		var synth_pois: Array = synth.get("pois", [])
-		for sp in synth_pois:
-			pois.append(sp)
-		pois = _deduplicate_pois(pois)
+		buildings = [make_fictional_homestead(ref_lat, ref_lon)]
 
 	return {
 		"center_lat": ref_lat,
@@ -507,7 +548,7 @@ static func parse_osm_json(data: Dictionary, ref_lat: float, ref_lon: float) -> 
 		"synthesized_rural": synthesized_rural
 	}
 
-static func build_nearby_targets_for_house(selected_bldg: Dictionary, all_buildings: Array, all_pois: Array) -> Array:
+static func build_nearby_targets_for_house(selected_bldg: Dictionary, all_buildings: Array, all_pois: Array, roads: Array = []) -> Array:
 	var h_lat: float = float(selected_bldg.get("lat", 47.6240))
 	var h_lon: float = float(selected_bldg.get("lon", -122.3195))
 	var selected_id: int = int(selected_bldg.get("osm_id", -1))
@@ -541,6 +582,16 @@ static func build_nearby_targets_for_house(selected_bldg: Dictionary, all_buildi
 			"risk_bandits": _compute_bandit_risk(cat, dist_m),
 			"loot_profile": get_loot_profile_for_category(cat),
 			"named": bool(p.get("has_explicit_name", true)),
+			"has_explicit_name": bool(p.get("has_explicit_name", true)),
+			"raw_name": str(p.get("raw_name", "")),
+			"kind_label": str(p.get("kind_label", "")),
+			"subkind": str(p.get("subkind", "")),
+			"street": str(p.get("street", "")),
+			"osm_type": str(p.get("osm_type", "node")),
+			"tags": p.get("tags", {}),
+			"area_sqm": float(p.get("area_sqm", 0.0)),
+			"source": str(p.get("source", "osm")),
+			"extended": bool(p.get("extended", false)),
 			"visited_count": 0,
 			"depleted": false
 		}
@@ -564,6 +615,7 @@ static func build_nearby_targets_for_house(selected_bldg: Dictionary, all_buildi
 		{"category": "pharmacy", "quota": 2},
 		{"category": "civic", "quota": 2},
 		{"category": "hardware", "quota": 2},
+		{"category": "auto", "quota": 2},
 		{"category": "school", "quota": 2},
 		{"category": "restaurant", "quota": 1},
 		{"category": "park", "quota": 1}
@@ -618,11 +670,17 @@ static func build_nearby_targets_for_house(selected_bldg: Dictionary, all_buildi
 		if dist_n < 8:
 			continue
 
-		var short_addr: String = str(b.get("short_address", str(b.get("address", "Neighbor House"))))
 		var btype_str: String = str(b.get("building_type", "house"))
-		var n_name: String = short_addr
-		if n_name.find("House") == -1 and n_name.find("Residence") == -1 and n_name.find("Apartments") == -1:
-			n_name = "%s House" % short_addr
+		var hn: String = str(b.get("housenumber", ""))
+		var stn: String = str(b.get("street", ""))
+		var n_name: String
+		if not hn.is_empty() and not stn.is_empty():
+			n_name = "Neighbors at %s %s" % [hn, stn]
+		elif not stn.is_empty():
+			n_name = "Neighbor's house on %s" % stn
+		else:
+			n_name = "Neighbor's house %d m %s" % [dist_n, str(db_n.get("bearing_dir", "N"))]
+		var short_addr: String = str(b.get("short_address", n_name))
 
 		neighbor_candidates.append({
 			"osm_id": bid,
@@ -638,6 +696,13 @@ static func build_nearby_targets_for_house(selected_bldg: Dictionary, all_buildi
 			"risk_bandits": _compute_bandit_risk("neighbor_house", dist_n),
 			"loot_profile": get_loot_profile_for_category("neighbor_house"),
 			"is_res": bool(b.get("is_residential", true)),
+			"named": false,
+			"has_explicit_name": false,
+			"kind_label": "Neighbor's house",
+			"street": stn,
+			"osm_type": "way",
+			"area_sqm": area_val,
+			"source": "osm",
 			"visited_count": 0,
 			"depleted": false
 		})
@@ -667,6 +732,12 @@ static func build_nearby_targets_for_house(selected_bldg: Dictionary, all_buildi
 	for i in range(neighbor_limit):
 		combined.append(neighbor_candidates[i])
 
+	# Real walking distances over the mapped street/footpath network.
+	WalkNetwork.annotate_targets(combined, roads, selected_bldg)
+	for t_v in combined:
+		var t: Dictionary = t_v
+		t["travel_days"] = _compute_travel_days(int(t.get("walk_m", t.get("distance_m", 100))))
+		t["risk_bandits"] = _compute_bandit_risk(str(t.get("category", "")), int(t.get("walk_m", t.get("distance_m", 100))))
 	return combined
 
 static func pick_best_house(buildings: Array, target_lat: float, target_lon: float, preferred_osm_id: int = -1) -> Dictionary:
@@ -707,7 +778,7 @@ static func pick_best_house(buildings: Array, target_lat: float, target_lon: flo
 		else:
 			score -= 90.0
 
-		if not short_addr.begins_with("House #"):
+		if not short_addr.begins_with("Unaddressed") and not bool(b.get("fictional", false)):
 			score += 85.0
 		if v_count >= 5 and v_count <= 14:
 			score += 35.0
@@ -743,6 +814,8 @@ static func get_category_label(category: String) -> String:
 			return "Police / Fire"
 		"hardware":
 			return "Hardware / Supply"
+		"auto":
+			return "Fuel / Auto"
 		"school":
 			return "School / Library"
 		"restaurant":
@@ -754,28 +827,10 @@ static func get_category_label(category: String) -> String:
 		_:
 			return "Landmark"
 
+## What a place of this kind can actually hold: read from the same finite stock table the
+## expedition raids use, so the preview never promises something that cannot be found.
 static func get_loot_profile_for_category(category: String) -> Array:
-	match category:
-		"grocery":
-			return ["soup", "water"]
-		"church":
-			return ["water", "medkit", "book"]
-		"pharmacy":
-			return ["medkit", "gas_mask", "water"]
-		"civic":
-			return ["rifle", "ammo", "gas_mask", "radio"]
-		"hardware":
-			return ["axe", "toolbox", "padlock", "flashlight"]
-		"school":
-			return ["book", "map", "flashlight", "checkers"]
-		"restaurant":
-			return ["soup", "water", "cards"]
-		"park":
-			return ["water", "flashlight", "harmonica"]
-		"neighbor_house":
-			return ["soup", "water", "cards", "padlock", "bug_spray"]
-		_:
-			return ["soup", "water"]
+	return LootTables.preview_for_category(category)
 
 static func format_building_type(raw_type: String) -> String:
 	var key: String = raw_type.strip_edges().to_lower()
@@ -837,6 +892,8 @@ static func _compute_bandit_risk(category: String, distance_m: int) -> float:
 			base_risk = 0.36
 		"hardware":
 			base_risk = 0.38
+		"auto":
+			base_risk = 0.4
 	var dist_bonus: float = clampf(float(distance_m) / 2200.0, 0.0, 0.16)
 	return snappedf(clampf(base_risk + dist_bonus, 0.08, 0.65), 0.01)
 
@@ -857,8 +914,9 @@ static func _classify_poi_tags(tags: Dictionary) -> Dictionary:
 
 	# 2. Pharmacy / Clinic / Medical
 	if amenity in PHARMACY_AMENITIES or not healthcare.is_empty():
-		var med_kind: String = amenity if not amenity.is_empty() else healthcare
-		return {"category": "pharmacy", "osm_tag": "amenity=" + med_kind, "subkind": med_kind}
+		if amenity in PHARMACY_AMENITIES:
+			return {"category": "pharmacy", "osm_tag": "amenity=" + amenity, "subkind": amenity}
+		return {"category": "pharmacy", "osm_tag": "healthcare=" + healthcare, "subkind": healthcare}
 	for tok in shop_tokens:
 		var st: String = tok.strip_edges()
 		if st in PHARMACY_SHOPS:
@@ -885,7 +943,15 @@ static func _classify_poi_tags(tags: Dictionary) -> Dictionary:
 	if amenity == "marketplace":
 		return {"category": "grocery", "osm_tag": "amenity=marketplace", "subkind": "market"}
 
-	# 5. Hardware / Supply / Fuel
+	# 5a. Vehicle services: fuel stations, garages, parts dealers
+	for tok in shop_tokens:
+		var st_a: String = tok.strip_edges()
+		if st_a in AUTO_SHOPS:
+			return {"category": "auto", "osm_tag": "shop=" + st_a, "subkind": st_a}
+	if amenity in AUTO_AMENITIES:
+		return {"category": "auto", "osm_tag": "amenity=" + amenity, "subkind": amenity}
+
+	# 5b. Hardware / Supply
 	for tok in shop_tokens:
 		var st_h: String = tok.strip_edges()
 		if st_h in HARDWARE_SHOPS:
@@ -921,34 +987,32 @@ static func _make_poi_record(osm_id: int, lat: float, lon: float, tags: Dictiona
 	var addr: String = ("%s %s" % [hnum, street]).strip_edges()
 
 	var has_explicit_name: bool = not raw_name.is_empty()
+	var kind_label: String = _pretty_subkind(cat, subkind)
+	# Names are exactly the OSM `name` tag. Unnamed features are described, never named.
 	var display_name: String = raw_name
-
-	if has_explicit_name:
-		var lower_name: String = raw_name.to_lower()
-		# Enrich ultra-short brand names (e.g. "QFC" -> "QFC Supermarket", "76" -> "76 Fuel Station", "ZoomCare" -> "ZoomCare Clinic")
-		if subkind == "supermarket" and raw_name.length() <= 6 and lower_name.find("market") == -1 and lower_name.find("grocery") == -1:
-			display_name = raw_name + " Supermarket"
-		elif subkind == "fuel" and raw_name.length() <= 6 and lower_name.find("fuel") == -1 and lower_name.find("gas") == -1 and lower_name.find("station") == -1:
-			display_name = raw_name + " Fuel Station"
-		elif subkind == "clinic" and lower_name.find("clinic") == -1 and lower_name.find("medical") == -1 and lower_name.find("care") != -1 and raw_name.length() <= 10:
-			display_name = raw_name + " Clinic"
-		elif subkind == "pharmacy" and raw_name.length() <= 10 and lower_name.find("pharmacy") == -1 and lower_name.find("drug") == -1:
-			display_name = raw_name + " Pharmacy"
-	else:
-		var suffix: String = _pretty_subkind(cat, subkind)
-		if not addr.is_empty():
-			display_name = "%s %s" % [addr, suffix]
+	if not has_explicit_name:
+		if not street.is_empty():
+			display_name = "Unnamed %s on %s" % [kind_label.to_lower(), street]
 		else:
-			display_name = "Local %s" % suffix
+			display_name = "Unnamed %s" % kind_label.to_lower()
 
+	var kept_tags: Dictionary = {}
+	for tk in ["name", "shop", "amenity", "building", "healthcare", "emergency", "leisure", "brand", "addr:street", "addr:housenumber", "opening_hours"]:
+		if tags.has(tk):
+			kept_tags[tk] = str(tags[tk])
 	return {
 		"osm_id": osm_id,
 		"name": display_name,
 		"raw_name": raw_name,
+		"kind_label": kind_label,
 		"has_explicit_name": has_explicit_name,
 		"address": addr,
+		"street": street,
 		"category": cat,
+		"subkind": subkind,
 		"osm_tag": str(poi_info.get("osm_tag", "")),
+		"tags": kept_tags,
+		"source": "osm",
 		"lat": lat,
 		"lon": lon
 	}
@@ -993,6 +1057,28 @@ static func _pretty_subkind(category: String, subkind: String) -> String:
 			return "Emergency Station"
 		"hardware", "doityourself":
 			return "Hardware Store"
+		"car_repair":
+			return "Auto Repair Shop"
+		"car_parts":
+			return "Auto Parts Store"
+		"car":
+			return "Car Dealer"
+		"tyres":
+			return "Tire Shop"
+		"car_wash":
+			return "Car Wash"
+		"convenience":
+			return "Corner Store"
+		"place_of_worship":
+			return "Place of Worship"
+		"restaurant":
+			return "Restaurant"
+		"cafe":
+			return "Cafe"
+		"bar", "pub":
+			return "Bar"
+		"fast_food":
+			return "Fast Food"
 	match category:
 		"church":
 			return "Church"
@@ -1003,7 +1089,9 @@ static func _pretty_subkind(category: String, subkind: String) -> String:
 		"civic":
 			return "Emergency Station"
 		"hardware":
-			return "Supply Depot"
+			return "Hardware Store"
+		"auto":
+			return "Auto Service"
 		"school":
 			return "School"
 		"restaurant":
@@ -1142,138 +1230,138 @@ static func _assign_nearest_street_names(unaddressed_bldgs: Array, roads: Array)
 					best_street = str(r.get("name", ""))
 
 		if not best_street.is_empty():
-			var wid: int = int(b.get("osm_id", 100))
-			var house_no: int = (wid % 880) + 102
-			var new_short: String = "%d %s" % [house_no, best_street]
+			# OSM has no house number for this building: say where it is, never invent a number.
+			var new_short: String = "Building on %s" % best_street
 			b["short_address"] = new_short
 			b["address"] = new_short
-			b["name"] = new_short + " Residence"
+			b["name"] = new_short
+			b["street"] = best_street
+			b["street_inferred"] = true
 
-static func _synthesize_rural_settlement(ref_lat: float, ref_lon: float, existing_roads: Array) -> Dictionary:
+## A single clearly-fictional homestead for coordinates with no mapped buildings.
+static func make_fictional_homestead(ref_lat: float, ref_lon: float) -> Dictionary:
 	var cos_lat: float = maxf(0.2, cos(deg_to_rad(ref_lat)))
-	var m_to_lon: float = 1.0 / (111320.0 * cos_lat)
-	var m_to_lat: float = 1.0 / 110540.0
-
-	var synth_roads: Array = []
-	if existing_roads.is_empty():
-		var main_road_pts: Array[Vector2] = [
-			Vector2(ref_lon - 320.0 * m_to_lon, ref_lat - 35.0 * m_to_lat),
-			Vector2(ref_lon, ref_lat),
-			Vector2(ref_lon + 320.0 * m_to_lon, ref_lat + 35.0 * m_to_lat)
-		]
-		var cross_road_pts: Array[Vector2] = [
-			Vector2(ref_lon - 25.0 * m_to_lon, ref_lat - 260.0 * m_to_lat),
-			Vector2(ref_lon, ref_lat),
-			Vector2(ref_lon + 25.0 * m_to_lon, ref_lat + 260.0 * m_to_lat)
-		]
-		synth_roads.append({"osm_id": 990001, "name": "County Route 60", "kind": "secondary", "points_latlon": main_road_pts})
-		synth_roads.append({"osm_id": 990002, "name": "Homestead Lane", "kind": "residential", "points_latlon": cross_road_pts})
-
-	# 8 varied realistic roadside residential house footprints around (ref_lat, ref_lon)
-	var templates: Array = [
-		{"offset": Vector2(-28.0, 26.0), "addr": "104 County Route 60", "fp": [Vector2(-7.4, -5.8), Vector2(7.4, -5.8), Vector2(7.4, 1.6), Vector2(2.8, 1.6), Vector2(2.8, 5.8), Vector2(-7.4, 5.8)]},
-		{"offset": Vector2(34.0, 30.0), "addr": "112 County Route 60", "fp": [Vector2(-6.8, -5.4), Vector2(6.8, -5.4), Vector2(6.8, 5.4), Vector2(-6.8, 5.4)]},
-		{"offset": Vector2(-76.0, 20.0), "addr": "92 County Route 60", "fp": [Vector2(-8.0, -5.2), Vector2(8.0, -5.2), Vector2(8.0, 5.2), Vector2(-2.0, 5.2), Vector2(-2.0, 2.2), Vector2(-8.0, 2.2)]},
-		{"offset": Vector2(86.0, 38.0), "addr": "128 County Route 60", "fp": [Vector2(-6.5, -6.2), Vector2(6.5, -6.2), Vector2(6.5, 6.2), Vector2(-6.5, 6.2)]},
-		{"offset": Vector2(-38.0, -32.0), "addr": "105 County Route 60", "fp": [Vector2(-7.0, -5.0), Vector2(7.0, -5.0), Vector2(7.0, 5.0), Vector2(-7.0, 5.0)]},
-		{"offset": Vector2(30.0, -26.0), "addr": "115 County Route 60", "fp": [Vector2(-7.6, -5.5), Vector2(4.2, -5.5), Vector2(4.2, -1.5), Vector2(7.6, -1.5), Vector2(7.6, 5.5), Vector2(-7.6, 5.5)]},
-		{"offset": Vector2(-18.0, 82.0), "addr": "14 Homestead Lane", "fp": [Vector2(-6.2, -6.8), Vector2(6.2, -6.8), Vector2(6.2, 6.8), Vector2(-6.2, 6.8)]},
-		{"offset": Vector2(26.0, -88.0), "addr": "22 Homestead Lane", "fp": [Vector2(-7.2, -5.6), Vector2(7.2, -5.6), Vector2(7.2, 5.6), Vector2(-7.2, 5.6)]}
-	]
-
-	var synth_buildings: Array = []
-	for idx in range(templates.size()):
-		var tpl: Dictionary = templates[idx]
-		var off: Vector2 = tpl.get("offset", Vector2.ZERO)
-		var c_lon: float = ref_lon + off.x * m_to_lon
-		var c_lat: float = ref_lat + off.y * m_to_lat
-		var fp_raw: Array = tpl.get("fp", [])
-		var fp_meters: Array[Vector2] = []
-		var poly_ll: Array[Vector2] = []
-		for v_v in fp_raw:
-			var v: Vector2 = v_v
-			fp_meters.append(v)
-			poly_ll.append(Vector2(c_lon + v.x * m_to_lon, c_lat - v.y * m_to_lat))
-		var area_val: float = _compute_polygon_area_sqm(fp_meters)
-		var addr_str: String = str(tpl.get("addr", "100 Homestead Rd"))
-		synth_buildings.append({
-			"osm_id": 980100 + idx,
-			"name": addr_str + " Farmhouse",
-			"address": addr_str,
-			"short_address": addr_str,
-			"lat": c_lat,
-			"lon": c_lon,
-			"building_type": "house",
-			"is_residential": true,
-			"area_sqm": snappedf(area_val, 0.1),
-			"estimated_rooms": clampi(int(round(area_val / 28.0)), 4, 8),
-			"polygon_latlon": poly_ll,
-			"footprint_meters": fp_meters
-		})
-
-	var synth_pois: Array = [
-		{
-			"osm_id": 985001,
-			"name": "Crossroads General Store",
-			"raw_name": "Crossroads General Store",
-			"has_explicit_name": true,
-			"address": "140 County Route 60",
-			"category": "grocery",
-			"osm_tag": "shop=general",
-			"lat": ref_lat + 42.0 * m_to_lat,
-			"lon": ref_lon + 138.0 * m_to_lon
-		},
-		{
-			"osm_id": 985002,
-			"name": "St. Jude Wayside Chapel",
-			"raw_name": "St. Jude Wayside Chapel",
-			"has_explicit_name": true,
-			"address": "48 Homestead Lane",
-			"category": "church",
-			"osm_tag": "amenity=place_of_worship",
-			"lat": ref_lat + 145.0 * m_to_lat,
-			"lon": ref_lon - 32.0 * m_to_lon
-		},
-		{
-			"osm_id": 985003,
-			"name": "County First Aid Dispensary",
-			"raw_name": "County First Aid Dispensary",
-			"has_explicit_name": true,
-			"address": "74 County Route 60",
-			"category": "pharmacy",
-			"osm_tag": "amenity=clinic",
-			"lat": ref_lat - 28.0 * m_to_lat,
-			"lon": ref_lon - 135.0 * m_to_lon
-		},
-		{
-			"osm_id": 985004,
-			"name": "Valley Feed, Fuel & Hardware",
-			"raw_name": "Valley Feed, Fuel & Hardware",
-			"has_explicit_name": true,
-			"address": "168 County Route 60",
-			"category": "hardware",
-			"osm_tag": "shop=hardware",
-			"lat": ref_lat - 54.0 * m_to_lat,
-			"lon": ref_lon + 178.0 * m_to_lon
-		},
-		{
-			"osm_id": 985005,
-			"name": "Township Reading Room & Schoolhouse",
-			"raw_name": "Township Reading Room & Schoolhouse",
-			"has_explicit_name": true,
-			"address": "60 Homestead Lane",
-			"category": "school",
-			"osm_tag": "amenity=library",
-			"lat": ref_lat - 152.0 * m_to_lat,
-			"lon": ref_lon + 22.0 * m_to_lon
-		}
-	]
-
+	var fp: Array[Vector2] = [Vector2(-6.5, -5.0), Vector2(6.5, -5.0), Vector2(6.5, 1.5), Vector2(2.5, 1.5), Vector2(2.5, 5.0), Vector2(-6.5, 5.0)]
+	var ll: Array[Vector2] = []
+	for v in fp:
+		ll.append(Vector2(ref_lon + v.x / (111320.0 * cos_lat), ref_lat - v.y / 110540.0))
 	return {
-		"buildings": synth_buildings,
-		"roads": synth_roads,
-		"pois": synth_pois
+		"osm_id": -1,
+		"name": "Fictional homestead (nothing mapped here)",
+		"address": "Unmapped location %.4f, %.4f" % [ref_lat, ref_lon],
+		"short_address": "Fictional homestead",
+		"lat": ref_lat,
+		"lon": ref_lon,
+		"building_type": "house",
+		"is_residential": true,
+		"area_sqm": _compute_polygon_area_sqm(fp),
+		"estimated_rooms": 4,
+		"polygon_latlon": ll,
+		"footprint_meters": fp,
+		"housenumber": "",
+		"street": "",
+		"city": "",
+		"fictional": true,
+		"source": "fictional"
 	}
+
+
+static func place_names_from_nominatim(addr: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	out["street"] = str(addr.get("road", addr.get("pedestrian", ""))).strip_edges()
+	out["housenumber"] = str(addr.get("house_number", "")).strip_edges()
+	out["neighborhood"] = str(addr.get("neighbourhood", addr.get("suburb", addr.get("quarter", addr.get("hamlet", ""))))).strip_edges()
+	out["city"] = str(addr.get("city", addr.get("town", addr.get("village", addr.get("municipality", ""))))).strip_edges()
+	out["region"] = str(addr.get("state", "")).strip_edges()
+	out["postcode"] = str(addr.get("postcode", "")).strip_edges()
+	out["country"] = str(addr.get("country", "")).strip_edges()
+	return out
+
+
+static func _latlon_to_local_m(poly_pts: Array[Vector2]) -> Array[Vector2]:
+	var c: Vector2 = _compute_polygon_centroid_lonlat(poly_pts)
+	var cos_lat: float = cos(deg_to_rad(c.y))
+	var out: Array[Vector2] = []
+	for p in poly_pts:
+		out.append(Vector2((p.x - c.x) * 111320.0 * cos_lat, -(p.y - c.y) * 110540.0))
+	return out
+
+
+# ---------------------------------------------------------------------------
+# Extended area (live searches only): named survival-relevant places within ~2 km via Overpass.
+# ---------------------------------------------------------------------------
+
+static func build_overpass_query(lat: float, lon: float, radius_m: int) -> String:
+	var a: String = "(around:%d,%.6f,%.6f)" % [radius_m, lat, lon]
+	var q: String = "[out:json][timeout:25];("
+	q += "nwr%s[shop~\"^(supermarket|convenience|grocery|general|greengrocer|bakery|butcher|hardware|doityourself|trade|car_repair|car_parts|tyres|chemist|medical_supply|outdoor)$\"];" % a
+	q += "nwr%s[amenity~\"^(pharmacy|hospital|clinic|doctors|fire_station|police|fuel|place_of_worship|school|library|community_centre|townhall)$\"];" % a
+	q += "way%s[highway~\"^(motorway|trunk|primary|secondary|tertiary)$\"];" % a
+	q += ");out geom tags qt;"
+	return q
+
+
+func fetch_extended_area(lat: float, lon: float) -> void:
+	if _extended_http == null:
+		_extended_http = HTTPRequest.new()
+		_extended_http.timeout = 30.0
+		add_child(_extended_http)
+		_extended_http.request_completed.connect(_on_extended_completed)
+	_extended_http.cancel_request()
+	var body: String = "data=" + build_overpass_query(lat, lon, EXTENDED_RADIUS_M).uri_encode()
+	var headers: PackedStringArray = PackedStringArray(["Content-Type: application/x-www-form-urlencoded"])
+	if not OS.has_feature("web"):
+		headers.append(USER_AGENT_HEADER)
+	_extended_http.request(OVERPASS_URL, headers, HTTPClient.METHOD_POST, body)
+
+
+func _on_extended_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
+		status_changed.emit("Extended area (2 km) unavailable (HTTP %d) — nearby view only." % response_code, false)
+		return
+	var json := JSON.new()
+	if json.parse(body.get_string_from_utf8()) != OK or not (json.data is Dictionary):
+		return
+	var ext: Dictionary = parse_overpass_extended(json.data as Dictionary)
+	status_changed.emit("EXTENDED AREA: %d named places, %d main roads within 2.2 km" % [(ext["pois"] as Array).size(), (ext["roads"] as Array).size()], false)
+	extended_data_loaded.emit(ext)
+
+
+## Parses an Overpass `out geom tags` response into the same POI/road records as parse_osm_json.
+static func parse_overpass_extended(data: Dictionary) -> Dictionary:
+	var pois: Array = []
+	var roads: Array = []
+	for e_v in data.get("elements", []):
+		if not (e_v is Dictionary):
+			continue
+		var e: Dictionary = e_v
+		var tags: Dictionary = e.get("tags", {}) if e.get("tags", {}) is Dictionary else {}
+		var etype: String = str(e.get("type", ""))
+		var geom: Array = e.get("geometry", []) if e.get("geometry", []) is Array else []
+		var pts: Array[Vector2] = []
+		for g_v in geom:
+			if g_v is Dictionary:
+				pts.append(Vector2(float((g_v as Dictionary).get("lon", 0.0)), float((g_v as Dictionary).get("lat", 0.0))))
+		if tags.has("highway") and etype == "way" and pts.size() >= 2:
+			roads.append({"osm_id": int(e.get("id", 0)), "name": str(tags.get("name", "")).strip_edges(), "kind": str(tags.get("highway", "")), "points_latlon": pts, "extended": true})
+			continue
+		var info: Dictionary = _classify_poi_tags(tags)
+		if info.is_empty():
+			continue
+		var lat: float = float(e.get("lat", 0.0))
+		var lon: float = float(e.get("lon", 0.0))
+		if etype != "node" and pts.size() >= 3:
+			var c: Vector2 = _compute_polygon_centroid_lonlat(pts)
+			lat = c.y
+			lon = c.x
+		if lat == 0.0 and lon == 0.0:
+			continue
+		var rec: Dictionary = _make_poi_record(int(e.get("id", 0)), lat, lon, tags, info)
+		rec["osm_type"] = etype
+		rec["extended"] = true
+		pois.append(rec)
+	return {"pois": _deduplicate_pois(pois), "roads": roads}
+
 
 static func _shorten_display_name(full_name: String) -> String:
 	var parts: PackedStringArray = full_name.split(",", false)

@@ -54,6 +54,9 @@ var _lbl_bottom_summary: Label
 # Current parsed map state
 var _current_buildings: Array = []
 var _current_pois: Array = []
+var _current_parsed_meta: Dictionary = {}
+var _extended_pois: Array = []
+var _extended_roads: Array = []
 var _current_neighborhood_label: String = "Capitol Hill, Seattle, WA"
 var _active_preset_id: String = "seattle"
 
@@ -75,6 +78,7 @@ func _ready() -> void:
 	_osm_service.search_completed.connect(_on_nominatim_search_completed)
 	_osm_service.search_failed.connect(_on_nominatim_search_failed)
 	_osm_service.map_data_loaded.connect(_on_live_map_data_loaded)
+	_osm_service.extended_data_loaded.connect(_on_extended_data_loaded)
 	_osm_service.map_data_failed.connect(_on_live_map_data_failed)
 
 	_build_ui()
@@ -651,12 +655,31 @@ func _on_nominatim_search_failed(error_message: String) -> void:
 func _on_live_map_data_loaded(parsed_data: Dictionary, label: String) -> void:
 	_apply_parsed_neighborhood(parsed_data, label, -1)
 
+func _on_extended_data_loaded(ext: Dictionary) -> void:
+	_extended_pois = ext.get("pois", [])
+	_extended_roads = ext.get("roads", [])
+	if not GameState.selected_house.is_empty():
+		_select_house(GameState.selected_house, false)
+
+
 func _on_live_map_data_failed(error_message: String) -> void:
 	_set_status_text("▲ " + error_message, false)
 
 func _apply_parsed_neighborhood(parsed: Dictionary, label: String, preferred_osm_id: int) -> void:
+	_extended_pois = []
+	_extended_roads = []
 	_current_neighborhood_label = label
 	GameState.current_neighborhood_label = label
+	_current_parsed_meta = {
+		"roads": parsed.get("roads", []),
+		"parks": parsed.get("parks", []),
+		"bounds": parsed.get("bounds", {}),
+		"source": str(parsed.get("source", "live")),
+		"place_names": parsed.get("place_names", {}),
+		"landmarks": parsed.get("landmarks", []),
+	}
+	if str(parsed.get("source", "")) == "live" and is_instance_valid(_osm_service):
+		_osm_service.fetch_extended_area(float(parsed.get("center_lat", 0.0)), float(parsed.get("center_lon", 0.0)))
 
 	var b_v: Variant = parsed.get("buildings", [])
 	_current_buildings = b_v if typeof(b_v) == TYPE_ARRAY else []
@@ -679,7 +702,11 @@ func _select_house(bldg: Dictionary, recenter_softly: bool) -> void:
 	if bldg.is_empty():
 		return
 
-	var targets: Array = OsmService.build_nearby_targets_for_house(bldg, _current_buildings, _current_pois)
+	var all_pois: Array = _current_pois.duplicate()
+	all_pois.append_array(_extended_pois)
+	var all_roads: Array = (_current_parsed_meta.get("roads", []) as Array).duplicate()
+	all_roads.append_array(_extended_roads)
+	var targets: Array = OsmService.build_nearby_targets_for_house(bldg, _current_buildings, all_pois, all_roads)
 
 	var house_copy: Dictionary = bldg.duplicate(true)
 	if not _current_neighborhood_label.is_empty():
@@ -689,6 +716,7 @@ func _select_house(bldg: Dictionary, recenter_softly: bool) -> void:
 
 	GameState.selected_house = house_copy
 	GameState.nearby_pois = targets.duplicate(true)
+	store_map_context(house_copy, _current_buildings, _current_parsed_meta, _extended_roads)
 	GameState.osm_house_selected.emit(GameState.selected_house)
 
 	_slippy_map.set_selected_house(house_copy, targets)
@@ -702,6 +730,42 @@ func _select_house(bldg: Dictionary, recenter_softly: bool) -> void:
 
 	_refresh_sidebar_inspector(house_copy, targets)
 
+## Copies the real map geometry + place names for the chosen house into GameState so the
+## shelter map, expeditions and story text can use true positions and names later.
+static func store_map_context(house: Dictionary, buildings: Array, meta: Dictionary, extended_roads: Array) -> void:
+	var roads: Array = (meta.get("roads", []) as Array).duplicate()
+	roads.append_array(extended_roads)
+	GameState.map_roads = roads
+	GameState.map_parks = meta.get("parks", [])
+	GameState.map_bounds = meta.get("bounds", {})
+	GameState.map_source = str(meta.get("source", ""))
+	GameState.map_landmarks = meta.get("landmarks", [])
+	var lite: Array = []
+	var h_lat: float = float(house.get("lat", 0.0))
+	var h_lon: float = float(house.get("lon", 0.0))
+	for b_v in buildings:
+		var b: Dictionary = b_v
+		var db: Dictionary = OsmService.distance_and_bearing(h_lat, h_lon, float(b.get("lat", 0.0)), float(b.get("lon", 0.0)))
+		if float(db["distance_m"]) > 650.0:
+			continue
+		lite.append({"osm_id": int(b.get("osm_id", 0)), "polygon_latlon": b.get("polygon_latlon", []), "is_residential": bool(b.get("is_residential", true))})
+	GameState.map_buildings = lite
+	var pn: Dictionary = (meta.get("place_names", {}) as Dictionary).duplicate()
+	var st: String = str(house.get("street", ""))
+	if not st.is_empty():
+		pn["street"] = st
+	var hn: String = str(house.get("housenumber", ""))
+	if not hn.is_empty():
+		pn["housenumber"] = hn
+	var pc: String = str(house.get("postcode", ""))
+	if not pc.is_empty():
+		pn["postcode"] = pc
+	var cty: String = str(house.get("city", ""))
+	if not cty.is_empty() and str(pn.get("city", "")).is_empty():
+		pn["city"] = cty
+	GameState.place_names = pn
+
+
 func _refresh_sidebar_inspector(house: Dictionary, targets: Array) -> void:
 	var short_addr: String = str(house.get("short_address", str(house.get("address", "Selected House"))))
 	var osm_id_val: int = int(house.get("osm_id", 0))
@@ -711,7 +775,7 @@ func _refresh_sidebar_inspector(house: Dictionary, targets: Array) -> void:
 	var rooms_val: int = int(house.get("estimated_rooms", 5))
 	var btype_val: String = OsmService.format_building_type(str(house.get("building_type", "house")))
 
-	_lbl_house_osm_id.text = "OSM #%d" % osm_id_val
+	_lbl_house_osm_id.text = "FICTIONAL — no mapped building" if bool(house.get("fictional", false)) else ("OSM way %d" % osm_id_val)
 	_lbl_house_address.text = short_addr
 	_lbl_house_neighborhood.text = _current_neighborhood_label
 
@@ -719,7 +783,7 @@ func _refresh_sidebar_inspector(house: Dictionary, targets: Array) -> void:
 	var ew_char: String = "E" if lon_val >= 0.0 else "W"
 	_lbl_house_coords.text = "Coords: %.4f° %s, %.4f° %s" % [absf(lat_val), ns_char, absf(lon_val), ew_char]
 	_lbl_house_area.text = "Footprint: %.1f m² (%s)" % [area_val, btype_val]
-	_lbl_house_rooms.text = "Interior: Est. %d Rooms" % rooms_val
+	_lbl_house_rooms.text = "Interior: ~%d rooms (fictional layout in real outline)" % rooms_val
 
 	_blueprint_canvas.queue_redraw()
 	_populate_poi_list(targets)
@@ -735,40 +799,17 @@ func _populate_poi_list(targets: Array) -> void:
 
 	_lbl_poi_header.text = "NEARBY SCAVENGE PLACES FOUND (%d)" % targets.size()
 
-	var counts: Dictionary = {
-		"church": 0,
-		"grocery": 0,
-		"pharmacy": 0,
-		"civic": 0,
-		"hardware": 0,
-		"school": 0,
-		"neighbor_house": 0
-	}
+	var counts: Dictionary = {"church": 0, "grocery": 0, "pharmacy": 0, "civic": 0, "hardware": 0, "auto": 0, "school": 0, "neighbor_house": 0}
 	for t_v in targets:
 		var t: Dictionary = t_v
 		var c: String = str(t.get("category", ""))
 		if counts.has(c):
 			counts[c] = int(counts[c]) + 1
-
-	var civic_n: int = int(counts["civic"])
-	var supply_n: int = int(counts["hardware"]) + int(counts["school"])
-	if civic_n > 0:
-		_lbl_poi_summary.text = "┼ %d Church • ▣ %d Mkt • + %d Med • ★ %d Police/Fire • ⚒ %d Sup • ⌂ %d Nbr" % [
-			int(counts["church"]),
-			int(counts["grocery"]),
-			int(counts["pharmacy"]),
-			civic_n,
-			supply_n,
-			int(counts["neighbor_house"])
-		]
-	else:
-		_lbl_poi_summary.text = "┼ %d Church • ▣ %d Market • + %d Med • ⚒ %d Supply • ⌂ %d Neighbors" % [
-			int(counts["church"]),
-			int(counts["grocery"]),
-			int(counts["pharmacy"]),
-			supply_n,
-			int(counts["neighbor_house"])
-		]
+	# What the real neighbourhood offers decides which survival routes exist.
+	_lbl_poi_summary.text = "Food %d · Med %d · Hardware %d · Fuel/Auto %d · Church/School %d · Police/Fire %d · Homes %d" % [
+		int(counts["grocery"]), int(counts["pharmacy"]), int(counts["hardware"]), int(counts["auto"]),
+		int(counts["church"]) + int(counts["school"]), int(counts["civic"]), int(counts["neighbor_house"])
+	]
 
 	for idx in range(targets.size()):
 		var t: Dictionary = targets[idx]
@@ -825,7 +866,8 @@ func _create_poi_row_card(poi: Dictionary) -> PanelContainer:
 	for i in range(mini(3, loot_arr.size())):
 		loot_pretty.append(str(loot_arr[i]).replace("_", " ").capitalize())
 	var sub_lbl := Label.new()
-	sub_lbl.text = "%s  •  Loot: %s" % [OsmService.get_category_label(cat), ", ".join(loot_pretty)]
+	var kind_txt: String = str(poi.get("kind_label", OsmService.get_category_label(cat)))
+	sub_lbl.text = "%s  •  OSM %s %d" % [kind_txt, str(poi.get("osm_type", "node")), int(poi.get("osm_id", 0))]
 	sub_lbl.clip_text = true
 	sub_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	sub_lbl.add_theme_color_override("font_color", Color("#524839"))
@@ -836,7 +878,9 @@ func _create_poi_row_card(poi: Dictionary) -> PanelContainer:
 	dist_lbl.custom_minimum_size = Vector2(76.0, 36.0)
 	dist_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	dist_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	dist_lbl.text = "%dm %s\n%dd trip " % [dist_m, bearing, days]
+	var walk_m: int = int(poi.get("walk_m", dist_m))
+	var walk_tag: String = "walk" if str(poi.get("walk_source", "")) == "network" else "est."
+	dist_lbl.text = "%dm %s %s\n%dd trip " % [walk_m, walk_tag, bearing, days]
 	dist_lbl.add_theme_color_override("font_color", Color("#8c2f16") if cat != "neighbor_house" else Color("#4a4235"))
 	dist_lbl.add_theme_font_size_override("font_size", 11)
 	hbox.add_child(dist_lbl)

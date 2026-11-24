@@ -1,6 +1,6 @@
 extends Node
 
-## Central GameState Autoload for "60 Seconds: World Reatomized".
+## Central GameState Autoload for "The End Is Near".
 ## Owns canonical state shared across Title, Family Creator, OSM House Picker,
 ## Global Nuke Selector, 60-Second Scavenge Sequence, Bunker Survival, and End Screen.
 
@@ -24,6 +24,7 @@ var current_screen: String = SCREEN_TITLE
 # Demo / Automated QA Showcase flags
 var demo_mode: bool = false
 var headless_fast_test: bool = false
+var autopilot_full_run: bool = false   # bots/probes: autopilot plays the full scavenge timer
 var rng := RandomNumberGenerator.new()
 
 # Family customization list (Array of Dictionaries)
@@ -33,6 +34,19 @@ var family_members: Array = []
 var selected_house: Dictionary = {}
 var nearby_pois: Array = []
 var current_neighborhood_label: String = "Capitol Hill, Seattle, WA"
+
+# Real map geometry around the chosen house (from the same OSM payload as the POIs).
+# roads: [{osm_id, name, kind, points_latlon: Array[Vector2(lon, lat)]}], parks: [{kind, name, polygon_latlon}]
+var map_roads: Array = []
+var map_parks: Array = []
+var map_buildings: Array = []      # lightweight {osm_id, lat, lon, polygon_latlon, is_residential}
+var map_bounds: Dictionary = {}    # {minlat, minlon, maxlat, maxlon} of the loaded data
+var map_source: String = ""        # "preset:<id>" | "live" | "unmapped"
+var place_names: Dictionary = {}   # {street, neighborhood, city, region, country, postcode}
+var map_landmarks: Array = []      # verified named places beyond the map bbox: {name, lat, lon, source}
+
+# Difficulty: "normal" (60 s scavenge) or "hard" (30 s scavenge). Recon time is separate.
+var difficulty: String = "normal"
 
 # Global Nuke Detonation configuration & computed impact conditions
 var nuke_config: Dictionary = {}
@@ -53,10 +67,22 @@ var bunker_items: Dictionary = {}
 var has_cat_sharikov: bool = false
 var has_dog_pancake: bool = false
 var bunker_structural_integrity: float = 100.0
-var surface_radiation_sv: float = 4.5
+var surface_radiation_sv: float = 4.5   # current outdoor dose rate at home in Sv/h (see RadiationModel)
+var rad_hotspots: Array = []            # localized re-contamination: rain-out, dust, debris
+var extra_strikes: Array = []           # later detonations with their own decay clocks
+var shelter_dose_today_msv: float = 0.0
 var bunker_temp_c: float = 20.0
 
-# Active Expedition State (at most 1 expedition out at a time, just like 60 Seconds!)
+# Finite loot: osm_id (as String) -> {"items": {item_id: count}, "initial_total": int, "raids": int}
+var poi_inventories: Dictionary = {}
+# Salvaged vehicle parts kept on the shelter's storage rack (fuel in litres)
+var parts: Dictionary = {"car_battery": 0, "fuel_l": 0.0, "spark_plugs": 0, "fan_belt": 0, "tire_patch": 0}
+# Items that just arrived from an expedition and still need to be shown going onto the shelves
+var storage_arrivals: Array = []
+# Family car state (see VehicleSystem); empty until the shelter run starts
+var vehicle: Dictionary = {}
+
+# Active Expedition State (at most 1 expedition out at a time, as in the classic game)
 var active_expedition: Dictionary = {} # Empty when nobody is outside
 
 # Rescue & Storyline Chains
@@ -93,6 +119,8 @@ func _parse_cli_args() -> void:
 			rng.seed = 60602026
 		elif a.begins_with("--seed="):
 			rng.seed = int(a.split("=")[1])
+		elif a.begins_with("--difficulty="):
+			difficulty = "hard" if a.split("=")[1] == "hard" else "normal"
 
 func reset_to_defaults() -> void:
 	day = 1
@@ -118,6 +146,13 @@ func reset_to_defaults() -> void:
 		"time_remaining": 0.0
 	}
 	rescue_chains = {"military": 0, "sanctuary": 0, "scientist": 0}
+	rad_hotspots = []
+	extra_strikes = []
+	shelter_dose_today_msv = 0.0
+	poi_inventories = {}
+	parts = {"car_battery": 0, "fuel_l": 0.0, "spark_plugs": 0, "fan_belt": 0, "tire_patch": 0}
+	storage_arrivals = []
+	vehicle = {}
 	bunker_items = {}
 	for gid in DURABLE_GEAR_IDS:
 		bunker_items[gid] = {"owned": false, "broken": false, "count": 0}
@@ -185,6 +220,9 @@ func make_family_member(
 		"injury": 0,
 		"fatigue": 0,
 		"radiation": 0.0,
+		"dose_msv": 0.0,
+		"dose_recent_msv": 0.0,
+		"dose_history": [],
 		"is_mutant": false,
 		"on_expedition": false,
 		"days_away": 0,
@@ -208,38 +246,50 @@ func reset_family_runtime_status() -> void:
 		m["injury"] = 0
 		m["fatigue"] = 0
 		m["radiation"] = 0.0
+		m["dose_msv"] = 0.0
+		m["dose_recent_msv"] = 0.0
+		m["dose_history"] = []
 		m["is_mutant"] = false
 		m["on_expedition"] = false
 		m["days_away"] = 0
 		m["status_note"] = "Ready for Civil Defense drill."
 
 func init_default_house() -> void:
+	# Real OSM building (Seattle preset): way 206082403, tags addr:housenumber=1002,
+	# addr:street=East Republican Street, building=semidetached_house. Footprint in metres
+	# relative to its centroid (x east, y south), derived from the bundled OSM data.
 	selected_house = {
-		"osm_id": 240109182,
-		"name": "518 E Roy St Residence",
-		"address": "518 E Roy St, Capitol Hill, Seattle, WA",
-		"lat": 47.6242,
-		"lon": -122.3195,
-		"building_type": "house",
-		"area_sqm": 182.0,
+		"osm_id": 206082403,
+		"osm_type": "way",
+		"name": "1002 East Republican Street",
+		"address": "1002 East Republican Street, Seattle",
+		"short_address": "1002 East Republican Street",
+		"housenumber": "1002",
+		"street": "East Republican Street",
+		"city": "Seattle",
+		"postcode": "98102",
+		"lat": 47.6232846,
+		"lon": -122.3196813,
+		"building_type": "semidetached_house",
+		"is_residential": true,
+		"area_sqm": 128.2,
 		"footprint_meters": [
-			Vector2(-7.2, -6.0),
-			Vector2(7.2, -6.0),
-			Vector2(7.2, 1.5),
-			Vector2(3.5, 1.5),
-			Vector2(3.5, 6.2),
-			Vector2(-7.2, 6.2)
+			Vector2(4.86, -5.61), Vector2(4.83, 6.61), Vector2(-4.89, 6.60), Vector2(-4.86, -5.49),
+			Vector2(-3.26, -5.49), Vector2(-3.25, -7.05), Vector2(3.42, -7.03), Vector2(3.42, -5.61)
 		],
-		"estimated_rooms": 6
+		"estimated_rooms": 7,
+		"source": "osm"
 	}
+	if place_names.is_empty():
+		place_names = {"street": "East Republican Street", "housenumber": "1002", "postcode": "98102", "neighborhood": "Capitol Hill", "city": "Seattle", "region": "WA", "country": "USA"}
 
 func init_default_nuke() -> void:
 	nuke_config = {
-		"target_name": "Elliott Bay Strategic Port, Seattle",
+		"target_name": "Elliott Bay waterfront, Seattle",
 		"lat": 47.6030,
 		"lon": -122.3390,
 		"yield_kt": 800,
-		"wind_bearing_deg": 225.0,
+		"wind_bearing_deg": 32.8,   # plume heads from Elliott Bay toward the house (NNE)
 		"distance_km": 2.78,
 		"zone": "ground_zero_edge",
 		"initial_sv_hr": 7.4,
@@ -268,6 +318,10 @@ func add_scavenged_item(item_id: String, amount: int = 1) -> void:
 			bug_spray_count += amount
 		"padlock":
 			padlock_active = true
+		"car_battery", "spark_plugs", "fan_belt", "tire_patch":
+			parts[item_id] = int(parts.get(item_id, 0)) + amount
+		"fuel_can":
+			parts["fuel_l"] = float(parts.get("fuel_l", 0.0)) + 10.0 * float(amount)
 		_:
 			if bunker_items.has(item_id):
 				bunker_items[item_id]["owned"] = true
@@ -289,6 +343,10 @@ func has_working_item(item_id: String) -> bool:
 			return bug_spray_count > 0
 		"padlock":
 			return padlock_active
+		"car_battery", "spark_plugs", "fan_belt", "tire_patch":
+			return int(parts.get(item_id, 0)) > 0
+		"fuel_can":
+			return float(parts.get("fuel_l", 0.0)) >= 10.0
 		_:
 			if bunker_items.has(item_id):
 				var entry: Dictionary = bunker_items[item_id]

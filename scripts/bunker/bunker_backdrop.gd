@@ -371,39 +371,51 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 
 	# Title strip on map (inset x + 16, width size.x - 32 to clear corner pushpins)
 	draw_rect(Rect2(map_r.position, Vector2(map_r.size.x, 22.0)), COL_INK, true)
-	var house_name: String = str(GameState.selected_house.get("name", "Civil Defense Shelter"))
+	var house_name: String = LocationText.home_label()
 	var map_txt_w: float = map_r.size.x - 32.0
 	var fitted_title: String = _fit_string_ellipsis(font, house_name, 10, map_txt_w)
 	draw_string(font, map_r.position + Vector2(16.0, 15.0), fitted_title, HORIZONTAL_ALIGNMENT_LEFT, map_txt_w, 10, COL_HAZARD)
 
 	# Map inner plot
 	var plot_r := Rect2(map_r.position.x + 8.0, map_r.position.y + 26.0, map_r.size.x - 16.0, map_r.size.y - 44.0)
-	# Subtle survey grid + local streets
-	for gx in range(1, 6):
-		var lx: float = plot_r.position.x + plot_r.size.x * (float(gx) / 6.0)
-		draw_line(Vector2(lx, plot_r.position.y), Vector2(lx, plot_r.end.y), Color(0.45, 0.41, 0.33, 0.35), 1.0)
-	for gy in range(1, 4):
-		var ly: float = plot_r.position.y + plot_r.size.y * (float(gy) / 4.0)
-		draw_line(Vector2(plot_r.position.x, ly), Vector2(plot_r.end.x, ly), Color(0.45, 0.41, 0.33, 0.35), 1.0)
-
-	# Main street cross-roads
+	# Real streets from OpenStreetMap (uniform scale, clipped to the pinned card)
 	var mc := plot_r.get_center()
-	draw_line(Vector2(plot_r.position.x, mc.y + 6.0), Vector2(plot_r.end.x, mc.y - 4.0), Color("#cbb894"), 5.0)
-	draw_line(Vector2(mc.x - 16.0, plot_r.position.y), Vector2(mc.x - 10.0, plot_r.end.y), Color("#cbb894"), 4.0)
-
-	# Plot real nearby POIs around center
 	var h_lat: float = float(GameState.selected_house.get("lat", 47.6242))
 	var h_lon: float = float(GameState.selected_house.get("lon", -122.3195))
 	var cos_lat: float = maxf(0.25, cos(deg_to_rad(h_lat)))
+	var px_per_m: float = minf(plot_r.size.x / 720.0, plot_r.size.y / 440.0)
+	var clip_poly := PackedVector2Array([plot_r.position, Vector2(plot_r.end.x, plot_r.position.y), plot_r.end, Vector2(plot_r.position.x, plot_r.end.y)])
+	var drew_roads: bool = false
+	for rd_v in GameState.map_roads:
+		var rd: Dictionary = rd_v
+		var kind: String = str(rd.get("kind", ""))
+		if kind in ["footway", "path", "steps", "cycleway", "track", "corridor", "service"]:
+			continue
+		var pts := PackedVector2Array()
+		for ll in rd.get("points_latlon", []):
+			var llv: Vector2 = ll
+			pts.append(mc + Vector2((llv.x - h_lon) * 111320.0 * cos_lat, -(llv.y - h_lat) * 111320.0) * px_per_m)
+		if pts.size() < 2:
+			continue
+		var w: float = 2.6 if kind in ["primary", "secondary", "trunk"] else (2.0 if kind == "tertiary" else 1.3)
+		for seg in Geometry2D.intersect_polyline_with_polygon(pts, clip_poly):
+			if (seg as PackedVector2Array).size() >= 2:
+				draw_polyline(seg, Color("#b9a47c") if w > 2.0 else Color("#cdbb95"), w)
+				drew_roads = true
+	if not drew_roads:
+		draw_string(font, plot_r.position + Vector2(6.0, 14.0), "no street data", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, COL_INK)
+
+	# Real nearby places (only those that fit on the card; nothing is pinned to the edge)
 	for p_var in GameState.nearby_pois:
 		if p_var is Dictionary:
 			var pd: Dictionary = p_var
+			if bool(pd.get("fictional", false)):
+				continue
 			var plat: float = float(pd.get("lat", h_lat))
 			var plon: float = float(pd.get("lon", h_lon))
-			var dx_m: float = (plon - h_lon) * 111320.0 * cos_lat
-			var dy_m: float = -(plat - h_lat) * 111320.0
-			var px: float = clampf(mc.x + dx_m * 0.14, plot_r.position.x + 6.0, plot_r.end.x - 6.0)
-			var py: float = clampf(mc.y + dy_m * 0.12, plot_r.position.y + 6.0, plot_r.end.y - 6.0)
+			var ppt: Vector2 = mc + Vector2((plon - h_lon) * 111320.0 * cos_lat, -(plat - h_lat) * 111320.0) * px_per_m
+			if not plot_r.grow(-4.0).has_point(ppt):
+				continue
 			var cat: String = str(pd.get("category", pd.get("poi_type", pd.get("type", "house")))).to_lower()
 			var pcol := COL_WATER
 			if cat.contains("church"):
@@ -412,8 +424,8 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 				pcol = COL_GREEN
 			elif cat.contains("pharm") or cat.contains("med") or cat.contains("clin"):
 				pcol = COL_RED
-			draw_circle(Vector2(px, py), 3.0, pcol)
-			draw_arc(Vector2(px, py), 3.0, 0.0, TAU, 10, COL_INK, 1.0)
+			draw_circle(ppt, 3.0, pcol)
+			draw_arc(ppt, 3.0, 0.0, TAU, 10, COL_INK, 1.0)
 
 	# Selected House Footprint Polygon at center
 	var fp_raw: Array = GameState.selected_house.get("footprint_meters", [])
@@ -422,7 +434,7 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 		for pt_v in fp_raw:
 			if pt_v is Vector2:
 				var v: Vector2 = pt_v
-				var p_pt: Vector2 = mc + v * 1.35
+				var p_pt: Vector2 = mc + v * maxf(px_per_m * 2.5, 0.6)
 				p_pt.x = clampf(p_pt.x, plot_r.position.x + 4.0, plot_r.end.x - 4.0)
 				p_pt.y = clampf(p_pt.y, plot_r.position.y + 4.0, plot_r.end.y - 4.0)
 				fp_pts.append(p_pt)
@@ -435,7 +447,7 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 		draw_rect(Rect2(mc - Vector2(8.0, 6.0), Vector2(16.0, 12.0)), COL_INK, false, 1.5)
 
 	# Footer address line (inset x + 16, width size.x - 32 with ellipsis) & 4 corner pushpins
-	var addr_str: String = str(GameState.selected_house.get("address", GameState.current_neighborhood_label))
+	var addr_str: String = LocationText.area_header() + "  •  OSM streets"
 	var fitted_addr: String = _fit_string_ellipsis(font, addr_str, 9, map_txt_w)
 	draw_string(font, Vector2(map_r.position.x + 16.0, map_r.end.y - 5.0), fitted_addr, HORIZONTAL_ALIGNMENT_LEFT, map_txt_w, 9, COL_INK)
 	for pin_pt in [
@@ -500,12 +512,12 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 	draw_rect(g_plate, COL_INK, true)
 	var sv_col := COL_GREEN if sv < 2.0 else (COL_HAZARD if sv < 5.5 else COL_RED)
 	draw_rect(g_plate, sv_col, false, 1.5)
-	draw_string(font, g_plate.position + Vector2(0.0, 15.0), "%.1f Sv/hr" % sv, HORIZONTAL_ALIGNMENT_CENTER, g_plate.size.x, 11, sv_col)
+	draw_string(font, g_plate.position + Vector2(0.0, 15.0), RadiationModel.format_rate(sv * 1000.0), HORIZONTAL_ALIGNMENT_CENTER, g_plate.size.x, 11, sv_col)
 
 	_register_hotspot(
 		Rect2(gc.x - 52.0, gc.y - 52.0, 104.0, 124.0),
 		"GEIGER-MÜLLER RADIATION COUNTER",
-		"Surface Dose: %.2f Sv/hr" % sv,
+		"Outdoor dose rate: %s (%s) · shelter PF %d" % [RadiationModel.format_rate(sv * 1000.0), RadiationModel.risk_label(sv * 1000.0), int(round(RadiationModel.shelter_pf()))],
 		"High surface radiation requires a working Gas Mask on expeditions to avoid severe fallout sickness.",
 		sv_col
 	)

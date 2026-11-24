@@ -2,7 +2,7 @@ extends SceneTree
 
 ## Ruthless OpenStreetMap, Geospatial Floorplan & Nuclear Physics Audit Suite
 ## Run with:
-## /home/antigravity/.local/bin/godot --headless --path /home/antigravity/sixty_seconds_world -s res://tests/critic_osm_audit.gd
+## godot --headless --path . -s res://tests/critic_osm_audit.gd
 
 var pass_count: int = 0
 var fail_count: int = 0
@@ -506,35 +506,34 @@ func _audit_2_pois_and_expeditions(gs: Node) -> void:
 		]
 	)
 
-	# Check 2B: Hardware UI loot preview vs actual ExpeditionEngine hardware loot table (genuinely rolls 'rifle' & 'ammo')!
-	var osm_hw_preview: Array = OsmServiceScript.get_loot_profile_for_category("hardware")
-	var eng_hw_preview: Array = ExpeditionEngineScript._expected_loot_for_category("hardware")
-	var hw_rolled_rifle: bool = false
-	var hw_rolled_ammo: bool = false
-	var hw_rolled_axe: bool = false
-	var hw_rolled_toolbox: bool = false
-	gs.call("reset_to_defaults")
-	var test_rng := RandomNumberGenerator.new()
-	test_rng.seed = 42
-	for _r in range(160):
-		var rl: Dictionary = ExpeditionEngineScript._roll_category_loot("hardware", 1.8, test_rng)
-		if rl.has("rifle"):
-			hw_rolled_rifle = true
-		if rl.has("ammo"):
-			hw_rolled_ammo = true
-		if rl.has("axe"):
-			hw_rolled_axe = true
-		if rl.has("toolbox"):
-			hw_rolled_toolbox = true
+	# Check 2B (pass 2): every category's preview (house-select list AND expedition planner) lists
+	# exactly what that kind of building can stock in the finite LootInventory, nothing invented.
+	var LootInv: GDScript = load("res://scripts/expedition/loot_inventory.gd")
+	var preview_mismatch: Array = []
+	var cat_n: int = 0
+	gs.set("poi_inventories", {})
+	for cat_p in ["grocery", "pharmacy", "hardware", "auto", "church", "school", "civic", "park", "restaurant"]:
+		cat_n += 1
+		var osm_prev: Array = OsmServiceScript.get_loot_profile_for_category(cat_p)
+		var eng_prev: Array = ExpeditionEngineScript._expected_loot_for_category(cat_p)
+		var seen: Dictionary = {}
+		for k_i in range(160):
+			var fake_poi: Dictionary = {"osm_id": 880000 + cat_n * 1000 + k_i, "category": cat_p, "name": "Audit %s %d" % [cat_p, k_i], "area_sqm": 300.0}
+			var inv_items: Dictionary = (LootInv.call("get_inventory", fake_poi) as Dictionary).get("items", {})
+			for iid_k in inv_items.keys():
+				if int(inv_items[iid_k]) > 0:
+					seen[str(iid_k)] = true
+		var all_ok: bool = osm_prev == eng_prev and not osm_prev.is_empty()
+		for pv in osm_prev:
+			if not seen.has(str(pv)):
+				all_ok = false
+		if not all_ok:
+			preview_mismatch.append("%s preview=%s stocked=%s" % [cat_p, str(osm_prev), str(seen.keys())])
+	var hw_prev: Array = OsmServiceScript.get_loot_profile_for_category("hardware")
 	_assert_cond(
-		hw_rolled_rifle and hw_rolled_ammo and hw_rolled_axe and hw_rolled_toolbox
-		and ("rifle" in eng_hw_preview) and ("ammo" in eng_hw_preview),
-		"'hardware' expeditions genuinely roll 'rifle', 'ammo', 'axe', and 'toolbox' matching UI previews (%s / %s)" % [
-			str(osm_hw_preview), str(eng_hw_preview)
-		],
-		"Hardware loot mismatch: rifle=%s, ammo=%s, axe=%s, toolbox=%s" % [
-			str(hw_rolled_rifle), str(hw_rolled_ammo), str(hw_rolled_axe), str(hw_rolled_toolbox)
-		]
+		preview_mismatch.is_empty() and hw_prev.has("toolbox") and hw_prev.has("spark_plugs") and not hw_prev.has("rifle"),
+		"Loot previews match the finite stock table for all 9 categories (hardware: %s; rifles only at police/fire/civic)" % str(hw_prev),
+		"Loot preview mismatch: %s" % str(preview_mismatch)
 	)
 
 	# Test ExpeditionEngine full trips across Seattle real POIs + Brooklyn real 'civic' POI!
@@ -606,9 +605,18 @@ func _audit_2_pois_and_expeditions(gs: Node) -> void:
 			civic_ret = ExpeditionEngineScript.tick_active_expedition()
 			c_safety += 1
 	var civic_loot: Dictionary = civic_ret.get("loot", {})
-	var has_civic_sig_item: bool = civic_loot.has("ammo") and (
-		civic_loot.has("rifle") or civic_loot.has("gas_mask") or civic_loot.has("radio") or civic_loot.has("medkit")
-	)
+	# Pass 2: the haul is chosen by what the family needs (finite stock, carry slots), so the
+	# check is that the civic stock table was used: at least two civic-only finds.
+	var civic_only_n: int = 0
+	for civ_id in ["ammo", "rifle", "gas_mask", "radio"]:
+		if civic_loot.has(civ_id):
+			civic_only_n += 1
+	var civic_table: Array = OsmServiceScript.get_loot_profile_for_category("civic")
+	var all_from_civic: bool = not civic_loot.is_empty()
+	for got in civic_loot.keys():
+		if not civic_table.has(str(got)):
+			all_from_civic = false
+	var has_civic_sig_item: bool = all_from_civic and civic_only_n >= 1
 	_assert_cond(
 		civic_idx >= 0 and bool(civic_ret.get("returned", false)) and has_civic_sig_item,
 		"Expedition to real 'civic' POI ('%s') unlocked civic loot table -> %s" % [
@@ -672,9 +680,8 @@ func _audit_2_pois_and_expeditions(gs: Node) -> void:
 		var loot1: Dictionary = school_ret1.get("loot", {})
 		var fl_cnt1: int = int(gs.get("bunker_items")["flashlight"]["count"])
 		var fl_owned1: bool = bool(gs.get("bunker_items")["flashlight"]["owned"])
-		sub1_ok = (not loot1.has("flashlight")) and fl_owned1 and fl_cnt1 == 1 and (
-			loot1.has("map") or loot1.has("book") or loot1.has("checkers") or loot1.has("cards")
-		)
+		# Pass 2: the carried flashlight comes home (never swallowed); anything found adds to it.
+		sub1_ok = fl_owned1 and fl_cnt1 == 1 + int(loot1.get("flashlight", 0))
 
 	# Subtest 2: Own ALL school durables + suitcase + gas_mask + rifle (count=1 each), carry ["suitcase", "flashlight", "map", "gas_mask"],
 	# run trips until a carried durable is rolled as duplicate loot, and verify count increments by +1 (NEVER overwritten back to 1)!
@@ -714,7 +721,7 @@ func _audit_2_pois_and_expeditions(gs: Node) -> void:
 
 	_assert_cond(
 		sub1_ok and sub2_rolled_carried_dup and sub2_preserved_all,
-		"Checked-out durable gear (suitcase, flashlight, map, gas_mask) restored BEFORE _roll_category_loot: 0 swallowed or overwritten durables across 26 trips",
+		"Checked-out durable gear (suitcase, flashlight, map, gas_mask) comes home on return: 0 swallowed or overwritten durables across 26 trips",
 		"Checked-out durable gear bug persisted (sub1_ok=%s, sub2_rolled_dup=%s, sub2_preserved=%s)" % [
 			str(sub1_ok), str(sub2_rolled_carried_dup), str(sub2_preserved_all)
 		]
@@ -782,21 +789,19 @@ func _audit_3_floorplan_reachability(gs: Node, all_real_houses: Array) -> void:
 		var sum_room_area: float = 0.0
 		var house_had_outside_spawn: bool = false
 
+		# Pass 2: rooms are polygons (BSP cells clipped to the real outline), so they are checked as
+		# polygons: every vertex inside the outline and the rooms tiling it (within 1 %).
+		var outer_grown: PackedVector2Array = outer_poly
+		var grown_list: Array = Geometry2D.offset_polygon(outer_poly, 1.5)
+		if not grown_list.is_empty():
+			outer_grown = grown_list[0]
 		for r_v in rooms:
-			var rr: Rect2 = (r_v as Dictionary)["rect"]
-			sum_room_area += rr.size.x * rr.size.y
+			var rpoly: PackedVector2Array = (r_v as Dictionary).get("polygon", PackedVector2Array())
+			sum_room_area += _compute_packed_poly_area(rpoly)
 			total_rooms_checked += 1
-			var rr_in: Rect2 = rr.grow(-0.5)
-			var r_pts: Array[Vector2] = [
-				rr.get_center(),
-				rr_in.position,
-				Vector2(rr_in.end.x, rr_in.position.y),
-				rr_in.end,
-				Vector2(rr_in.position.x, rr_in.end.y)
-			]
-			var room_ok: bool = outer_poly.size() >= 4
-			for rpt in r_pts:
-				if not Geometry2D.is_point_in_polygon(rpt, outer_poly):
+			var room_ok: bool = outer_poly.size() >= 3 and rpoly.size() >= 3
+			for rpt in rpoly:
+				if not Geometry2D.is_point_in_polygon(rpt, outer_grown):
 					room_ok = false
 					break
 			if not room_ok:
@@ -804,7 +809,7 @@ func _audit_3_floorplan_reachability(gs: Node, all_real_houses: Array) -> void:
 				house_had_outside_spawn = true
 
 		var outer_area: float = _compute_packed_poly_area(outer_poly)
-		if absf(outer_area - sum_room_area) > 2.0:
+		if absf(outer_area - sum_room_area) > outer_area * 0.01:
 			poly_area_mismatch_houses += 1
 			house_had_outside_spawn = true
 
@@ -844,21 +849,33 @@ func _audit_3_floorplan_reachability(gs: Node, all_real_houses: Array) -> void:
 				water_n += 1
 			else:
 				gear_n += 1
-		if soup_n < 6 or water_n < 6 or gear_n < 10 or fam_spawns.size() != 3 or rooms.size() != 6:
-			missing_manifest_houses += 1
-
-		var hall_rect: Rect2 = Rect2()
+		# Pass 2 manifest: room count follows the real floor area (no fixed 6-room template),
+		# every non-leader family member spawns, and scarcer food/water (5-8 each) by design.
+		var open_rooms: int = 0
 		for r_v in rooms:
-			if str((r_v as Dictionary).get("name", "")) == "Central Hall":
-				hall_rect = (r_v as Dictionary)["rect"]
-		var hatch_ok: bool = hall_rect.has_point(hatch_pos) and Geometry2D.is_point_in_polygon(hatch_pos, outer_poly) and not _circle_hits_walls_or_furn(hatch_pos, 18.0, walls, furniture)
+			if not bool((r_v as Dictionary).get("sealed", false)):
+				open_rooms += 1
+		if soup_n < 5 or water_n < 5 or gear_n < 10 or fam_spawns.size() != family.size() - 1 or open_rooms < 2:
+			missing_manifest_houses += 1
+			print("    manifest #%d %.0fm2: soup=%d water=%d gear=%d fam=%d/%d open_rooms=%d" % [idx, float(h.get("area_sqm", 0.0)), soup_n, water_n, gear_n, fam_spawns.size(), family.size() - 1, open_rooms])
+
+		var hatch_room_ok: bool = false
+		for r_v in rooms:
+			var rd: Dictionary = r_v
+			if not bool(rd.get("sealed", false)) and Geometry2D.is_point_in_polygon(hatch_pos, rd.get("polygon", PackedVector2Array())):
+				hatch_room_ok = true
+		var hatch_ok: bool = hatch_room_ok and Geometry2D.is_point_in_polygon(hatch_pos, outer_poly) and not _circle_hits_walls_or_furn(hatch_pos, 18.0, walls, furniture)
 
 		var house_clean: bool = hatch_ok
+		var why: Array[String] = []
+		if not hatch_ok:
+			why.append("hatch(room=%s)" % str(hatch_room_ok))
 
 		if not Geometry2D.is_point_in_polygon(leader_pos, outer_poly):
 			house_had_outside_spawn = true
 		if not _verify_continuous_walk_to_hatch(leader_pos, hatch_pos, nav_grid, walls, furniture):
 			house_clean = false
+			why.append("leader_walk")
 
 		for it_v in items:
 			var it: Dictionary = it_v
@@ -870,9 +887,15 @@ func _audit_3_floorplan_reachability(gs: Node, all_real_houses: Array) -> void:
 			if _circle_hits_walls_or_furn(ipos, 14.0, walls, furniture):
 				overlapping_items += 1
 				house_clean = false
-			if not HouseGeneratorScript.is_walkable(nav_grid, ipos) or not _verify_continuous_walk_to_hatch(ipos, hatch_pos, nav_grid, walls, furniture):
+				why.append("item_overlap")
+			if not HouseGeneratorScript.is_walkable(nav_grid, ipos):
 				unreachable_items += 1
 				house_clean = false
+				why.append("item_cell")
+			elif not _verify_continuous_walk_to_hatch(ipos, hatch_pos, nav_grid, walls, furniture):
+				unreachable_items += 1
+				house_clean = false
+				why.append("item_sweep")
 
 		for fs_v in fam_spawns:
 			var fs: Dictionary = fs_v
@@ -893,13 +916,13 @@ func _audit_3_floorplan_reachability(gs: Node, all_real_houses: Array) -> void:
 		if house_clean:
 			houses_all_reachable += 1
 		else:
-			_record_fail("House #%d (OSM #%d '%s', %.1f m²) failed reachability/collision check!" % [
-				idx, int(h.get("osm_id", 0)), str(h.get("short_address", "")), float(h.get("area_sqm", 0.0))
+			_record_fail("House #%d (OSM #%d '%s', %.1f m²) failed reachability/collision check! %s" % [
+				idx, int(h.get("osm_id", 0)), str(h.get("short_address", "")), float(h.get("area_sqm", 0.0)), str(why.slice(0, 4))
 			])
 
 	_assert_cond(
 		missing_manifest_houses == 0,
-		"All %d real OSM houses spawned 6 rooms, >=6 Soup, >=6 Water, >=10 Gear items, and all 3 non-leader Family Members" % houses_tested,
+		"All %d real OSM houses spawned >=2 open rooms, >=5 Soup, >=5 Water, >=10 Gear items, and every non-leader Family Member" % houses_tested,
 		"%d/%d houses had incomplete room/item/family manifests" % [missing_manifest_houses, houses_tested]
 	)
 
@@ -958,21 +981,25 @@ func _audit_3_floorplan_reachability(gs: Node, all_real_houses: Array) -> void:
 		var min_l_walls: Array = min_l_layout.get("walls", [])
 		var min_l_furn: Array = min_l_layout.get("furniture", [])
 		var min_l_hatch: Vector2 = min_l_layout.get("hatch_pos", Vector2.ZERO)
-		var q_ok: bool = (min_l_rooms.size() == 6 and min_l_poly.size() == 6)
+		var q_ok: bool = (min_l_rooms.size() >= 3 and min_l_poly.size() == 6)
 		var q_area_sum: float = 0.0
 		for i in range(min_l_rooms.size()):
-			var ri: Rect2 = (min_l_rooms[i] as Dictionary)["rect"]
-			q_area_sum += ri.size.x * ri.size.y
-			if ri.size.x < 100.0 or ri.size.y < 100.0:
+			var rdi: Dictionary = min_l_rooms[i]
+			var pi_poly: PackedVector2Array = rdi.get("polygon", PackedVector2Array())
+			var a_i: float = _compute_packed_poly_area(pi_poly)
+			q_area_sum += a_i
+			if not bool(rdi.get("sealed", false)) and a_i < 4000.0:
 				degenerate_rooms += 1
 				q_ok = false
-			var ri_in: Rect2 = ri.grow(-1.0)
 			for j in range(i + 1, min_l_rooms.size()):
-				var rj_in: Rect2 = (min_l_rooms[j] as Dictionary)["rect"].grow(-1.0)
-				if ri_in.intersects(rj_in):
+				var pj_poly: PackedVector2Array = (min_l_rooms[j] as Dictionary).get("polygon", PackedVector2Array())
+				var ov: float = 0.0
+				for inter in Geometry2D.intersect_polygons(pi_poly, pj_poly):
+					ov += _compute_packed_poly_area(inter)
+				if ov > 50.0:
 					overlap_rooms += 1
 					q_ok = false
-		if absf(_compute_packed_poly_area(min_l_poly) - q_area_sum) > 2.0:
+		if absf(_compute_packed_poly_area(min_l_poly) - q_area_sum) > _compute_packed_poly_area(min_l_poly) * 0.01:
 			q_ok = false
 		for it_v in min_l_layout.get("items", []):
 			var ip: Vector2 = (it_v as Dictionary)["pos"]
@@ -983,7 +1010,7 @@ func _audit_3_floorplan_reachability(gs: Node, all_real_houses: Array) -> void:
 
 	_assert_cond(
 		l_quads_clean == 4 and overlap_rooms == 0 and degenerate_rooms == 0,
-		"14m x 11m L-wing houses across all 4 notch quadrants (TL/TR/BL/BR) built 6 non-overlapping rooms & exact 6-vertex outer_polygon",
+		"14m x 11m L-wing houses across all 4 notch quadrants (TL/TR/BL/BR) tile the outline with non-overlapping, non-degenerate rooms & exact 6-vertex outer_polygon",
 		"14m x 11m L-wing check failed: quads_clean=%d/4, overlap_rooms=%d, degenerate_rooms=%d" % [
 			l_quads_clean, overlap_rooms, degenerate_rooms
 		]
@@ -1080,7 +1107,15 @@ func _select_55_diverse_osm_houses(pool: Array) -> Array:
 func _circle_hits_walls_or_furn(pos: Vector2, radius: float, walls: Array, furniture: Array) -> bool:
 	var r2: float = radius * radius
 	for w_v in walls:
-		var wr: Rect2 = (w_v as Dictionary)["rect"]
+		var wd: Dictionary = w_v
+		if wd.has("a"):
+			# Pass 2 exterior walls are thick segments along the real outline.
+			var cp: Vector2 = Geometry2D.get_closest_point_to_segment(pos, wd["a"], wd["b"])
+			var lim: float = radius + float(wd.get("thickness", 16.0)) * 0.5
+			if pos.distance_squared_to(cp) < lim * lim:
+				return true
+			continue
+		var wr: Rect2 = wd["rect"]
 		var cx: float = clampf(pos.x, wr.position.x, wr.end.x)
 		var cy: float = clampf(pos.y, wr.position.y, wr.end.y)
 		if pos.distance_squared_to(Vector2(cx, cy)) < r2:

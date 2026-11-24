@@ -2,11 +2,11 @@ class_name HouseGenerator
 extends RefCounted
 
 ## Procedural real-world OpenStreetMap house floorplan generator for
-## "60 Seconds: World Reatomized".
+## "The End Is Near".
 ## Converts an OSM building polygon (footprint_meters) into a scaled, centered,
 ## 6-room mid-century suburban house with wide doorways, thematic props,
 ## self-healing BFS walkability verification from the Fallout Bunker Hatch,
-## A* pathfinding, and authentic 60 Seconds! survival item & family spawns.
+## A* pathfinding, and classic survival item & family spawns.
 
 const PX_PER_METER: float = 46.0
 const MIN_HOUSE_WIDTH_M: float = 14.0
@@ -139,6 +139,50 @@ static func generate_from_osm_house(
 	family_members: Array,
 	rng: RandomNumberGenerator = null
 ) -> Dictionary:
+	# Pass 2: levels are generated inside the real OSM footprint (see FloorplanGenerator).
+	return FloorplanGenerator.generate(house_data, family_members, rng, road_hint_for_house(house_data))
+
+
+## Metres (x = east, y = south) from the building centroid to the nearest mapped road point,
+## used to put the front door on the street-facing wall. Zero when no roads are known.
+static func road_hint_for_house(house_data: Dictionary) -> Vector2:
+	# Looked up at runtime so this generator stays usable from script-mode tools.
+	var roads: Array = []
+	var ml: MainLoop = Engine.get_main_loop()
+	if ml is SceneTree:
+		var gs: Node = (ml as SceneTree).root.get_node_or_null("GameState")
+		if gs != null:
+			roads = gs.get("map_roads")
+	if roads.is_empty():
+		return Vector2.ZERO
+	var h_lat: float = float(house_data.get("lat", 0.0))
+	var h_lon: float = float(house_data.get("lon", 0.0))
+	var cos_lat: float = cos(deg_to_rad(h_lat))
+	var best: Vector2 = Vector2.ZERO
+	var best_d: float = 1e20
+	for r_v in roads:
+		var r: Dictionary = r_v
+		var kind: String = str(r.get("kind", ""))
+		if kind in ["footway", "path", "steps", "cycleway", "service", "track", "corridor"]:
+			continue
+		var pts: Array = r.get("points_latlon", [])
+		for i in range(pts.size() - 1):
+			var a: Vector2 = pts[i]
+			var b: Vector2 = pts[i + 1]
+			var am := Vector2((a.x - h_lon) * 111320.0 * cos_lat, -(a.y - h_lat) * 110540.0)
+			var bm := Vector2((b.x - h_lon) * 111320.0 * cos_lat, -(b.y - h_lat) * 110540.0)
+			var q: Vector2 = Geometry2D.get_closest_point_to_segment(Vector2.ZERO, am, bm)
+			if q.length() < best_d:
+				best_d = q.length()
+				best = q
+	return best if best_d < 120.0 else Vector2.ZERO
+
+
+static func _legacy_generate_from_osm_house(
+	house_data: Dictionary,
+	family_members: Array,
+	rng: RandomNumberGenerator = null
+) -> Dictionary:
 	var local_rng: RandomNumberGenerator = rng
 	if local_rng == null:
 		local_rng = RandomNumberGenerator.new()
@@ -205,7 +249,7 @@ static func generate_from_osm_house(
 	nav_grid.erase("_resolved_walls")
 
 	# 6. Place leader_start_pos (~90 px from hatch_pos), non-leader family_members,
-	#    and authentic 60 Seconds! survival items on verified BFS-reachable cells.
+	#    and classic survival items on verified BFS-reachable cells.
 	var leader_start_pos: Vector2 = _pick_leader_start_pos(nav_grid, rooms, walls, furniture, hatch_pos)
 	var family_spawns: Array = _spawn_family_members(
 		family_members,
@@ -262,6 +306,8 @@ static func generate_from_osm_house(
 ## Uses corner-safe 8-directional A* plus walkable line-of-sight smoothing so neither
 ## the Demo AI nor Critic Agents ever clip doorframes or furniture corners.
 static func find_path(nav_grid: Dictionary, from_pos: Vector2, to_pos: Vector2) -> PackedVector2Array:
+	if str(nav_grid.get("engine", "")) == FloorplanGenerator.ENGINE_TAG:
+		return FloorplanGenerator.find_path(nav_grid, from_pos, to_pos)
 	var result := PackedVector2Array()
 	var cols: int = int(nav_grid.get("cols", 0))
 	var rows: int = int(nav_grid.get("rows", 0))
@@ -1822,7 +1868,7 @@ static func _find_unreachable_rooms(rooms: Array, nav_grid: Dictionary) -> Array
 
 
 # ---------------------------------------------------------------------------
-# Step 6: Leader Start, Family Spawns & Authentic 60 Seconds! Item Spawning
+# Step 6: Leader Start, Family Spawns & Classic Item Spawning
 # ---------------------------------------------------------------------------
 
 static func _collect_room_reachable_points(
@@ -2026,7 +2072,7 @@ static func _spawn_house_items(
 		var fsd: Dictionary = fs
 		occupied_family.append(fsd["pos"])
 
-	# Build exact 60 Seconds! spawn manifest:
+	# Build the classic spawn manifest:
 	# - 6..8 "soup" cans (weighted toward Kitchen & Utility, plus random rooms)
 	# - 6..8 "water" bottles (weighted toward Kitchen & Bathroom/Utility, plus random rooms)
 	# - Guaranteed core survival items: 1 "medkit", 1 "gas_mask", 1 "radio", 1 "suitcase", 1 "book", 1 weapon ("rifle" or "axe")

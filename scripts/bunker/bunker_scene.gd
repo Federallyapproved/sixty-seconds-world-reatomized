@@ -67,7 +67,16 @@ var _selected_poi_index: int = 0
 var _selected_explorer_id: String = ""
 var _selected_gear_ids: Array[String] = []
 var _expedition_scheduled: bool = false
-var _radar_map_widget: _ExpeditionRadarMap = null
+var _radar_map_widget: ShelterMapView = null
+
+# Pass 2: cinematic day flow, garage and big map
+var _cinematic: ShelterCinematic = null
+var _garage: GarageView = null
+var _map_overlay: Control = null
+var _big_map: ShelterMapView = null
+var _resolved_outcome: Dictionary = {}
+var _day_queue: Array = []
+var _dilemma_actor: Dictionary = {}
 
 # Curtain Transition State
 var _in_day_transition: bool = false
@@ -106,6 +115,19 @@ func _ready() -> void:
 	_curtain_overlay.name = "DayCurtainOverlay"
 	_curtain_overlay.visible = false
 	add_child(_curtain_overlay)
+
+	# 6. Garage, big neighbourhood map and the cinematic stage (top-most)
+	_garage = GarageView.new()
+	_garage.name = "GarageView"
+	add_child(_garage)
+	_garage.install_requested.connect(_on_install_requested)
+	_garage.drive_requested.connect(_on_drive_requested)
+	_build_map_overlay()
+	_cinematic = ShelterCinematic.new()
+	_cinematic.name = "ShelterCinematic"
+	add_child(_cinematic)
+	_cinematic.choice_made.connect(_on_dilemma_choice)
+	_cinematic.sequence_finished.connect(_on_cinematic_finished)
 
 	if not GameState.inventory_changed.is_connected(_on_external_state_changed):
 		GameState.inventory_changed.connect(_on_external_state_changed)
@@ -160,8 +182,14 @@ func _populate_default_osm_targets_if_empty() -> void:
 				var map_parsed: Dictionary = OsmService.parse_osm_json(parsed_json as Dictionary, h_lat, h_lon)
 				var bldgs: Array = map_parsed.get("buildings", [])
 				var pois: Array = map_parsed.get("pois", [])
+				var cfg: Dictionary = OsmService.PRESET_CONFIGS.get("seattle", {})
+				map_parsed["place_names"] = (cfg.get("place_names", {}) as Dictionary).duplicate()
+				map_parsed["landmarks"] = (cfg.get("landmarks", []) as Array).duplicate(true)
+				map_parsed["source"] = "preset:seattle"
 				if not bldgs.is_empty() or not pois.is_empty():
-					GameState.nearby_pois = OsmService.build_nearby_targets_for_house(GameState.selected_house, bldgs, pois)
+					GameState.nearby_pois = OsmService.build_nearby_targets_for_house(GameState.selected_house, bldgs, pois, map_parsed.get("roads", []))
+				if GameState.map_roads.is_empty():
+					HouseSelectScreen.store_map_context(GameState.selected_house, bldgs, map_parsed, [])
 	if GameState.nearby_pois.is_empty():
 		var targets: Array = ExpeditionEngine.get_available_targets()
 		if not targets.is_empty():
@@ -218,8 +246,8 @@ func _ensure_demo_bunker_readiness() -> void:
 			GameState.bunker_items[req_id]["count"] = maxi(1, int(GameState.bunker_items[req_id].get("count", 1)))
 
 func _append_initial_orientation_log() -> void:
-	var h_name: String = str(GameState.selected_house.get("name", "Civil Defense Shelter"))
-	var n_target: String = str(GameState.nuke_config.get("target_name", "Downtown Ground Zero"))
+	var h_name: String = LocationText.home_ref()
+	var n_target: String = str(GameState.nuke_config.get("target_name", "ground zero"))
 	var dist_km: float = float(GameState.nuke_config.get("distance_km", 4.2))
 	var survivors: Array[String] = []
 	for m_v in GameState.get_all_living_members():
@@ -403,24 +431,26 @@ func _build_survival_notebook() -> void:
 
 	# Bottom Notebook Navigation & Red-Stamp "END DAY" Bar (Rect2(38, 504, 686, 44))
 	_prev_page_btn = Button.new()
-	_prev_page_btn.text = "< PREV PAGE"
+	_prev_page_btn.text = "GARAGE & CAR"
 	_prev_page_btn.position = Vector2(38.0, 506.0)
 	_prev_page_btn.size = Vector2(124.0, 38.0)
 	_prev_page_btn.add_theme_font_size_override("font_size", 13)
 	_style_notebook_ink_button(_prev_page_btn, COL_PARCHMENT_DARK, COL_INK, COL_INK)
 	_prev_page_btn.pressed.connect(func() -> void:
-		_switch_tab(posmod(_current_tab - 1, 4), true)
+		SoundManager.play_sfx("page_turn")
+		_open_garage()
 	)
 	_notebook_root.add_child(_prev_page_btn)
 
 	_next_page_btn = Button.new()
-	_next_page_btn.text = "NEXT PAGE >"
+	_next_page_btn.text = "BIG MAP"
 	_next_page_btn.position = Vector2(168.0, 506.0)
 	_next_page_btn.size = Vector2(124.0, 38.0)
 	_next_page_btn.add_theme_font_size_override("font_size", 13)
 	_style_notebook_ink_button(_next_page_btn, COL_PARCHMENT_DARK, COL_INK, COL_INK)
 	_next_page_btn.pressed.connect(func() -> void:
-		_switch_tab(posmod(_current_tab + 1, 4), true)
+		SoundManager.play_sfx("page_turn")
+		_open_map_overlay()
 	)
 	_notebook_root.add_child(_next_page_btn)
 
@@ -515,20 +545,10 @@ func _prepare_new_day_turn(reset_tab_to_log: bool) -> void:
 		_current_event = EventDeck.draw_daily_event(GameState.day, GameState.rng)
 		var opts: Array = _get_event_options(_current_event)
 		if not opts.is_empty():
+			# Every occupied day presents a real decision; nothing is chosen for the player.
 			_has_unresolved_dilemma = true
-			# Default selection to safe fallback (last available option, or first available)
-			for i in range(opts.size() - 1, -1, -1):
-				var od: Dictionary = opts[i]
-				if _is_event_option_available(od):
-					_selected_event_choice_id = str(od.get("id", ""))
-					break
-			if GameState.demo_mode and GameState.day == 1:
-				for opt_v in opts:
-					if opt_v is Dictionary:
-						var od_demo: Dictionary = opt_v
-						if _is_event_option_available(od_demo) and str(od_demo.get("item_id", "")) != "":
-							_selected_event_choice_id = str(od_demo.get("id", ""))
-							break
+			_selected_event_choice_id = ""
+	_resolved_outcome = {}
 
 	_rebuild_all_tabs()
 	if reset_tab_to_log:
@@ -540,6 +560,7 @@ func _prepare_new_day_turn(reset_tab_to_log: bool) -> void:
 		_hud_bar.queue_redraw()
 	if is_instance_valid(_backdrop):
 		_backdrop.refresh_bunker()
+	call_deferred("_begin_day_sequence")
 
 func _rebuild_all_tabs() -> void:
 	_rebuild_tab_daily_log()
@@ -561,9 +582,9 @@ func _rebuild_tab_daily_log() -> void:
 	hdr.size = Vector2(686.0, 26.0)
 	root.add_child(hdr)
 
-	var house_label: String = str(GameState.selected_house.get("name", "Selected Shelter"))
-	var sub_txt: String = "%s  |  Surface: %.1f Sv/hr  |  Temp: %.0f °C  |  Hull: %.0f%%" % [
-		house_label, GameState.surface_radiation_sv, GameState.bunker_temp_c, GameState.bunker_structural_integrity
+	var house_label: String = LocationText.home_label()
+	var sub_txt: String = "%s  |  Outside: %s  |  Temp: %.0f °C  |  Hull: %.0f%%" % [
+		house_label, RadiationModel.format_rate(GameState.surface_radiation_sv * 1000.0), GameState.bunker_temp_c, GameState.bunker_structural_integrity
 	]
 	var sub := _make_ink_label(sub_txt, 12, COL_INK_MUTED)
 	sub.position = Vector2(0.0, 24.0)
@@ -997,6 +1018,18 @@ func _rebuild_tab_dilemma() -> void:
 
 	var ev_title: String = _strip_md(str(_current_event.get("title", "SHELTER DILEMMA"))).to_upper()
 	var ev_desc: String = _strip_md(str(_current_event.get("description", _current_event.get("text", "Something stirs outside the blast hatch..."))))
+	if not _has_unresolved_dilemma and not _resolved_outcome.is_empty():
+		ev_desc += "\n\nDECIDED: %s acted. %s" % [str(_resolved_outcome.get("actor_name", "")), _strip_md(str(_resolved_outcome.get("outcome_text", "")))]
+		var replay := Button.new()
+		replay.text = "REPLAY WHAT HAPPENED"
+		replay.position = Vector2(470.0, 190.0)
+		replay.size = Vector2(214.0, 22.0)
+		replay.add_theme_font_size_override("font_size", 11)
+		_style_notebook_ink_button(replay, COL_PARCHMENT_DARK, COL_INK, COL_INK)
+		replay.pressed.connect(func() -> void:
+			_cinematic.play_outcome(_resolved_outcome, _current_event)
+		)
+		root.add_child(replay)
 	var options: Array = _get_event_options(_current_event)
 	var compact_opts: bool = options.size() >= 5
 
@@ -1023,7 +1056,7 @@ func _rebuild_tab_dilemma() -> void:
 	story_lbl.custom_minimum_size = Vector2(652.0, 0.0)
 	story_scroll.add_child(story_lbl)
 
-	var prompt_lbl := _make_ink_label("CHOOSE YOUR RESPONSE BEFORE LIGHTS OUT:", 12, COL_INK_MUTED)
+	var prompt_lbl := _make_ink_label("CHOOSE YOUR RESPONSE:" if _has_unresolved_dilemma else "DECISION MADE — RECORDED IN THE JOURNAL", 12, COL_INK_MUTED)
 	prompt_lbl.position = Vector2(2.0, 193.0)
 	prompt_lbl.size = Vector2(680.0, 18.0)
 	root.add_child(prompt_lbl)
@@ -1100,11 +1133,10 @@ func _rebuild_tab_dilemma() -> void:
 		var captured_cid: String = cid
 		sel_btn.pressed.connect(func() -> void:
 			SoundManager.play_sfx("button_click")
-			_selected_event_choice_id = captured_cid
-			_has_unresolved_dilemma = false
-			_rebuild_tab_dilemma()
-			_refresh_tab_headers_and_footer()
+			_on_dilemma_choice(captured_cid)
 		)
+		if not _has_unresolved_dilemma:
+			sel_btn.disabled = true
 		oh.add_child(sel_btn)
 
 		if req_item != "":
@@ -1130,7 +1162,7 @@ func _build_unoccupied_shelter_view(root: Control) -> void:
 	card.size = Vector2(686.0, 236.0)
 	root.add_child(card)
 
-	var h_addr: String = _strip_md(str(GameState.selected_house.get("address", GameState.current_neighborhood_label)))
+	var h_addr: String = LocationText.home_ref()
 	var exp_name: String = str(GameState.active_expedition.get("member_name", "Our lone survivor"))
 	var exp_dest: String = str(GameState.active_expedition.get("short_target_name", GameState.active_expedition.get("target_name", "the irradiated neighborhood")))
 	var days_rem: int = maxi(1, int(GameState.active_expedition.get("days_remaining", 1)))
@@ -1192,7 +1224,7 @@ func _build_day1_orientation_view(root: Control) -> void:
 	card.size = Vector2(686.0, 250.0)
 	root.add_child(card)
 
-	var h_addr: String = str(GameState.selected_house.get("address", GameState.current_neighborhood_label))
+	var h_addr: String = LocationText.home_ref()
 	var n_name: String = str(GameState.nuke_config.get("target_name", "Strategic Target"))
 	var n_yield: int = int(GameState.nuke_config.get("yield_kt", 800))
 	var n_dist: float = float(GameState.nuke_config.get("distance_km", 3.0))
@@ -1201,7 +1233,7 @@ func _build_day1_orientation_view(root: Control) -> void:
 	var orient_lines: Array[String] = [
 		"• DESIGNATED FALLOUT SHELTER: %s" % h_addr,
 		"• DETONATION TELEMETRY: %d kt warhead at %s (%.2f km — %s)" % [n_yield, n_name, n_dist, n_zone],
-		"• ATMOSPHERIC READINGS: %.1f Sv/hr surface fallout | %.0f °C interior shelter climate" % [GameState.surface_radiation_sv, GameState.bunker_temp_c],
+		"• ATMOSPHERIC READINGS: %s outside | %.0f °C interior shelter climate" % [RadiationModel.format_rate(GameState.surface_radiation_sv * 1000.0), GameState.bunker_temp_c],
 		"• DAY 1 SURFACE STATUS: Heavy fallout dust is still settling — no surface knocks or raids today.",
 		"• SURVIVAL DIRECTIVE: Ration 1/4 Water before dehydration sets in, equip a Gas Mask + Suitcase for real-world OpenStreetMap scavenging runs, and monitor CONELRAD radio & nearby Churches for evacuation!"
 	]
@@ -1357,7 +1389,8 @@ func _build_expedition_planner(root: Control) -> void:
 	_ensure_valid_explorer_selected()
 
 	# --- LEFT COLUMN (x = 0..332): Radar Map (0..246) + Scrollable OSM Target List (252..480) ---
-	_radar_map_widget = _ExpeditionRadarMap.new()
+	_radar_map_widget = ShelterMapView.new()
+	_radar_map_widget.compact = true
 	_radar_map_widget.position = Vector2(0.0, 0.0)
 	_radar_map_widget.size = Vector2(332.0, 246.0)
 	_radar_map_widget.targets = _available_targets
@@ -1438,7 +1471,11 @@ func _build_expedition_planner(root: Control) -> void:
 	var d_title := _make_ink_label(p_name, 14, COL_STAMP_RED)
 	d_title.clip_text = true
 	dv.add_child(d_title)
-	dv.add_child(_make_ink_label("%s · %dm %s · Trip: %dd · Risk: %s" % [p_cat, p_dist, p_bear, est_days, b_risk], 11, COL_INK))
+	var walk_tag: String = "walk" if str(sel_poi.get("walk_source", "")) == "network" else "est."
+	dv.add_child(_make_ink_label("%s · %dm %s %s · Trip: %dd · Raiders: %s" % [str(sel_poi.get("kind_label", p_cat)), int(sel_poi.get("walk_m", p_dist)), walk_tag, p_bear, est_days, b_risk], 11, COL_INK))
+	var has_mask_sel: bool = _selected_gear_ids.has("gas_mask")
+	var dose_est: float = float(sel_poi.get("dose_estimate_mask_msv" if has_mask_sel else "dose_estimate_msv", 0.0))
+	dv.add_child(_make_ink_label("Outside now: %s (%s) · Trip dose from tomorrow ≈ %s · %s" % [RadiationModel.format_rate(float(sel_poi.get("dose_rate_msv_h", 0.0))), str(sel_poi.get("radiation_risk", "")), RadiationModel.format_dose(dose_est), str(sel_poi.get("loot_status", ""))], 11, COL_STAMP_RED if dose_est > 250.0 else COL_INK_MUTED))
 
 	var loot_h := HBoxContainer.new()
 	loot_h.add_theme_constant_override("separation", 5)
@@ -1641,7 +1678,7 @@ func _toggle_expedition_gear(gid: String) -> void:
 
 	var has_suitcase: bool = _selected_gear_ids.has("suitcase") and GameState.has_working_item("suitcase")
 	if not has_suitcase:
-		# Classic 60 Seconds! rule: max 1 gear item without Suitcase (selecting new replaces previous)
+		# Classic rule: max 1 gear item without Suitcase (selecting new replaces previous)
 		_selected_gear_ids.clear()
 		_selected_gear_ids.append(gid)
 	else:
@@ -1659,12 +1696,17 @@ func _toggle_expedition_gear(gid: String) -> void:
 # END DAY TURN RESOLUTION & DRAMATIC "DAY <N>" CURTAIN
 # ---------------------------------------------------------------------------
 func _on_end_day_pressed() -> void:
-	if _in_day_transition:
+	if _in_day_transition or (is_instance_valid(_cinematic) and _cinematic.is_busy()):
+		return
+	if _has_unresolved_dilemma and not GameState.get_living_bunker_members().is_empty():
+		# The day's dilemma must be answered first – reopen it instead of choosing silently.
+		_day_queue = [{"type": "dilemma"}]
+		_run_day_queue()
 		return
 	SoundManager.play_sfx("page_turn")
 
 	var next_day_preview: int = GameState.day + 1
-	var house_sub: String = str(GameState.selected_house.get("name", GameState.current_neighborhood_label))
+	var house_sub: String = LocationText.area_header()
 	_curtain_duration = 0.62 if GameState.demo_mode else 0.85
 	_curtain_timer = 0.0
 	_curtain_midpoint_fired = false
@@ -1675,17 +1717,9 @@ func _on_end_day_pressed() -> void:
 
 func _on_curtain_midpoint() -> void:
 	# 1. Resolve today's event if Day >= 1, shelter is occupied, and an event has options
-	var event_outcome: Dictionary = {}
-	var opts: Array = _get_event_options(_current_event)
-	if GameState.day >= 1 and not GameState.get_living_bunker_members().is_empty() and not _current_event.is_empty() and not opts.is_empty():
-		if _selected_event_choice_id == "":
-			for i in range(opts.size() - 1, -1, -1):
-				if opts[i] is Dictionary and _is_event_option_available(opts[i] as Dictionary):
-					_selected_event_choice_id = str((opts[i] as Dictionary).get("id", ""))
-					break
-		if _selected_event_choice_id == "":
-			_selected_event_choice_id = str((opts[opts.size() - 1] as Dictionary).get("id", ""))
-		event_outcome = EventDeck.resolve_event(_current_event, _selected_event_choice_id, GameState.rng)
+	# The dilemma was resolved (and animated) earlier in the day by the player's own choice.
+	var event_outcome: Dictionary = _resolved_outcome.duplicate()
+	_resolved_outcome = {}
 
 	# 2. Clamp planned rations to 0..2 per person AND actual remaining GameState stockpiles
 	var clamped_rations: Dictionary = {}
@@ -1744,7 +1778,7 @@ func _on_curtain_midpoint() -> void:
 			"lines": day_lines
 		})
 
-	_curtain_overlay.configure(GameState.day, str(GameState.selected_house.get("name", GameState.current_neighborhood_label)))
+	_curtain_overlay.configure(GameState.day, LocationText.area_header())
 
 	# 5. Check Game Over / Victory transition
 	if GameState.game_over and not GameState.demo_mode:
@@ -1769,8 +1803,14 @@ func _start_demo_showcase() -> void:
 	BunkerScene.demo_completed_flag = false
 	_run_demo_sequence()
 
+func _wait_cinematic_idle() -> void:
+	await get_tree().process_frame
+	while is_inside_tree() and is_instance_valid(_cinematic) and (_cinematic.is_busy() or not _day_queue.is_empty()):
+		await get_tree().process_frame
+
 func _run_demo_sequence() -> void:
 	# --- DAY 1: Full Bunker View -> Log -> Rations -> Day 1 Dilemma -> OSM Expedition Map -> End Day 1 ---
+	await _wait_cinematic_idle()
 	_set_notebook_open(false)
 	await get_tree().create_timer(1.55).timeout
 	if not is_inside_tree():
@@ -1824,8 +1864,10 @@ func _run_demo_sequence() -> void:
 		return
 
 	# End Day 1 -> Day 2
+	await _wait_cinematic_idle()
 	_on_end_day_pressed()
 	await _wait_for_day_curtain()
+	await _wait_cinematic_idle()
 	if not is_inside_tree():
 		return
 
@@ -1852,8 +1894,10 @@ func _run_demo_sequence() -> void:
 		return
 
 	# End Day 2 -> Day 3
+	await _wait_cinematic_idle()
 	_on_end_day_pressed()
 	await _wait_for_day_curtain()
+	await _wait_cinematic_idle()
 	if not is_inside_tree():
 		return
 
@@ -1875,8 +1919,10 @@ func _run_demo_sequence() -> void:
 		return
 
 	# End Day 3 -> Day 4
+	await _wait_cinematic_idle()
 	_on_end_day_pressed()
 	await _wait_for_day_curtain()
+	await _wait_cinematic_idle()
 	if not is_inside_tree():
 		return
 
@@ -1974,6 +2020,9 @@ func _demo_apply_smart_rations() -> void:
 	_rebuild_tab_rations()
 
 func _demo_pick_best_event_choice() -> void:
+	# The dilemma is resolved through the cinematic flow; nothing to pick once answered.
+	if not _has_unresolved_dilemma:
+		return
 	var opts: Array = _get_event_options(_current_event)
 	if opts.is_empty():
 		return
@@ -1995,6 +2044,195 @@ func _demo_pick_best_event_choice() -> void:
 	SoundManager.play_sfx("button_click")
 	_rebuild_tab_dilemma()
 	_refresh_tab_headers_and_footer()
+
+# ---------------------------------------------------------------------------
+# PASS 2: CINEMATIC DAY SEQUENCE (returns → dilemma → animated outcome)
+# ---------------------------------------------------------------------------
+func _begin_day_sequence() -> void:
+	if not is_inside_tree() or not is_instance_valid(_cinematic) or GameState.game_over:
+		return
+	_day_queue.clear()
+	for arr_v in GameState.storage_arrivals:
+		_day_queue.append({"type": "return", "arrival": arr_v})
+	GameState.storage_arrivals.clear()
+	if _has_unresolved_dilemma and not GameState.get_living_bunker_members().is_empty():
+		_day_queue.append({"type": "dilemma"})
+	_run_day_queue()
+
+
+func _run_day_queue() -> void:
+	if _day_queue.is_empty() or not is_instance_valid(_cinematic):
+		return
+	if _cinematic.is_busy():
+		return
+	var step: Dictionary = _day_queue.pop_front()
+	match str(step.get("type", "")):
+		"return":
+			var arr: Dictionary = step["arrival"]
+			var explorer: Dictionary = _member_by_id(str(arr.get("member_id", "")))
+			if explorer.is_empty():
+				_run_day_queue()
+				return
+			_cinematic.play_return(arr, explorer)
+		"dilemma":
+			if not _has_unresolved_dilemma:
+				_run_day_queue()
+				return
+			_dilemma_actor = _member_by_id(str((_current_event.get("context", {}) as Dictionary).get("actor_id", "")))
+			if _dilemma_actor.is_empty() or not bool(_dilemma_actor.get("alive", true)):
+				_dilemma_actor = EventDeck.pick_actor()
+			var opts_out: Array = []
+			for o_v in _get_event_options(_current_event):
+				if not (o_v is Dictionary):
+					continue
+				var o: Dictionary = o_v
+				var req: String = str(o.get("item_id", o.get("required_item", "")))
+				var avail: bool = _is_event_option_available(o)
+				var status: String = ""
+				if req != "":
+					var nm: String = str(ItemDB.get_item_info(req).get("short_name", req))
+					status = ("uses " + nm) if avail else (nm + (" (broken)" if _is_item_owned_but_broken(req) else " (missing)"))
+				opts_out.append({"id": str(o.get("id", "")), "label": _strip_md(str(o.get("label", o.get("text", "")))), "available": avail, "status": status})
+			_cinematic.show_dilemma(_current_event, opts_out, _dilemma_actor)
+			if GameState.demo_mode or GameState.headless_fast_test:
+				get_tree().create_timer(0.9).timeout.connect(func() -> void:
+					if is_inside_tree() and _has_unresolved_dilemma:
+						_on_dilemma_choice(_auto_choice_id())
+				)
+
+
+func _auto_choice_id() -> String:
+	var opts: Array = _get_event_options(_current_event)
+	for opt_v in opts:
+		if opt_v is Dictionary and _is_event_option_available(opt_v as Dictionary) and str((opt_v as Dictionary).get("item_id", "")) != "":
+			return str((opt_v as Dictionary).get("id", ""))
+	for opt_v2 in opts:
+		if opt_v2 is Dictionary and _is_event_option_available(opt_v2 as Dictionary):
+			return str((opt_v2 as Dictionary).get("id", ""))
+	return ""
+
+
+func _on_dilemma_choice(choice_id: String) -> void:
+	if not _has_unresolved_dilemma or choice_id == "":
+		return
+	_selected_event_choice_id = choice_id
+	_has_unresolved_dilemma = false
+	_resolved_outcome = EventDeck.resolve_event(_current_event, choice_id, GameState.rng)
+	var journal_line: String = "%s — %s" % [_strip_md(str(_current_event.get("title", "Dilemma"))), _strip_md(str(_resolved_outcome.get("outcome_text", "")))]
+	GameState.daily_log_entries.append({"day": GameState.day, "title": "DAY %d — DECISION (%s)" % [GameState.day, str(_resolved_outcome.get("actor_name", ""))], "lines": [journal_line]})
+	_cinematic.play_outcome(_resolved_outcome, _current_event)
+	_rebuild_all_tabs()
+	_refresh_tab_headers_and_footer()
+	if is_instance_valid(_hud_bar):
+		_hud_bar.queue_redraw()
+	if is_instance_valid(_backdrop):
+		_backdrop.refresh_bunker()
+
+
+func _on_cinematic_finished(kind: String) -> void:
+	_rebuild_all_tabs()
+	_refresh_tab_headers_and_footer()
+	if is_instance_valid(_backdrop):
+		_backdrop.refresh_bunker()
+	if is_instance_valid(_hud_bar):
+		_hud_bar.queue_redraw()
+	if kind == "drive":
+		GameState.request_screen(GameState.SCREEN_SUMMARY)
+		return
+	if kind == "outcome":
+		var tags: Array = _resolved_outcome.get("tags", [])
+		if (tags.has("victory") or tags.has("gameover")) and not GameState.demo_mode:
+			call_deferred("_on_end_day_pressed")
+			return
+	if kind == "install" and is_instance_valid(_garage):
+		_garage.show_view()
+	_run_day_queue()
+
+
+func _member_by_id(mid: String) -> Dictionary:
+	for m_v in GameState.family_members:
+		if m_v is Dictionary and str((m_v as Dictionary).get("id", "")) == mid:
+			return m_v
+	return {}
+
+
+# ---------------------------------------------------------------------------
+# PASS 2: GARAGE & BIG MAP
+# ---------------------------------------------------------------------------
+func _open_garage() -> void:
+	if is_instance_valid(_cinematic) and _cinematic.is_busy():
+		return
+	_garage.show_view()
+
+
+func _on_install_requested(part: String) -> void:
+	var before: Dictionary = GameState.vehicle.duplicate(true)
+	var res: Dictionary = VehicleSystem.install(part)
+	if not bool(res.get("ok", false)):
+		_garage.refresh()
+		return
+	res["vehicle_before"] = before
+	_garage.visible = false
+	_cinematic.play_install(res)
+
+
+func _on_drive_requested() -> void:
+	var res: Dictionary = VehicleSystem.drive_out()
+	if not bool(res.get("ok", false)):
+		_garage.refresh()
+		return
+	_garage.visible = false
+	_cinematic.play_drive_out(str(res.get("text", "")))
+
+
+func _build_map_overlay() -> void:
+	_map_overlay = Control.new()
+	_map_overlay.name = "NeighborhoodMap"
+	_map_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_map_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_map_overlay.visible = false
+	add_child(_map_overlay)
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.06, 0.05, 0.94)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_map_overlay.add_child(bg)
+	_big_map = ShelterMapView.new()
+	_big_map.position = Vector2(20, 52)
+	_big_map.size = Vector2(1240, 650)
+	_big_map.show_controls = true
+	_big_map.target_clicked.connect(func(idx: int) -> void:
+		SoundManager.play_sfx("button_click")
+		_selected_poi_index = idx
+		_big_map.selected_index = idx
+		_big_map.queue_redraw()
+		_rebuild_tab_expedition()
+	)
+	_map_overlay.add_child(_big_map)
+	var title := _make_ink_label("NEIGHBOURHOOD MAP — %s (OpenStreetMap data; click a place to plan an expedition)" % LocationText.area_header(), 16, Color("#f2b82e"))
+	title.position = Vector2(24, 14)
+	title.size = Vector2(1000, 26)
+	_map_overlay.add_child(title)
+	var close := Button.new()
+	close.text = "CLOSE MAP  [ESC]"
+	close.position = Vector2(1080, 10)
+	close.size = Vector2(180, 34)
+	close.focus_mode = Control.FOCUS_NONE
+	_style_conelrad_button(close, COL_STAMP_RED, COL_INK, Color("#fff3db"))
+	close.pressed.connect(func() -> void:
+		SoundManager.play_sfx("page_turn")
+		_map_overlay.visible = false
+		_switch_tab(TAB_EXPEDITION, false)
+	)
+	_map_overlay.add_child(close)
+
+
+func _open_map_overlay() -> void:
+	if is_instance_valid(_cinematic) and _cinematic.is_busy():
+		return
+	_big_map.targets = _available_targets
+	_big_map.selected_index = _selected_poi_index
+	_map_overlay.visible = true
+	_big_map.queue_redraw()
 
 # ---------------------------------------------------------------------------
 # SHARED HELPERS & UI FACTORIES
@@ -2241,7 +2479,7 @@ class _TopHudBar extends Control:
 		var house_r := Rect2(122.0, 8.0, 294.0, 36.0)
 		draw_rect(house_r, Color("#242a24"), true)
 		draw_rect(house_r, Color("#565f55"), false, 1.5)
-		var h_name: String = str(GameState.selected_house.get("name", "Civil Defense Shelter"))
+		var h_name: String = LocationText.home_label()
 		draw_string(font, house_r.position + Vector2(10.0, 23.0), "SHELTER: " + h_name, HORIZONTAL_ALIGNMENT_LEFT, house_r.size.x - 16.0, 13, Color("#f2e6ce"))
 
 		# 3. Radiation Sv/hr Badge
@@ -2250,7 +2488,7 @@ class _TopHudBar extends Control:
 		var sv_col := Color("#7ec850") if sv < 2.0 else (Color("#f2b82e") if sv < 5.5 else Color("#e05a2b"))
 		draw_rect(rad_r, Color("#242a24"), true)
 		draw_rect(rad_r, sv_col, false, 1.5)
-		draw_string(font, rad_r.position + Vector2(0.0, 23.0), "RAD: %.1f Sv/hr" % sv, HORIZONTAL_ALIGNMENT_CENTER, rad_r.size.x, 13, sv_col)
+		draw_string(font, rad_r.position + Vector2(0.0, 23.0), "OUT: %s" % RadiationModel.format_rate(sv * 1000.0), HORIZONTAL_ALIGNMENT_CENTER, rad_r.size.x, 13, sv_col)
 
 		# 4. Bunker Temp Badge
 		var tmp_r := Rect2(566.0, 8.0, 108.0, 36.0)
@@ -2429,7 +2667,7 @@ class _ExpeditionRadarMap extends Control:
 
 		# Top banner
 		draw_rect(Rect2(0.0, 0.0, size.x, 20.0), Color("#1d1a16"), true)
-		var map_hdr: String = "TACTICAL OSM RADAR — " + str(GameState.selected_house.get("name", "SHELTER"))
+		var map_hdr: String = "OSM MAP — " + LocationText.home_label()
 		draw_string(font, Vector2(6.0, 14.0), map_hdr, HORIZONTAL_ALIGNMENT_LEFT, size.x - 12.0, 10, Color("#f2b82e"))
 
 		# Compute real-world relative (lat, lon) meter offsets

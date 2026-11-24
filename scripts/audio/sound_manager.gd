@@ -157,6 +157,13 @@ func _generate_all_sfx() -> void:
 	_sfx_streams["knock"] = _synth_knock()
 	_sfx_streams["victory"] = _synth_victory()
 	_sfx_streams["gameover"] = _synth_gameover()
+	_sfx_streams["gunshot"] = _synth_gunshot()
+	_sfx_streams["wrench"] = _synth_wrench()
+	_sfx_streams["cheer"] = _synth_cheer()
+	_sfx_streams["thud"] = _synth_thud()
+	_sfx_streams["sparks"] = _synth_sparks()
+	_sfx_streams["engine_start"] = _synth_engine_start()
+	_sfx_streams["ladder"] = _synth_ladder()
 
 func _generate_all_ambience() -> void:
 	_ambient_streams["menu"] = _synth_ambience_menu()
@@ -574,3 +581,135 @@ func _synth_ambience_bunker() -> AudioStreamWAV:
 		var ballast: float = sin(TAU * 60.0 * t) * 0.18 + sin(TAU * 120.0 * t) * 0.09 + sin(TAU * 240.0 * t) * 0.025
 		buf[i] = (ballast + lp2 * 0.42 * duct_swell) * 0.58
 	return _build_wav(buf, true)
+
+
+# --- Pass-2 cinematic effects ------------------------------------------------
+
+func _synth_gunshot() -> AudioStreamWAV:
+	var dur: float = 0.7
+	var n: int = int(dur * MIX_RATE)
+	var buf := PackedFloat32Array()
+	buf.resize(n)
+	var lp: float = 0.0
+	for i in range(n):
+		var t: float = float(i) / float(MIX_RATE)
+		var crack: float = _next_noise() * exp(-t * 60.0)
+		lp = lp + (_next_noise() - lp) * 0.08
+		var boom: float = lp * exp(-t * 7.0) * 2.2 + sin(TAU * 62.0 * t) * exp(-t * 9.0) * 0.6
+		var echo: float = 0.0
+		if t > 0.18:
+			echo = _next_noise() * exp(-(t - 0.18) * 14.0) * 0.18
+		buf[i] = tanh((crack * 1.4 + boom + echo) * 1.3) * 0.9
+	return _build_wav(buf, false)
+
+
+func _synth_wrench() -> AudioStreamWAV:
+	var dur: float = 0.6
+	var n: int = int(dur * MIX_RATE)
+	var buf := PackedFloat32Array()
+	buf.resize(n)
+	var hits: Array[float] = [0.0, 0.16, 0.31]
+	for i in range(n):
+		var t: float = float(i) / float(MIX_RATE)
+		var s: float = 0.0
+		for h in hits:
+			if t >= h:
+				var dt: float = t - h
+				s += (sin(TAU * 1250.0 * dt) * 0.4 + sin(TAU * 2310.0 * dt) * 0.25 + sin(TAU * 3480.0 * dt) * 0.15) * exp(-dt * 24.0)
+				s += _next_noise() * exp(-dt * 180.0) * 0.3
+		buf[i] = tanh(s) * 0.7
+	return _build_wav(buf, false)
+
+
+func _synth_cheer() -> AudioStreamWAV:
+	var dur: float = 1.3
+	var n: int = int(dur * MIX_RATE)
+	var buf := PackedFloat32Array()
+	buf.resize(n)
+	var bp1: float = 0.0
+	var bp2: float = 0.0
+	for i in range(n):
+		var t: float = float(i) / float(MIX_RATE)
+		var env: float = minf(1.0, t / 0.15) * exp(-maxf(0.0, t - 0.5) * 2.2)
+		var nz: float = _next_noise()
+		bp1 = bp1 + (nz - bp1) * 0.18
+		bp2 = bp2 + (bp1 - bp2) * 0.35
+		var voices: float = (sin(TAU * (300.0 + 40.0 * sin(t * 7.0)) * t) + sin(TAU * (420.0 + 30.0 * sin(t * 5.3)) * t) * 0.7 + sin(TAU * (520.0 + 50.0 * sin(t * 9.1)) * t) * 0.5) * 0.25
+		var claps: float = 0.0
+		var ph: float = fmod(t * 7.3, 1.0)
+		if ph < 0.05 and t > 0.2:
+			claps = _next_noise() * (0.05 - ph) * 12.0
+		buf[i] = tanh((bp2 * 1.6 + voices * (0.5 + 0.5 * bp2) + claps) * env) * 0.75
+	return _build_wav(buf, false)
+
+
+func _synth_thud() -> AudioStreamWAV:
+	var dur: float = 0.45
+	var n: int = int(dur * MIX_RATE)
+	var buf := PackedFloat32Array()
+	buf.resize(n)
+	var lp: float = 0.0
+	for i in range(n):
+		var t: float = float(i) / float(MIX_RATE)
+		lp = lp + (_next_noise() - lp) * 0.05
+		var body: float = sin(TAU * (95.0 - 40.0 * t) * t) * exp(-t * 11.0)
+		buf[i] = tanh((body * 1.2 + lp * exp(-t * 16.0) * 2.0) * 1.2) * 0.85
+	return _build_wav(buf, false)
+
+
+func _synth_sparks() -> AudioStreamWAV:
+	var dur: float = 0.5
+	var n: int = int(dur * MIX_RATE)
+	var buf := PackedFloat32Array()
+	buf.resize(n)
+	var hp_prev: float = 0.0
+	for i in range(n):
+		var t: float = float(i) / float(MIX_RATE)
+		var nz: float = _next_noise()
+		var hp: float = nz - hp_prev
+		hp_prev = nz
+		var crackle: float = hp * (1.0 if _next_noise() > 0.7 else 0.15)
+		var hum: float = sin(TAU * 120.0 * t) * 0.25 * exp(-t * 4.0)
+		buf[i] = tanh((crackle * 0.9 + hum) * exp(-t * 3.0) * 1.4) * 0.75
+	return _build_wav(buf, false)
+
+
+func _synth_engine_start() -> AudioStreamWAV:
+	var dur: float = 2.6
+	var n: int = int(dur * MIX_RATE)
+	var buf := PackedFloat32Array()
+	buf.resize(n)
+	var phase: float = 0.0
+	for i in range(n):
+		var t: float = float(i) / float(MIX_RATE)
+		var s: float = 0.0
+		if t < 1.1:
+			# starter motor cranking: chugging ~6 Hz
+			var crank: float = 0.5 + 0.5 * sin(TAU * 6.2 * t)
+			s = (sin(TAU * 140.0 * t) * 0.4 + _next_noise() * 0.25) * crank * 0.8
+		else:
+			# catches and idles: rising rpm then settles
+			var rpm_hz: float = 28.0 + 22.0 * exp(-(t - 1.1) * 2.0) + 6.0
+			phase += rpm_hz / float(MIX_RATE)
+			var pulse: float = pow(0.5 + 0.5 * sin(TAU * phase), 6.0)
+			s = (pulse * 0.9 + sin(TAU * rpm_hz * 2.0 * t) * 0.15 + _next_noise() * 0.08) * minf(1.0, (t - 1.1) * 6.0)
+		var fade: float = minf(1.0, (dur - t) / 0.3)
+		buf[i] = tanh(s * 1.3) * 0.8 * fade
+	return _build_wav(buf, false)
+
+
+func _synth_ladder() -> AudioStreamWAV:
+	var dur: float = 0.9
+	var n: int = int(dur * MIX_RATE)
+	var buf := PackedFloat32Array()
+	buf.resize(n)
+	var steps: Array[float] = [0.0, 0.22, 0.44, 0.66]
+	for i in range(n):
+		var t: float = float(i) / float(MIX_RATE)
+		var s: float = 0.0
+		for st in steps:
+			if t >= st:
+				var dt: float = t - st
+				s += (sin(TAU * 420.0 * dt) * 0.35 + sin(TAU * 810.0 * dt) * 0.2) * exp(-dt * 40.0) + _next_noise() * exp(-dt * 120.0) * 0.25
+		buf[i] = tanh(s) * 0.6
+	return _build_wav(buf, false)

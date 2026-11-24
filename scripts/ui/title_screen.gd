@@ -128,7 +128,7 @@ func _build_ui() -> void:
 		_status_label.text = "● AUTO-DEMO SHOWCASE ACTIVE — INITIALIZING ATOMIC PROTOCOL IN 2.4s..."
 		_status_label.add_theme_color_override("font_color", ThemeHelper.COLOR_HAZARD_YELLOW)
 	else:
-		var house_addr: String = str(GameState.selected_house.get("address", "518 E Roy St, Capitol Hill, Seattle, WA"))
+		var house_addr: String = LocationText.area_header()
 		_status_label.text = "ACTIVE SECTOR: %s   •   CONELRAD FREQ: 640 / 1240 KC" % house_addr.to_upper()
 		_status_label.add_theme_color_override("font_color", Color("#dccba6"))
 	footer_panel.add_child(_status_label)
@@ -437,8 +437,8 @@ func _draw_radiation_emblem(center: Vector2, radius: float, _font: Font) -> void
 	draw_circle(center, radius * 0.05, ThemeHelper.COLOR_ATOMIC_ORANGE)
 
 func _draw_hero_typography(vp: Vector2, font: Font) -> void:
-	var title_str := "60 SECONDS: WORLD REATOMIZED"
-	var title_size: int = 42
+	var title_str := "THE END IS NEAR"
+	var title_size: int = 58
 	var t_dim: Vector2 = font.get_string_size(title_str, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size)
 	var tx: float = vp.x * 0.5 - t_dim.x * 0.5
 	var ty: float = 266.0

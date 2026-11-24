@@ -291,7 +291,7 @@ func _build_nuke_telemetry_card(rect: Rect2) -> void:
 	var sv_hr: float = float(GameState.nuke_config.get("initial_sv_hr", GameState.surface_radiation_sv))
 
 	var phys_lbl := Label.new()
-	phys_lbl.text = "YIELD: %s  •  ZONE: %s  •  PEAK: %.1f Sv/hr" % [yield_str, zone_str, sv_hr]
+	phys_lbl.text = "YIELD: %s  •  ZONE: %s  •  DOSE RATE AT H+1: %s" % [yield_str, zone_str, RadiationModel.format_rate(sv_hr * 1000.0)]
 	phys_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	phys_lbl.add_theme_font_size_override("font_size", 12)
 	phys_lbl.add_theme_color_override("font_color", Color("#dccba6"))
@@ -485,7 +485,7 @@ func _draw() -> void:
 		Vector2(folder_rect.position.x, folder_rect.position.y)
 	])
 	draw_polyline(perimeter, ThemeHelper.COLOR_INK, 2.5)
-	draw_string(font, Vector2(68.0, 30.0), "DOSSIER FILE #CD-1958-REATOMIZED", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ThemeHelper.COLOR_INK)
+	draw_string(font, Vector2(68.0, 30.0), "DOSSIER FILE #CD-1958-END-IS-NEAR", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ThemeHelper.COLOR_INK)
 
 	# Subtle ledger horizontal rules across top narrative section
 	for line_y in [86.0, 108.0, 130.0, 152.0, 174.0]:

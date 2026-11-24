@@ -49,7 +49,7 @@ var _house_label: String = "518 E Roy St, Capitol Hill, Seattle, WA"
 
 var _nuke_lat: float = 47.6050
 var _nuke_lon: float = -122.3470
-var _target_name: String = "Local Metro Core (3.0 km SW)"
+var _target_name: String = "3.0 km SW of home"
 var _yield_kt: int = 800
 var _wind_deg: float = 45.0
 var _map_mode: String = MODE_REGIONAL
@@ -69,6 +69,7 @@ var _wind_status_lbl: Label
 var _forecast_panel: _ForecastPanelControl
 var _back_btn: Button
 var _launch_btn: _HazardSirenButton
+var _difficulty_btn: Button
 
 # Animation & Demo state
 var _anim_time: float = 0.0
@@ -135,12 +136,13 @@ func refresh_from_game_state() -> void:
 		_wind_deg = float(existing_cfg.get("wind_bearing_deg", 45.0))
 		_target_name = str(existing_cfg.get("target_name", "Strategic Target"))
 	else:
-		var local_pt: Dictionary = NukePhysics.destination_point(_house_lat, _house_lon, 225.0, 3.0)
-		_nuke_lat = float(local_pt.get("lat", _house_lat))
-		_nuke_lon = float(local_pt.get("lon", _house_lon))
+		var local_pick: Dictionary = NukePhysics.pick_local_target(_house_lat, _house_lon, GameState.map_landmarks)
+		_nuke_lat = float(local_pick["lat"])
+		_nuke_lon = float(local_pick["lon"])
 		_yield_kt = 800
-		_wind_deg = 45.0
-		_target_name = "Local Downtown (3.0 km SW)"
+		# Plume carried from ground zero toward home (wind bearing = direction the plume travels).
+		_wind_deg = NukePhysics.bearing_deg(_nuke_lat, _nuke_lon, _house_lat, _house_lon)
+		_target_name = str(local_pick["target_name"])
 
 	_rebuild_presets()
 	_recompute_and_sync(false)
@@ -168,7 +170,7 @@ func _start_demo_sequence() -> void:
 	set_map_mode(MODE_GLOBAL)
 	set_yield_kt(800)
 	set_wind_bearing(90.0)
-	set_strike_target(35.6762, 139.6503, "Tokyo Bay Metro (Global Test)")
+	set_strike_target(35.6762, 139.6503, "Tokyo, Japan")
 	if _map_canvas != null:
 		_map_canvas.trigger_shockwave()
 
@@ -181,7 +183,7 @@ func _tick_demo_mode(delta: float) -> void:
 		_demo_stage = 1
 		# Test antipodal / Moscow global winter trajectory on the Global Map
 		set_yield_kt(50000)
-		set_strike_target(55.7558, 37.6173, "Moscow Strategic Ring")
+		set_strike_target(55.7558, 37.6173, "Moscow, Russia")
 		if _map_canvas != null:
 			_map_canvas.trigger_shockwave()
 		_play_sfx("tick")
@@ -191,12 +193,12 @@ func _tick_demo_mode(delta: float) -> void:
 		# Switch to Regional Metro Radar and place an 800kt strike ~3.2 km from selected house
 		set_map_mode(MODE_REGIONAL)
 		set_yield_kt(800)
-		var local_strike: Dictionary = NukePhysics.destination_point(_house_lat, _house_lon, 225.0, 3.2)
-		var s_lat: float = float(local_strike.get("lat", _house_lat))
-		var s_lon: float = float(local_strike.get("lon", _house_lon))
+		var local_strike: Dictionary = NukePhysics.pick_local_target(_house_lat, _house_lon, GameState.map_landmarks)
+		var s_lat: float = float(local_strike["lat"])
+		var s_lon: float = float(local_strike["lon"])
 		var downwind_brng: float = NukePhysics.bearing_deg(s_lat, s_lon, _house_lat, _house_lon)
 		set_wind_bearing(downwind_brng)
-		set_strike_target(s_lat, s_lon, "Metro Downtown Core (3.2 km SW)")
+		set_strike_target(s_lat, s_lon, str(local_strike["target_name"]))
 		if _map_canvas != null:
 			_map_canvas.set_radar_range_km(25.0)
 			_map_canvas.trigger_shockwave()
@@ -465,8 +467,21 @@ func _build_ui() -> void:
 	)
 	add_child(_back_btn)
 
+	_difficulty_btn = Button.new()
+	_difficulty_btn.position = Vector2(252.0, 658.0)
+	_difficulty_btn.size = Vector2(464.0, 48.0)
+	_difficulty_btn.focus_mode = Control.FOCUS_NONE
+	_difficulty_btn.add_theme_font_size_override("font_size", 14)
+	_apply_tactical_button_style(_difficulty_btn, false, false)
+	_difficulty_btn.pressed.connect(func() -> void:
+		_play_sfx("button_click")
+		GameState.difficulty = "normal" if GameState.difficulty == "hard" else "hard"
+		_refresh_difficulty_labels()
+	)
+	add_child(_difficulty_btn)
+
 	_launch_btn = _HazardSirenButton.new()
-	_launch_btn.text = "[ SOUND THE SIREN — BEGIN 60 SECONDS! > ]"
+	_launch_btn.text = "[ SOUND THE SIREN — BEGIN %d SECONDS! > ]" % (30 if GameState.difficulty == "hard" else 60)
 	_launch_btn.position = Vector2(732.0, 658.0)
 	_launch_btn.size = Vector2(532.0, 48.0)
 	_launch_btn.focus_mode = Control.FOCUS_NONE
@@ -474,12 +489,22 @@ func _build_ui() -> void:
 		launch_scavenge()
 	)
 	add_child(_launch_btn)
+	_refresh_difficulty_labels()
 
 	_update_mode_tab_styles()
 
 
+func _refresh_difficulty_labels() -> void:
+	var hard: bool = GameState.difficulty == "hard"
+	if _difficulty_btn != null:
+		_difficulty_btn.text = "DIFFICULTY: HARD — 30 s SCAVENGE  [click to change]" if hard else "DIFFICULTY: NORMAL — 60 s SCAVENGE  [click to change]"
+	if _launch_btn != null:
+		_launch_btn.text = "[ SOUND THE SIREN — BEGIN %d SECONDS! > ]" % (30 if hard else 60)
+	queue_redraw()
+
+
 func _rebuild_presets() -> void:
-	_preset_defs = NukePhysics.get_preset_targets(_house_lat, _house_lon)
+	_preset_defs = NukePhysics.get_preset_targets(_house_lat, _house_lon, GameState.map_landmarks)
 	for i in range(mini(_preset_buttons.size(), _preset_defs.size())):
 		var pdef: Dictionary = _preset_defs[i]
 		_preset_buttons[i].text = str(pdef.get("button_label", "Preset"))
@@ -1403,7 +1428,7 @@ class _StrikeMapCanvas extends Control:
 			{"name": "Washington D.C., USA", "short": "D.C.", "lat": 38.8951, "lon": -77.0364},
 			{"name": "Nevada Test Site", "short": "NTS", "lat": 37.1167, "lon": -116.0500},
 			{"name": "London Thames Sector", "short": "London", "lat": 51.5074, "lon": -0.1278},
-			{"name": "Moscow Strategic Ring", "short": "Moscow", "lat": 55.7558, "lon": 37.6173},
+			{"name": "Moscow", "short": "Moscow", "lat": 55.7558, "lon": 37.6173},
 			{"name": "Tokyo Bay Metro", "short": "Tokyo", "lat": 35.6762, "lon": 139.6503},
 			{"name": "Sydney Harbor", "short": "Sydney", "lat": -33.8688, "lon": 151.2093}
 		]
@@ -1575,7 +1600,7 @@ class _ForecastPanelControl extends Control:
 		var temp_sub: String = "SCORCHING HEAT" if temp_c >= 30.0 else ("FREEZING WINTER!" if temp_c <= -3.0 else ("NUCLEAR AUTUMN" if temp_c <= 4.5 else ("CHILLY DUSK" if temp_c <= 14.0 else "BLAST WARMTH")))
 
 		var scout_s: float = float(_impact.get("scout_seconds", 8.0))
-		var scav_s: float = float(_impact.get("scavenge_seconds", 60.0))
+		var scav_s: float = 30.0 if GameState.difficulty == "hard" else 60.0
 
 		_draw_telemetry_card(
 			font,
@@ -1589,7 +1614,7 @@ class _ForecastPanelControl extends Control:
 			font,
 			Rect2(24.0 + card_w, 104.0, card_w, card_h),
 			"SURFACE RADIATION",
-			"%.2f Sv/hr" % sv_hr,
+			RadiationModel.format_rate(sv_hr * 1000.0) + " @H+1",
 			rad_sub,
 			Color("#b5331d") if sv_hr >= 5.0 else Color("#2f6b28")
 		)
@@ -1606,7 +1631,7 @@ class _ForecastPanelControl extends Control:
 			Rect2(24.0 + card_w, 164.0, card_w, card_h),
 			"WARNING + GRAB TIMER",
 			"%.0fs + %.0fs" % [scout_s, scav_s],
-			"%.0fs Recon / 60.0s Scavenge" % scout_s,
+			"%.0fs Recon / %.0fs Scavenge (%s)" % [scout_s, scav_s, GameState.difficulty.to_upper()],
 			Color("#1b1917")
 		)
 
