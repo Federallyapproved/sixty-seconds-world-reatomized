@@ -232,8 +232,9 @@ static func generate(house_data: Dictionary, family_members: Array, rng: RandomN
 	var leader_start: Vector2 = _pick_leader_start(nav, hatch_pos)
 	var family_spawns: Array = _spawn_family(family_members, rooms, nav, hatch_pos, local_rng)
 	var items: Array = _spawn_items(rooms, furniture, nav, hatch_pos, family_spawns, real_area, local_rng)
-	_snap_to_walkable(nav, items)
-	_snap_to_walkable(nav, family_spawns)
+	var occupied_cells: Dictionary = {}
+	_snap_to_walkable(nav, family_spawns, occupied_cells)
+	_snap_to_walkable(nav, items, occupied_cells)
 
 	var out_rooms: Array = []
 	for r_v in rooms:
@@ -1029,22 +1030,46 @@ static func _nearest_cell(nav: Dictionary, mask: PackedByteArray, c: Vector2i) -
 
 
 ## Moves anything that landed in the wall-clearance band onto the nearest walkable cell centre
-## (never more than ~2 cells), so loot never looks half-buried in a wall and is always standable.
-static func _snap_to_walkable(nav: Dictionary, entries: Array) -> void:
+## (within ~4 cells), and never lets two things share a cell, so loot never looks half-buried
+## in a wall or stacked on top of another pickup.
+static func _snap_to_walkable(nav: Dictionary, entries: Array, occupied: Dictionary) -> void:
 	var reach: PackedByteArray = nav.get("reachable", PackedByteArray())
 	if reach.is_empty():
 		return
+	var cols: int = int(nav["cols"])
+	var rows: int = int(nav["rows"])
 	for e_v in entries:
 		var e: Dictionary = e_v
 		var p: Vector2 = e["pos"]
-		if is_reachable(nav, p):
+		var c0: Vector2i = HouseGenerator.world_to_cell(nav, p)
+		var i0: int = c0.y * cols + c0.x
+		if is_reachable(nav, p) and not occupied.has(i0):
+			occupied[i0] = true
 			continue
-		var c: Vector2i = _nearest_cell(nav, reach, HouseGenerator.world_to_cell(nav, p))
-		if c.x < 0:
+		var best: Vector2i = Vector2i(-1, -1)
+		var bd: float = 1e20
+		for r in range(0, 5):
+			for dy in range(-r, r + 1):
+				for dx in range(-r, r + 1):
+					if maxi(absi(dx), absi(dy)) != r:
+						continue
+					var x: int = c0.x + dx
+					var y: int = c0.y + dy
+					if x < 0 or y < 0 or x >= cols or y >= rows:
+						continue
+					var idx: int = y * cols + x
+					if reach[idx] == 0 or occupied.has(idx):
+						continue
+					var d: float = HouseGenerator.cell_to_world(nav, Vector2i(x, y)).distance_to(p)
+					if d < bd:
+						bd = d
+						best = Vector2i(x, y)
+			if best.x >= 0 and r >= 1:
+				break
+		if best.x < 0 or bd > float(NAV_CELL) * 4.5:
 			continue
-		var q: Vector2 = HouseGenerator.cell_to_world(nav, c)
-		if q.distance_to(p) <= float(NAV_CELL) * 4.0:
-			e["pos"] = q
+		e["pos"] = HouseGenerator.cell_to_world(nav, best)
+		occupied[best.y * cols + best.x] = true
 
 
 static func is_reachable(nav: Dictionary, p: Vector2) -> bool:

@@ -6,7 +6,7 @@ extends RefCounted
 ## Condition is set by the blast (distance, overpressure). Parts must be scavenged from real
 ## places (fuel stations, auto/hardware shops, neighbours' driveways), carried home, stored on
 ## the shelter rack, then installed BY HAND by a survivor (radiation exposure in the garage).
-## When the car runs and has fuel for the route, the household can drive out upwind.
+## When the car runs and has fuel for the route, the household can drive out crosswind, away from ground zero.
 
 const NEEDED_FUEL_L: float = 25.0
 const L_PER_KM: float = 0.11
@@ -147,15 +147,22 @@ static func _hours_label(h: float) -> String:
 
 
 ## Upwind escape: away from the fallout plume, toward the verified landmark/area in that direction.
+## Escape crosswind (civil-defence advice: leave at right angles to the plume), on the side that
+## points away from ground zero — never "upwind", which from a downwind house means toward GZ.
 static func escape_plan() -> Dictionary:
 	var downwind: float = LocationText.downwind_bearing()
-	var upwind: float = fposmod(downwind + 180.0, 360.0)
-	var dir_word: String = LocationText.compass_word(upwind)
+	var h_lat: float = float(GameState.selected_house.get("lat", 0.0))
+	var h_lon: float = float(GameState.selected_house.get("lon", 0.0))
+	var to_gz: float = NukePhysics.bearing_deg(h_lat, h_lon, float(GameState.nuke_config.get("lat", h_lat)), float(GameState.nuke_config.get("lon", h_lon)))
+	var c1: float = fposmod(downwind + 90.0, 360.0)
+	var c2: float = fposmod(downwind - 90.0, 360.0)
+	var heading: float = c1 if absf(NukePhysics.angle_diff_deg(c1, to_gz)) >= absf(NukePhysics.angle_diff_deg(c2, to_gz)) else c2
+	var dir_word: String = LocationText.compass_word(heading)
 	var route_km: float = 40.0
 	var fuel_need: float = route_km * L_PER_KM
-	var lm: Dictionary = LocationText.landmark_toward(upwind, 60.0, 200.0)
+	var lm: Dictionary = LocationText.landmark_toward(heading, 60.0, 200.0)
 	var via: String = ("past %s" % str(lm["name"])) if not lm.is_empty() else ""
-	return {"bearing": upwind, "dir_word": dir_word, "route_km": route_km, "fuel_needed_l": fuel_need, "via": via}
+	return {"bearing": heading, "dir_word": dir_word, "route_km": route_km, "fuel_needed_l": fuel_need, "via": via}
 
 
 static func status_lines() -> Array[String]:
@@ -227,7 +234,7 @@ static func drive_out() -> Dictionary:
 	GameState.victory = true
 	GameState.game_over = true
 	GameState.ending_title = "VICTORY: DROVE OUT OF %s" % area.to_upper()
-	GameState.ending_description = "On day %d the repaired car coughed to life. %s piled in and drove %s%s, upwind and away from the fallout, absorbing about %s each on the way out of %s." % [
+	GameState.ending_description = "On day %d the repaired car coughed to life. %s piled in and drove %s%s, crosswind out of the fallout plume and away from ground zero, absorbing about %s each on the way out of %s." % [
 		GameState.day, ", ".join(names), str(plan["dir_word"]), via_txt, RadiationModel.format_dose(drive_dose), area
 	]
 	GameState.daily_log_entries.append({"day": GameState.day, "title": "DAY %d — WE DROVE OUT" % GameState.day, "lines": [GameState.ending_description]})

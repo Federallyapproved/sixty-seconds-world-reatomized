@@ -289,7 +289,7 @@ func init_default_nuke() -> void:
 		"lat": 47.6030,
 		"lon": -122.3390,
 		"yield_kt": 800,
-		"wind_bearing_deg": 225.0,
+		"wind_bearing_deg": 32.8,   # plume heads from Elliott Bay toward the house (NNE)
 		"distance_km": 2.78,
 		"zone": "ground_zero_edge",
 		"initial_sv_hr": 7.4,

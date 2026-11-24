@@ -362,6 +362,13 @@ func _test_vehicle_and_endings() -> void:
 	_ok(VehicleSystem.is_ready(), "car becomes road-worthy after all parts installed")
 	var drive: Dictionary = VehicleSystem.drive_out()
 	_ok(bool(drive["ok"]) and GameState.victory and GameState.ending_title.begins_with("VICTORY: DROVE OUT"), "drive-out escape ending works: %s" % GameState.ending_title)
+	var plan_e: Dictionary = VehicleSystem.escape_plan()
+	var hl: float = float(GameState.selected_house["lat"])
+	var ho: float = float(GameState.selected_house["lon"])
+	var to_gz_e: float = NukePhysics.bearing_deg(hl, ho, float(GameState.nuke_config["lat"]), float(GameState.nuke_config["lon"]))
+	var cross_e: float = absf(NukePhysics.angle_diff_deg(float(plan_e["bearing"]), LocationText.downwind_bearing()))
+	var away_e: float = absf(NukePhysics.angle_diff_deg(float(plan_e["bearing"]), to_gz_e))
+	_ok(absf(cross_e - 90.0) < 1.0 and away_e >= 90.0, "escape heads crosswind (%.0f° off the plume) and away from ground zero (%.0f° from GZ bearing): %s" % [cross_e, away_e, str(plan_e["dir_word"])])
 	# Wrecked car removes the route
 	_start_run()
 	GameState.vehicle["wrecked"] = true
