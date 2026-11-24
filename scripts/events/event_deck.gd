@@ -1647,7 +1647,7 @@ static func resolve_event(event_dict: Dictionary, choice_id: String, rng: Random
 					morale_delta = 1
 					tags = ["morale_up"]
 				"use_gas_mask":
-					outcome_text = "Wearing the Gas Mask and heavy gloves, %s scrubbed the fluorescent slime into a jar—makes a surprisingly cozy nightlight!" % m_name
+					outcome_text = "Wearing the Gas Mask and heavy gloves, %s scrubbed the fluorescent slime off the pipe above %s's bunk and sealed it in a jar—makes a surprisingly cozy nightlight!" % [str(actor_now.get("name", m_name)), m_name]
 					morale_delta = 1
 					tags = ["morale_up"]
 				"examine_ooze":

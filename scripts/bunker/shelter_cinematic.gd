@@ -1095,7 +1095,7 @@ func _draw_garage_scene(font: Font) -> void:
 		car_x += 900.0 * _seg(_t, 2.4, 4.6)
 		state["lights"] = 1.0
 		state["running"] = true
-		state["passengers"] = GameState.get_living_bunker_members().size()
+		state["passenger_list"] = GameState.get_living_bunker_members()
 	draw_car(_c, Vector2(car_x, FLOOR_Y), 1.0, state, _t)
 	if _scenario == "install":
 		var part3: String = str(_params.get("part", ""))
@@ -1136,11 +1136,16 @@ static func draw_car(c: CanvasItem, base: Vector2, s: float, state: Dictionary, 
 	if wrecked:
 		c.draw_polyline(PackedVector2Array([Vector2(b.x + 140 * s, y_body - 110 * s), Vector2(b.x + 220 * s, y_body - 60 * s), Vector2(b.x + 300 * s, y_body - 100 * s)]), Color("#1d1a16"), 4.0 * s)
 		c.draw_rect(Rect2(Vector2(b.x + 120 * s, y_body - 160 * s), Vector2(220 * s, 50 * s)), Color("#5b5348"))
-	# passengers (heads in the windows)
-	var pax: int = int(state.get("passengers", 0))
-	for pi in range(mini(pax, 4)):
-		var hx: float = b.x + (175.0 + float(pi) * 46.0) * s
-		c.draw_circle(Vector2(hx, y_body - 88 * s), 12.0 * s, Color(0.12, 0.1, 0.09))
+	# passengers: each survivor's head (skin tone + hair colour) framed in the windows
+	var pax_list: Array = state.get("passenger_list", [])
+	for pi in range(mini(pax_list.size(), 4)):
+		var pm: Dictionary = pax_list[pi]
+		var hx: float = b.x + (172.0 + float(pi) * 46.0) * s
+		var hc := Vector2(hx, y_body - 84 * s)
+		var skin_i: int = clampi(int(pm.get("skin_tone", 1)), 0, CharacterArtist.SKIN_TONES.size() - 1)
+		c.draw_circle(hc, 11.0 * s, Color(CharacterArtist.SKIN_TONES[skin_i]))
+		c.draw_arc(hc, 11.0 * s, PI, TAU, 12, Color(str(pm.get("hair_color", "#3b2a1e"))), 7.0 * s)
+		c.draw_circle(hc + Vector2(4, -1) * s, 1.6 * s, Color("#1d1a16"))
 	# wheels
 	for wx in [80.0, 380.0]:
 		var wc := Vector2(b.x + wx * s, b.y - wheel_r + ride * 0.3)
