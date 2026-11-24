@@ -2,7 +2,7 @@
 
 Branch `gameplay-improvement-pass` · Godot 4.3 · preview build: <https://federallyapproved.github.io/sixty-seconds-world-reatomized/next/> · footage & before/after images: [`/next/media.html`](https://federallyapproved.github.io/sixty-seconds-world-reatomized/next/media.html)
 
-The live root build is untouched until this branch is merged; the preview at `/next/` runs the new code on the same 4.3 engine files.
+The preview goes live at `/next/` when the small additive PR #2 (`docs/next/` only) is merged; the root build changes only when this branch (PR #1) is merged. Both run the new code on the same 4.3 engine files.
 
 ## Before → after
 
