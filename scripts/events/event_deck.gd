@@ -31,6 +31,7 @@ const ITEM_LABELS: Dictionary = {
 
 const ALL_EVENT_IDS: Array[String] = [
 	"day1_civil_defense_seal",
+	"distant_second_strike",
 	# 3-Stage Rescue Chains (9 events)
 	"rescue_military_1",
 	"rescue_military_2",
@@ -234,8 +235,8 @@ static func _pick_rescue_event_id(day: int, rng: RandomNumberGenerator) -> Strin
 			mil_w *= 0.45
 		candidates.append({"id": mil_id, "weight": mil_w})
 
-	# Real-World OSM Sanctuary Chain candidate
-	if sanc_st < 3:
+	# Real-World OSM Sanctuary Chain candidate (only if a real church or school is mapped nearby)
+	if sanc_st < 3 and has_real_poi(["church", "school"]):
 		var sanc_id: String = "rescue_sanctuary_%d" % (sanc_st + 1)
 		var sanc_w: float = 3.5
 		if sanc_st == 2:
@@ -320,7 +321,9 @@ static func _get_event_weight(event_id: String, day: int) -> float:
 				return 1.5
 			return 0.4
 		"nuke_downwind_acid_rain":
-			return 2.4 if GameState.surface_radiation_sv > 2.5 else 1.1
+			return 2.4 if GameState.surface_radiation_sv > 0.05 else 1.1
+		"distant_second_strike":
+			return 0.0 if day < 6 or not GameState.extra_strikes.is_empty() else 0.9
 		"nuke_emp_magnetic_storm":
 			return 1.8 if int(GameState.nuke_config.get("yield_kt", 800)) >= 250 else 0.9
 		"ooze_green_pipe":
@@ -333,7 +336,23 @@ static func _get_event_weight(event_id: String, day: int) -> float:
 			return 1.3 if day >= 5 else 0.4
 		"hazard_mutant_roaches", "hazard_vent_filter":
 			return 1.8
-		"osm_grocery_cart_rattle", "osm_pharmacy_courier", "osm_neighbor_bunker_tap", "osm_hardware_looters", "osm_restaurant_aroma", "osm_school_civil_defense_cache", "osm_park_mutant_geese", "osm_civic_siren_malfunction", "osm_street_delivery_van", "osm_firefighter_check":
+		"osm_grocery_cart_rattle":
+			return 1.65 if has_real_poi(["grocery"]) else 0.0
+		"osm_pharmacy_courier":
+			return 1.65 if has_real_poi(["pharmacy"]) else 0.0
+		"osm_neighbor_bunker_tap":
+			return 1.65 if has_real_poi(["neighbor_house"]) else 0.0
+		"osm_hardware_looters":
+			return 1.65 if has_real_poi(["hardware", "auto"]) else 0.0
+		"osm_restaurant_aroma":
+			return 1.65 if has_real_poi(["restaurant"]) else 0.0
+		"osm_school_civil_defense_cache":
+			return 1.65 if has_real_poi(["school"]) else 0.0
+		"osm_park_mutant_geese":
+			return 1.65 if has_real_poi(["park"]) else 0.0
+		"osm_civic_siren_malfunction":
+			return 1.65 if has_real_poi(["civic"]) else 0.0
+		"osm_street_delivery_van", "osm_firefighter_check":
 			return 1.65
 		_:
 			return 1.25
@@ -350,9 +369,11 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 	var nuke_target: String = str(GameState.nuke_config.get("target_name", "Strategic Ground Zero"))
 	var yield_kt: int = int(GameState.nuke_config.get("yield_kt", 800))
 	var dist_km: float = float(GameState.nuke_config.get("distance_km", 8.5))
-	var rand_member: Dictionary = _pick_random_member(active_rng)
-	var m_name: String = str(rand_member.get("name", "Ted"))
-	var m_id: String = str(rand_member.get("id", "member_0"))
+	# The household's actor (leader if capable, else oldest eligible) is the default protagonist.
+	var actor: Dictionary = pick_actor()
+	var rand_member: Dictionary = actor
+	var m_name: String = str(rand_member.get("name", "Someone"))
+	var m_id: String = str(rand_member.get("id", ""))
 
 	var ev: Dictionary = {
 		"id": event_id,
@@ -364,7 +385,9 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 		"context": {
 			"day": day,
 			"member_id": m_id,
-			"member_name": m_name
+			"member_name": m_name,
+			"actor_id": m_id,
+			"actor_name": m_name
 		}
 	}
 
@@ -717,11 +740,28 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 				_opt("duck_cover", "Bert the Turtle: DUCK AND COVER!", "", true)
 			]
 
+		"distant_second_strike":
+			var upwind: float = fposmod(LocationText.downwind_bearing() + 180.0, 360.0)
+			var d_km: float = 30.0 + float(active_rng.randi_range(0, 30))
+			var pt: Dictionary = NukePhysics.destination_point(float(GameState.selected_house.get("lat", 0.0)), float(GameState.selected_house.get("lon", 0.0)), upwind, d_km)
+			ev["context"]["strike_lat"] = float(pt["lat"])
+			ev["context"]["strike_lon"] = float(pt["lon"])
+			ev["context"]["strike_km"] = d_km
+			ev["title"] = "A Second Flash to the %s" % LocationText.compass_word(upwind).capitalize()
+			ev["category"] = "nuke_zone"
+			ev["type"] = "item_choice"
+			ev["description"] = "The periscope lights up white: another detonation, roughly %d km to the %s. The %s will carry fresh fallout over %s within hours — the readings that were finally dropping will climb again." % [int(d_km), LocationText.compass_word(upwind), LocationText.wind_name(), hood]
+			ev["options"] = [
+				_opt("seal_vents", "Seal the vents with wet sheets (2/4 water)", "water", GameState.water_quarters >= 2),
+				_opt("use_gas_mask", "Strap the gas mask filter over the air intake", "gas_mask", GameState.has_working_item("gas_mask")),
+				_opt("ignore", "Leave the vents open — the air is already stale", "", true)
+			]
+
 		"nuke_downwind_acid_rain":
 			ev["title"] = "Downwind Black Fallout Rainstorm!"
 			ev["category"] = "nuke_zone"
 			ev["type"] = "item_choice"
-			ev["description"] = "Oily black rain carried downwind from %s hisses across the street above %s (surface reading: %.1f Sv/hr). Acidic runoff threatens to seep around the exterior sump drain—unless distilled or sealed!" % [nuke_target, house_addr, GameState.surface_radiation_sv]
+			ev["description"] = "Oily black rain hisses across the street above %s (outdoor reading: %s). Rain scrubs fallout out of the sky and dumps it on the ground — the block will read hotter for days, and runoff is seeping toward the sump drain." % [house_addr, RadiationModel.format_rate(GameState.surface_radiation_sv * 1000.0)]
 			ev["options"] = [
 				_opt("use_book", "Rig Double-Boil Charcoal Still (Handbook)", "book", GameState.has_working_item("book")),
 				_opt("use_toolbox", "Tighten Sump Check-Valve with Toolbox", "toolbox", GameState.has_working_item("toolbox")),
@@ -744,7 +784,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 		# 28-37. REAL-WORLD OPENSTREETMAP NEIGHBORHOOD EVENTS
 		# ----------------------------------------------------------------------
 		"osm_grocery_cart_rattle":
-			var groc_name: String = _find_poi_name(["grocery", "supermarket", "market", "bakery", "qfc", "store"], "Broadway Corner Market")
+			var groc_name: String = _find_poi_name(["grocery", "supermarket", "market", "bakery", "qfc", "store"], "")
 			ev["context"]["poi_name"] = groc_name
 			ev["title"] = "Runaway Cart from %s!" % groc_name
 			ev["category"] = "osm_neighborhood"
@@ -758,7 +798,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 			]
 
 		"osm_pharmacy_courier":
-			var pharm_name: String = _find_poi_name(["pharmacy", "clinic", "hospital", "drug", "apothecary", "medical"], "Neighborhood Pharmacy")
+			var pharm_name: String = _find_poi_name(["pharmacy", "clinic", "hospital", "drug", "apothecary", "medical"], "")
 			ev["context"]["poi_name"] = pharm_name
 			ev["title"] = "Pharmacist Evacuating %s" % pharm_name
 			ev["category"] = "osm_neighborhood"
@@ -771,7 +811,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 			]
 
 		"osm_neighbor_bunker_tap":
-			var neigh_name: String = _find_poi_name(["neighbor", "house", "residence", "residential", "apartments"], "the Neighboring Basement Down the Street")
+			var neigh_name: String = _find_poi_name(["neighbor", "house", "residence", "residential", "apartments"], "")
 			ev["context"]["poi_name"] = neigh_name
 			ev["title"] = "Pipe Tapping from %s!" % neigh_name
 			ev["category"] = "osm_neighborhood"
@@ -785,7 +825,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 			]
 
 		"osm_hardware_looters":
-			var hw_name: String = _find_poi_name(["hardware", "tool", "supply", "fuel", "76", "auto"], "Local Hardware & Supply")
+			var hw_name: String = _find_poi_name(["hardware", "tool", "supply", "fuel", "76", "auto"], "")
 			ev["context"]["poi_name"] = hw_name
 			ev["title"] = "Dropped Loot Sack from %s!" % hw_name
 			ev["category"] = "osm_neighborhood"
@@ -799,7 +839,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 			]
 
 		"osm_restaurant_aroma":
-			var rest_name: String = _find_poi_name(["restaurant", "cafe", "pub", "bar", "pho", "grill", "diner"], "Corner Diner")
+			var rest_name: String = _find_poi_name(["restaurant", "cafe", "pub", "bar", "pho", "grill", "diner"], "")
 			ev["context"]["poi_name"] = rest_name
 			ev["title"] = "Tantalizing Broth Scent from %s!" % rest_name
 			ev["category"] = "osm_neighborhood"
@@ -812,7 +852,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 			]
 
 		"osm_school_civil_defense_cache":
-			var sch_name: String = _find_poi_name(["school", "library", "college", "academy", "civic"], "District Elementary Civil Defense Post")
+			var sch_name: String = _find_poi_name(["school", "library", "college", "academy", "civic"], "")
 			ev["context"]["poi_name"] = sch_name
 			ev["title"] = "Civil Defense Blueprint from %s" % sch_name
 			ev["category"] = "osm_neighborhood"
@@ -825,7 +865,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 			]
 
 		"osm_park_mutant_geese":
-			var park_name: String = _find_poi_name(["park", "garden", "green", "square", "common"], "Municipal Park")
+			var park_name: String = _find_poi_name(["park", "garden", "green", "square", "common"], "")
 			ev["context"]["poi_name"] = park_name
 			ev["title"] = "Three-Eyed Geese from %s on Our Vent!" % park_name
 			ev["category"] = "osm_neighborhood"
@@ -839,7 +879,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 			]
 
 		"osm_civic_siren_malfunction":
-			var civ_name: String = _find_poi_name(["civic", "station", "transit", "stop", "fire", "post"], "Neighborhood Transit Plaza")
+			var civ_name: String = _find_poi_name(["civic", "station", "transit", "stop", "fire", "post"], "")
 			ev["context"]["poi_name"] = civ_name
 			ev["title"] = "Short-Circuited Air-Raid Siren Near %s!" % civ_name
 			ev["category"] = "osm_neighborhood"
@@ -855,7 +895,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 			ev["title"] = "Overturned Spring-Water Van on %s!" % house_addr
 			ev["category"] = "osm_neighborhood"
 			ev["type"] = "item_choice"
-			ev["description"] = "As dust swirls clear outside %s, the periscope reveals a 1950s 'Cascade Pure Spring Water' delivery step-van wedged against a lamppost thirty feet from your hatch, rear doors swinging open!" % house_addr
+			ev["description"] = "As dust swirls clear outside %s, the periscope reveals a spring-water delivery step-van wedged against a lamppost thirty feet from your hatch, rear doors swinging open!" % house_addr
 			ev["options"] = [
 				_opt("use_gas_mask", "Haul Crates Safely in Gas Mask!", "gas_mask", GameState.has_working_item("gas_mask")),
 				_opt("use_suitcase", "Pack Extra Bottles in Leather Suitcase!", "suitcase", GameState.has_working_item("suitcase")),
@@ -1202,7 +1242,8 @@ static func resolve_event(event_dict: Dictionary, choice_id: String, rng: Random
 	var hood: String = _get_neighborhood_label()
 	var poi_name: String = str(ctx.get("poi_name", _get_sanctuary_poi_name()))
 	var target_member: Dictionary = _find_member_by_id_or_random(str(ctx.get("member_id", "")), active_rng)
-	var m_name: String = str(target_member.get("name", str(ctx.get("member_name", "Ted"))))
+	var m_name: String = str(target_member.get("name", "Someone"))
+	var actor_now: Dictionary = pick_actor()
 
 	var outcome_text: String = "Another tense day logged in the Civil Defense notebook."
 	var morale_delta: int = 0
@@ -1215,8 +1256,7 @@ static func resolve_event(event_dict: Dictionary, choice_id: String, rng: Random
 		"day1_civil_defense_seal":
 			match chosen:
 				"use_radio":
-					GameState.surface_radiation_sv = maxf(0.2, GameState.surface_radiation_sv - 0.35)
-					outcome_text = "CONELRAD 640 AM came through loud and clear! The announcer confirmed wind shear away from %s and reminded everyone to keep calm and ration wisely." % house_addr
+					outcome_text = "CONELRAD 640 AM came through loud and clear: stay below ground, fallout drifts toward the %s on a %s, and the worst of it fades within days." % [LocationText.compass_word(LocationText.downwind_bearing()), LocationText.wind_name()]
 					morale_delta = 1
 					tags = ["morale_up"]
 				"use_toolbox":
@@ -1502,7 +1542,7 @@ static func resolve_event(event_dict: Dictionary, choice_id: String, rng: Random
 				_:
 					var iron_vent: bool = _has_iron_stomach(target_member)
 					if not bool(target_member.get("is_mutant", false)):
-						target_member["radiation"] = float(target_member.get("radiation", 0.0)) + (0.3 if iron_vent else 0.6)
+						RadiationModel.add_dose(target_member, 8.0 if iron_vent else 15.0, GameState.day)
 						GameState.family_changed.emit()
 					if bool(target_member.get("is_mutant", false)):
 						outcome_text = "Fallout ash puffed from the pipe, but mutant %s barely sneezed at the soot!" % m_name
@@ -1899,11 +1939,35 @@ static func resolve_event(event_dict: Dictionary, choice_id: String, rng: Random
 						morale_delta = -1
 						tags = ["injured", "morale_down"]
 
+		"distant_second_strike":
+			var s_lat: float = float(ctx.get("strike_lat", GameState.selected_house.get("lat", 0.0)))
+			var s_lon: float = float(ctx.get("strike_lon", GameState.selected_house.get("lon", 0.0)))
+			RadiationModel.add_strike(s_lat, s_lon, RadiationModel.h1_home_msv() * 0.3)
+			tags.append("hazard_return")
+			match chosen:
+				"seal_vents":
+					_add_water_quarters(-2)
+					outcome_text = "%s soaked bedsheets and packed them over the vents. The new fallout dust stays outside; trips topside will be hotter for a while." % m_name
+					morale_delta = 0
+					tags.append("neutral")
+				"use_gas_mask":
+					outcome_text = "%s strapped the gas-mask canister over the air intake. Dust stays out, but the outside readings are climbing again." % m_name
+					morale_delta = 0
+					tags.append("neutral")
+				_:
+					for pm_v in GameState.get_living_bunker_members():
+						RadiationModel.add_dose(pm_v as Dictionary, 25.0, GameState.day)
+					outcome_text = "We left the vents open. Fine grey dust settled on everything; the dosimeters gained about 25 mSv each."
+					morale_delta = -1
+					tags.append("morale_down")
+
 		"nuke_downwind_acid_rain":
+			# Rain-out: localized re-contamination around home, decaying over ~5 days.
+			RadiationModel.add_hotspot(float(GameState.selected_house.get("lat", 0.0)), float(GameState.selected_house.get("lon", 0.0)), 450.0, 2.4, 5.0, "rain")
+			tags.append("hazard_return")
 			match chosen:
 				"use_book":
 					_add_water_quarters(4)
-					GameState.surface_radiation_sv = maxf(0.15, GameState.surface_radiation_sv - 0.4)
 					outcome_text = "Brilliant science! Using the Handbook's charcoal-sand distillation rig turned storm runoff into 1 full bottle of Clean Water (+4/4)!"
 					morale_delta = 2
 					tags = ["item_gained", "morale_up"]
@@ -1913,13 +1977,13 @@ static func resolve_event(event_dict: Dictionary, choice_id: String, rng: Random
 					morale_delta = 1
 					tags = ["morale_up"]
 				"use_radio":
-					GameState.surface_radiation_sv = maxf(0.15, GameState.surface_radiation_sv - 0.6)
-					outcome_text = "CONELRAD meteorology confirmed the storm washed airborne particulates out of %s—surface radiation eased!" % hood
+					outcome_text = "CONELRAD warned that the rain-out made the ground around %s hotter for several days — expeditions should wait or take the gas mask." % hood
 					morale_delta = 1
 					tags = ["morale_up"]
 				_:
 					_adjust_member_stat(target_member, "fatigue", 1)
-					outcome_text = "%s spent three hours bailing damp seepage into the floor drain, keeping rations dry at the cost of sore arms." % m_name
+					RadiationModel.add_dose(target_member, 12.0, GameState.day)
+					outcome_text = "%s spent three hours bailing contaminated seepage into the floor drain (about 12 mSv)." % m_name
 					morale_delta = 0
 					tags = ["neutral"]
 
@@ -1962,7 +2026,7 @@ static func resolve_event(event_dict: Dictionary, choice_id: String, rng: Random
 				"dash_bare":
 					_add_soup_quarters(4)
 					if not bool(target_member.get("is_mutant", false)):
-						target_member["radiation"] = float(target_member.get("radiation", 0.0)) + 0.5
+						RadiationModel.add_dose(target_member, RadiationModel.outdoor_dose_msv(float(GameState.selected_house.get("lat", 0.0)), float(GameState.selected_house.get("lon", 0.0)), RadiationModel.hours_since_detonation(GameState.day) + 3.0, 0.1, GameState.day), GameState.day)
 						GameState.family_changed.emit()
 					outcome_text = "%s sprinted out unmasked and scored 1 Soup Can (+4/4) from the %s cart, catching a mild whiff of surface fallout!" % [m_name, poi_name]
 					morale_delta = 1
@@ -2668,8 +2732,23 @@ static func resolve_event(event_dict: Dictionary, choice_id: String, rng: Random
 	return {
 		"outcome_text": outcome_text,
 		"morale_delta": morale_delta,
-		"tags": tags
+		"tags": tags,
+		"event_id": ev_id,
+		"choice_id": chosen,
+		"category": str(event_dict.get("category", "")),
+		"actor_id": str(actor_now.get("id", "")),
+		"actor_name": str(actor_now.get("name", "")),
+		"subject_id": str(target_member.get("id", "")),
+		"subject_name": m_name,
+		"item_used": _choice_item(event_dict, chosen)
 	}
+
+
+static func _choice_item(event_dict: Dictionary, choice_id: String) -> String:
+	for o_v in event_dict.get("options", []):
+		if o_v is Dictionary and str((o_v as Dictionary).get("id", "")) == choice_id:
+			return str((o_v as Dictionary).get("item_id", ""))
+	return ""
 
 
 # ==============================================================================
@@ -2695,99 +2774,63 @@ static func _sanitize_choice(event_dict: Dictionary, choice_id: String) -> Strin
 	return "ignore"
 
 
+## Natural reference to home ("the house", "our place on East Republican Street") – never the
+## full postal address. See LocationText.
 static func _get_house_address() -> String:
-	var addr: String = str(GameState.selected_house.get("address", ""))
-	if addr != "":
-		return addr
-	var h_name: String = str(GameState.selected_house.get("name", ""))
-	if h_name != "":
-		return h_name
-	return "518 E Roy St"
+	return LocationText.home_ref()
 
 
 static func _get_neighborhood_label() -> String:
-	if GameState.current_neighborhood_label != "":
-		return GameState.current_neighborhood_label
-	return "Capitol Hill, Seattle"
+	return LocationText.area_name()
 
 
+## Real church/school name, or "" when none is mapped (sanctuary events are then not drawn).
 static func _get_sanctuary_poi_name() -> String:
 	if _sanctuary_poi_cache != "":
 		return _sanctuary_poi_cache
-	var found: String = _find_poi_name(["church", "parish", "chapel", "worship", "cathedral", "temple", "school"], "")
-	if found != "":
-		_sanctuary_poi_cache = found
-		return found
-	var hood_low: String = (_get_neighborhood_label() + " " + _get_house_address()).to_lower()
-	if hood_low.find("concord") != -1:
-		_sanctuary_poi_cache = "First Parish in Concord"
-	elif hood_low.find("brooklyn") != -1 or hood_low.find("carroll") != -1:
-		_sanctuary_poi_cache = "St. Agnes Parish Hall"
-	else:
-		_sanctuary_poi_cache = "All Pilgrims Christian Church"
+	_sanctuary_poi_cache = _poi_name_for_categories(["church", "school"])
 	return _sanctuary_poi_cache
 
 
-static func _find_poi_name(keywords: Array, fallback_label: String) -> String:
+const _KEYWORD_CATEGORIES: Dictionary = {
+	"grocery": ["grocery"], "pharmacy": ["pharmacy"], "neighbor": ["neighbor_house"],
+	"hardware": ["hardware", "auto"], "restaurant": ["restaurant"], "school": ["school"],
+	"park": ["park"], "civic": ["civic"], "church": ["church", "school"],
+}
+
+
+## Name of the nearest REAL mapped place for the first keyword's category. Never invents a
+## fallback: returns "" when the neighbourhood has no such place (callers gate on this).
+static func _find_poi_name(keywords: Array, _unused_fallback: String) -> String:
+	var key: String = str(keywords[0]).to_lower() if not keywords.is_empty() else ""
+	var cats: Array = _KEYWORD_CATEGORIES.get(key, [key])
+	return _poi_name_for_categories(cats)
+
+
+static func _poi_name_for_categories(cats: Array) -> String:
+	var best: Dictionary = {}
 	for p_v in GameState.nearby_pois:
 		if not (p_v is Dictionary):
 			continue
 		var p: Dictionary = p_v
-		var p_cat: String = str(p.get("category", p.get("type", p.get("poi_type", p.get("kind", ""))))).to_lower()
-		var p_name: String = str(p.get("name", p.get("label", p.get("title", p.get("address", "")))))
-		if p_name == "":
+		if not cats.has(str(p.get("category", ""))) or bool(p.get("fictional", false)):
 			continue
-		var p_name_low: String = p_name.to_lower()
-		for kw_v in keywords:
-			var kw: String = str(kw_v).to_lower()
-			if p_cat.find(kw) != -1 or p_name_low.find(kw) != -1:
-				return p_name
-
-	if fallback_label == "":
+		var named: bool = bool(p.get("named", p.get("has_explicit_name", false))) or str(p.get("category", "")) == "neighbor_house"
+		if best.is_empty():
+			best = p
+			continue
+		var best_named: bool = bool(best.get("named", best.get("has_explicit_name", false))) or str(best.get("category", "")) == "neighbor_house"
+		if named and not best_named:
+			best = p
+		elif named == best_named and int(p.get("walk_m", p.get("distance_m", 9999))) < int(best.get("walk_m", best.get("distance_m", 9999))):
+			best = p
+	if best.is_empty():
 		return ""
+	return LocationText.poi_label(best)
 
-	# Authentic preset-aware fallback if nearby_pois hasn't been populated yet
-	var hood_low: String = (_get_neighborhood_label() + " " + _get_house_address()).to_lower()
-	var first_kw: String = str(keywords[0]).to_lower() if not keywords.is_empty() else ""
-	if hood_low.find("seattle") != -1 or hood_low.find("roy") != -1 or hood_low.find("capitol") != -1:
-		match first_kw:
-			"grocery":
-				return "Broadway QFC Supermarket"
-			"pharmacy":
-				return "Capitol Hill Apothecary"
-			"neighbor":
-				return "524 E Roy St Neighbor Residence"
-			"hardware":
-				return "915 E Roy St 76 Service Station"
-			"restaurant":
-				return "Pho Than Brothers on Broadway"
-			"school":
-				return "Broadway Civil Defense Schoolhouse"
-			"park":
-				return "Cal Anderson Park"
-			"civic":
-				return "Capitol Hill Link Station"
-	elif hood_low.find("concord") != -1:
-		match first_kw:
-			"grocery":
-				return "Crosby's Marketplace"
-			"pharmacy":
-				return "Concord Colonial Pharmacy"
-			"neighbor":
-				return "Monument Sq Neighbor House"
-			"park":
-				return "Minuteman National Park"
-	elif hood_low.find("brooklyn") != -1 or hood_low.find("carroll") != -1:
-		match first_kw:
-			"grocery":
-				return "Court Street Grocers"
-			"pharmacy":
-				return "Carroll Gardens Pharmacy"
-			"neighbor":
-				return "President St Brownstone"
-			"park":
-				return "Carroll Park"
-	return fallback_label
+
+static func has_real_poi(cats: Array) -> bool:
+	return _poi_name_for_categories(cats) != ""
 
 
 static func _get_present_members() -> Array:
@@ -2804,22 +2847,59 @@ static func _get_present_members() -> Array:
 
 
 static func _pick_random_member(rng: RandomNumberGenerator) -> Dictionary:
-	var present: Array = _get_present_members()
+	var present: Array = GameState.get_living_bunker_members()
 	if present.is_empty():
-		return {"id": "member_0", "name": "Ted", "age": 42, "role": "adult"}
+		return pick_actor()
 	var idx: int = rng.randi_range(0, present.size() - 1)
 	var picked: Dictionary = present[idx]
 	return picked
 
 
-static func _find_member_by_id_or_random(member_id: String, rng: RandomNumberGenerator) -> Dictionary:
-	var present: Array = _get_present_members()
+## Can this survivor act for the household right now?
+static func is_capable(m: Dictionary) -> bool:
+	if m.is_empty() or not bool(m.get("alive", false)) or not bool(m.get("in_bunker", false)) or bool(m.get("on_expedition", false)):
+		return false
+	if int(m.get("age", 30)) < 13:
+		return false
+	if int(m.get("injury", 0)) >= 3 or int(m.get("sickness", 0)) >= 3 or int(m.get("sanity", 0)) >= 3:
+		return false
+	if RadiationModel.ars_stage(float(m.get("dose_recent_msv", 0.0))) >= 4:
+		return false
+	return true
+
+
+## Who acts: the leader when present and capable, otherwise the oldest eligible survivor.
+## Never an absent (expedition) or dead character. Falls back to the oldest present survivor
+## if nobody is fully capable; returns {} only when the shelter is empty.
+static func pick_actor() -> Dictionary:
+	var present: Array = GameState.get_living_bunker_members()
+	for m_v in present:
+		var m: Dictionary = m_v
+		if bool(m.get("is_leader", false)) and is_capable(m):
+			return m
+	var best: Dictionary = {}
+	for m_v2 in present:
+		var m2: Dictionary = m_v2
+		if is_capable(m2) and (best.is_empty() or int(m2.get("age", 0)) > int(best.get("age", 0))):
+			best = m2
+	if not best.is_empty():
+		return best
+	for m_v3 in present:
+		var m3: Dictionary = m_v3
+		if best.is_empty() or int(m3.get("age", 0)) > int(best.get("age", 0)):
+			best = m3
+	return best
+
+
+static func _find_member_by_id_or_random(member_id: String, _rng: RandomNumberGenerator) -> Dictionary:
+	# Only someone actually present and alive can be named in the outcome; otherwise the actor.
+	var present: Array = GameState.get_living_bunker_members()
 	if member_id != "":
 		for m_v in present:
 			var m: Dictionary = m_v
 			if str(m.get("id", "")) == member_id:
 				return m
-	return _pick_random_member(rng)
+	return pick_actor()
 
 
 static func _pick_mutant_candidate(rng: RandomNumberGenerator) -> Dictionary:
@@ -2950,7 +3030,7 @@ static func _heal_all_family_afflictions() -> int:
 		if int(m.get("sickness", 0)) > 0 or int(m.get("injury", 0)) > 0:
 			m["sickness"] = 0
 			m["injury"] = 0
-			m["radiation"] = maxf(0.0, float(m.get("radiation", 0.0)) - 1.5)
+			# Medical care treats symptoms; it cannot undo absorbed radiation dose.
 			m["status_note"] = "Patched up by Dr. Stanislaus!"
 			count += 1
 	if count > 0:
@@ -2965,6 +3045,8 @@ static func _apply_mutant_transformation(member: Dictionary) -> String:
 	member["injury"] = 0
 	member["fatigue"] = 0
 	member["radiation"] = 0.0
+	member["dose_history"] = []
+	member["dose_recent_msv"] = 0.0
 	member["status_note"] = "Mutated! Lime-green glow, immune to fallout & pests!"
 	GameState.family_changed.emit()
 	return "ATOMIC TRANSFORMATION! Instead of getting sick, %s absorbed the glowing green isotope, healed every scratch, sprouted lime-green skin, and mutated into our bunker's fearless radioactive guardian!" % m_name

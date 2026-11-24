@@ -295,6 +295,26 @@ static func get_item_info(item_id: String) -> Dictionary:
 				"preferred_rooms": ["Garage / Study", "Hallway"],
 				"color": Color("#cf3a2b")
 			}
+		"car_battery":
+			return {"id": "car_battery", "name": "12-Volt Car Battery", "short_name": "Battery", "slots": 2, "category": "vehicle",
+				"description": "Heavy lead-acid starter battery. Must be carried to the car and installed by hand.",
+				"preferred_rooms": [], "color": Color("#2f3a42")}
+		"fuel_can":
+			return {"id": "fuel_can", "name": "Jerry Can of Gasoline (10 L)", "short_name": "Fuel 10 L", "slots": 2, "category": "vehicle",
+				"description": "Ten litres of gasoline siphoned or salvaged for the car.",
+				"preferred_rooms": [], "color": Color("#b8321e")}
+		"spark_plugs":
+			return {"id": "spark_plugs", "name": "Box of Spark Plugs", "short_name": "Plugs", "slots": 1, "category": "vehicle",
+				"description": "A fresh set of spark plugs to replace fouled ones.",
+				"preferred_rooms": [], "color": Color("#c9c3b4")}
+		"fan_belt":
+			return {"id": "fan_belt", "name": "Fan Belt", "short_name": "Belt", "slots": 1, "category": "vehicle",
+				"description": "Rubber V-belt that drives the generator and cooling fan.",
+				"preferred_rooms": [], "color": Color("#262321")}
+		"tire_patch":
+			return {"id": "tire_patch", "name": "Tire Patch Kit & Pump", "short_name": "Tire kit", "slots": 1, "category": "vehicle",
+				"description": "Patches, glue and a hand pump to fix a flat.",
+				"preferred_rooms": [], "color": Color("#4a4a48")}
 		"cat":
 			return {
 				"id": "cat",
@@ -385,6 +405,16 @@ static func draw_item_icon(
 			_draw_harmonica(canvas, center, u, ol, thin)
 		"toolbox":
 			_draw_toolbox(canvas, center, u, ol, thin)
+		"car_battery":
+			_draw_car_battery(canvas, center, u, ol)
+		"fuel_can":
+			_draw_fuel_can(canvas, center, u, ol)
+		"spark_plugs":
+			_draw_spark_plugs(canvas, center, u, ol)
+		"fan_belt":
+			_draw_fan_belt(canvas, center, u, ol)
+		"tire_patch":
+			_draw_tire_patch(canvas, center, u, ol)
 		"cat":
 			_draw_cat(canvas, center, u, ol, thin)
 		"dog":
@@ -1609,3 +1639,58 @@ static func _draw_broken_overlay(canvas: CanvasItem, c: Vector2, u: float, ol: f
 	var xw: float = maxf(ol * 1.1, 1.5)
 	canvas.draw_line(bc + Vector2(-xr, -xr), bc + Vector2(xr, xr), COL_CREAM, xw)
 	canvas.draw_line(bc + Vector2(xr, -xr), bc + Vector2(-xr, xr), COL_CREAM, xw)
+
+
+
+# --- Vehicle parts (pass 2) ---
+
+static func _draw_car_battery(c: CanvasItem, p: Vector2, u: float, ol: float) -> void:
+	var body := Rect2(p + Vector2(-u * 0.78, -u * 0.45), Vector2(u * 1.56, u * 1.05))
+	c.draw_rect(body.grow(ol), COL_INK)
+	c.draw_rect(body, Color("#2f3a42"))
+	c.draw_rect(Rect2(body.position, Vector2(body.size.x, u * 0.22)), Color("#46545e"))
+	for sx in [-0.48, 0.48]:
+		var post := Rect2(p + Vector2(u * sx - u * 0.12, -u * 0.66), Vector2(u * 0.24, u * 0.22))
+		c.draw_rect(post.grow(ol * 0.6), COL_INK)
+		c.draw_rect(post, COL_ATOMIC_RED if sx > 0.0 else Color("#3c3c3c"))
+	c.draw_line(p + Vector2(u * 0.36, -u * 0.12), p + Vector2(u * 0.6, -u * 0.12), COL_HAZARD_YELLOW, ol)
+	c.draw_line(p + Vector2(u * 0.48, -u * 0.24), p + Vector2(u * 0.48, 0.0), COL_HAZARD_YELLOW, ol)
+	c.draw_line(p + Vector2(-u * 0.6, -u * 0.12), p + Vector2(-u * 0.36, -u * 0.12), COL_STEEL_LIGHT, ol)
+	c.draw_rect(Rect2(p + Vector2(-u * 0.5, u * 0.18), Vector2(u * 1.0, u * 0.18)), COL_HAZARD_YELLOW)
+
+
+static func _draw_fuel_can(c: CanvasItem, p: Vector2, u: float, ol: float) -> void:
+	var pts := PackedVector2Array([p + Vector2(-u * 0.6, -u * 0.45), p + Vector2(u * 0.35, -u * 0.45), p + Vector2(u * 0.62, -u * 0.18), p + Vector2(u * 0.62, u * 0.75), p + Vector2(-u * 0.6, u * 0.75)])
+	var outline := PackedVector2Array()
+	for q in pts:
+		outline.append(p + (q - p) * 1.08)
+	c.draw_colored_polygon(outline, COL_INK)
+	c.draw_colored_polygon(pts, Color("#b8321e"))
+	c.draw_line(p + Vector2(-u * 0.45, -u * 0.25), p + Vector2(u * 0.4, u * 0.6), Color("#8c2414"), ol)
+	c.draw_line(p + Vector2(u * 0.4, -u * 0.25), p + Vector2(-u * 0.45, u * 0.6), Color("#8c2414"), ol)
+	c.draw_rect(Rect2(p + Vector2(-u * 0.5, -u * 0.72), Vector2(u * 0.55, u * 0.2)), COL_INK)
+	c.draw_rect(Rect2(p + Vector2(u * 0.3, -u * 0.72), Vector2(u * 0.18, u * 0.3)), COL_STEEL_DARK)
+
+
+static func _draw_spark_plugs(c: CanvasItem, p: Vector2, u: float, ol: float) -> void:
+	c.draw_rect(Rect2(p + Vector2(-u * 0.75, -u * 0.1), Vector2(u * 1.5, u * 0.75)).grow(ol), COL_INK)
+	c.draw_rect(Rect2(p + Vector2(-u * 0.75, -u * 0.1), Vector2(u * 1.5, u * 0.75)), Color("#d8a438"))
+	for i in range(3):
+		var x: float = -u * 0.45 + float(i) * u * 0.45
+		c.draw_rect(Rect2(p + Vector2(x - u * 0.09, -u * 0.72), Vector2(u * 0.18, u * 0.42)), Color("#f2efe6"))
+		c.draw_rect(Rect2(p + Vector2(x - u * 0.13, -u * 0.32), Vector2(u * 0.26, u * 0.22)), COL_STEEL_DARK)
+		c.draw_line(p + Vector2(x, -u * 0.72), p + Vector2(x, -u * 0.86), COL_INK, ol)
+
+
+static func _draw_fan_belt(c: CanvasItem, p: Vector2, u: float, ol: float) -> void:
+	c.draw_arc(p, u * 0.66, 0.0, TAU, 36, COL_INK, u * 0.3)
+	c.draw_arc(p, u * 0.66, 0.0, TAU, 36, Color("#3a3532"), u * 0.2)
+	c.draw_arc(p, u * 0.66, 0.4, 1.4, 12, Color("#6b625a"), ol)
+
+
+static func _draw_tire_patch(c: CanvasItem, p: Vector2, u: float, ol: float) -> void:
+	c.draw_circle(p + Vector2(-u * 0.12, u * 0.05), u * 0.66, COL_INK)
+	c.draw_circle(p + Vector2(-u * 0.12, u * 0.05), u * 0.6, Color("#4a4a48"))
+	c.draw_circle(p + Vector2(-u * 0.12, u * 0.05), u * 0.26, COL_STEEL)
+	c.draw_rect(Rect2(p + Vector2(u * 0.3, -u * 0.8), Vector2(u * 0.22, u * 0.9)).grow(ol * 0.6), COL_INK)
+	c.draw_rect(Rect2(p + Vector2(u * 0.3, -u * 0.8), Vector2(u * 0.22, u * 0.9)), COL_HAZARD_YELLOW)

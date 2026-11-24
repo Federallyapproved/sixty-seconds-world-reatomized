@@ -291,7 +291,7 @@ func _build_nuke_telemetry_card(rect: Rect2) -> void:
 	var sv_hr: float = float(GameState.nuke_config.get("initial_sv_hr", GameState.surface_radiation_sv))
 
 	var phys_lbl := Label.new()
-	phys_lbl.text = "YIELD: %s  •  ZONE: %s  •  PEAK: %.1f Sv/hr" % [yield_str, zone_str, sv_hr]
+	phys_lbl.text = "YIELD: %s  •  ZONE: %s  •  DOSE RATE AT H+1: %s" % [yield_str, zone_str, RadiationModel.format_rate(sv_hr * 1000.0)]
 	phys_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	phys_lbl.add_theme_font_size_override("font_size", 12)
 	phys_lbl.add_theme_color_override("font_color", Color("#dccba6"))

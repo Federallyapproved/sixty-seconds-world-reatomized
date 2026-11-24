@@ -219,7 +219,7 @@ func _ensure_demo_bunker_readiness() -> void:
 
 func _append_initial_orientation_log() -> void:
 	var h_name: String = str(GameState.selected_house.get("name", "Civil Defense Shelter"))
-	var n_target: String = str(GameState.nuke_config.get("target_name", "Downtown Ground Zero"))
+	var n_target: String = str(GameState.nuke_config.get("target_name", "ground zero"))
 	var dist_km: float = float(GameState.nuke_config.get("distance_km", 4.2))
 	var survivors: Array[String] = []
 	for m_v in GameState.get_all_living_members():
@@ -562,8 +562,8 @@ func _rebuild_tab_daily_log() -> void:
 	root.add_child(hdr)
 
 	var house_label: String = str(GameState.selected_house.get("name", "Selected Shelter"))
-	var sub_txt: String = "%s  |  Surface: %.1f Sv/hr  |  Temp: %.0f °C  |  Hull: %.0f%%" % [
-		house_label, GameState.surface_radiation_sv, GameState.bunker_temp_c, GameState.bunker_structural_integrity
+	var sub_txt: String = "%s  |  Outside: %s  |  Temp: %.0f °C  |  Hull: %.0f%%" % [
+		house_label, RadiationModel.format_rate(GameState.surface_radiation_sv * 1000.0), GameState.bunker_temp_c, GameState.bunker_structural_integrity
 	]
 	var sub := _make_ink_label(sub_txt, 12, COL_INK_MUTED)
 	sub.position = Vector2(0.0, 24.0)
@@ -1201,7 +1201,7 @@ func _build_day1_orientation_view(root: Control) -> void:
 	var orient_lines: Array[String] = [
 		"• DESIGNATED FALLOUT SHELTER: %s" % h_addr,
 		"• DETONATION TELEMETRY: %d kt warhead at %s (%.2f km — %s)" % [n_yield, n_name, n_dist, n_zone],
-		"• ATMOSPHERIC READINGS: %.1f Sv/hr surface fallout | %.0f °C interior shelter climate" % [GameState.surface_radiation_sv, GameState.bunker_temp_c],
+		"• ATMOSPHERIC READINGS: %s outside | %.0f °C interior shelter climate" % [RadiationModel.format_rate(GameState.surface_radiation_sv * 1000.0), GameState.bunker_temp_c],
 		"• DAY 1 SURFACE STATUS: Heavy fallout dust is still settling — no surface knocks or raids today.",
 		"• SURVIVAL DIRECTIVE: Ration 1/4 Water before dehydration sets in, equip a Gas Mask + Suitcase for real-world OpenStreetMap scavenging runs, and monitor CONELRAD radio & nearby Churches for evacuation!"
 	]
@@ -2250,7 +2250,7 @@ class _TopHudBar extends Control:
 		var sv_col := Color("#7ec850") if sv < 2.0 else (Color("#f2b82e") if sv < 5.5 else Color("#e05a2b"))
 		draw_rect(rad_r, Color("#242a24"), true)
 		draw_rect(rad_r, sv_col, false, 1.5)
-		draw_string(font, rad_r.position + Vector2(0.0, 23.0), "RAD: %.1f Sv/hr" % sv, HORIZONTAL_ALIGNMENT_CENTER, rad_r.size.x, 13, sv_col)
+		draw_string(font, rad_r.position + Vector2(0.0, 23.0), "OUT: %s" % RadiationModel.format_rate(sv * 1000.0), HORIZONTAL_ALIGNMENT_CENTER, rad_r.size.x, 13, sv_col)
 
 		# 4. Bunker Temp Badge
 		var tmp_r := Rect2(566.0, 8.0, 108.0, 36.0)

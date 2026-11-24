@@ -62,6 +62,9 @@ static func start_bunker_run() -> void:
 	GameState.surface_radiation_sv = init_sv
 	GameState.bunker_temp_c = init_temp
 	GameState.bunker_structural_integrity = clampf(100.0 - struct_dmg * 45.0, 25.0, 100.0)
+	GameState.rad_hotspots = []
+	GameState.extra_strikes = []
+	VehicleSystem.init_for_run()
 
 	# Ensure neighborhood expedition targets are initialized on Day 1 and reset visit/depletion flags
 	ExpeditionEngine.get_available_targets()
@@ -72,7 +75,7 @@ static func start_bunker_run() -> void:
 			poi_post["depleted"] = false
 			GameState.nearby_pois[i] = poi_post
 
-	var house_addr: String = str(GameState.selected_house.get("address", "our neighborhood home"))
+	var house_addr: String = LocationText.home_ref()
 	var survivors_names: Array[String] = []
 	var lost_names: Array[String] = []
 
@@ -139,9 +142,19 @@ static func start_bunker_run() -> void:
 		if not lost_names.is_empty():
 			lines.append("Heartbreak already hangs heavy in the shelter—%s did not reach the hatch before detonation." % _join_names_naturally(lost_names))
 
-	lines.append("CONELRAD instruments report a %d kt detonation near %s (%.2f km away, zone: %s). Surface fallout reads %.2f Sv/hr and shelter air sits at %.1f °C." % [
-		yield_kt, target_name, dist_km, _humanize_zone(zone_id), init_sv, init_temp
+	var gz_lat: float = float(nuke.get("lat", 0.0))
+	var gz_lon: float = float(nuke.get("lon", 0.0))
+	var gz_dir: String = LocationText.compass_word(NukePhysics.bearing_deg(float(GameState.selected_house.get("lat", 0.0)), float(GameState.selected_house.get("lon", 0.0)), gz_lat, gz_lon))
+	var rate_now: float = RadiationModel.dose_rate_msv_h(float(GameState.selected_house.get("lat", 0.0)), float(GameState.selected_house.get("lon", 0.0)), 1.0, 1)
+	lines.append("CONELRAD reports a %d kt detonation at %s, %.1f km to the %s. A %s is carrying the fallout toward the %s." % [
+		yield_kt, target_name, dist_km, gz_dir, LocationText.wind_name(), LocationText.compass_word(LocationText.downwind_bearing())
 	])
+	lines.append("Outdoor dose rate an hour after the blast: %s (%s). Shelter air: %.1f °C." % [RadiationModel.format_rate(rate_now), RadiationModel.risk_label(rate_now), init_temp])
+	var veh: Dictionary = GameState.vehicle
+	if bool(veh.get("wrecked", false)):
+		lines.append("Through the periscope: the family car is crushed under blast debris. Driving out is not an option.")
+	else:
+		lines.append("Through the periscope: the family car survived, but its battery cracked in the blast. %d part(s) needed before it could run." % VehicleSystem.missing_parts().size())
 
 	if struct_dmg > 0.4:
 		lines.append("Violent ground tremors rattled our teeth—concrete dust sifted from the ceiling seams and hairline cracks spiderwebbed the plaster (structural integrity %.0f%%)." % GameState.bunker_structural_integrity)
@@ -190,7 +203,7 @@ static func advance_day(
 	expedition_launch: Dictionary = {}
 ) -> Array[String]:
 	var day_lines: Array[String] = []
-	var house_addr: String = str(GameState.selected_house.get("address", "our shelter"))
+	var house_addr: String = LocationText.home_ref()
 	var extracted_event_lines: Array[String] = _extract_event_notes(event_notes)
 
 	var has_gameover_tag: bool = false
@@ -222,7 +235,7 @@ static func advance_day(
 		if day_lines.is_empty() and def_eval_line != "":
 			day_lines.append(def_eval_line)
 		_refresh_all_status_notes()
-		var def_title: String = "DAY %d — %s" % [def_day, house_addr.to_upper()]
+		var def_title: String = "DAY %d — %s" % [def_day, LocationText.area_header().to_upper()]
 		GameState.daily_log_entries.append({
 			"day": def_day,
 			"title": def_title,
@@ -252,7 +265,7 @@ static func advance_day(
 		if day_lines.is_empty() and vic_eval_line != "":
 			day_lines.append(vic_eval_line)
 		_refresh_all_status_notes()
-		var vic_title: String = "DAY %d — %s" % [vic_day, house_addr.to_upper()]
+		var vic_title: String = "DAY %d — %s" % [vic_day, LocationText.area_header().to_upper()]
 		GameState.daily_log_entries.append({
 			"day": vic_day,
 			"title": vic_title,
@@ -280,9 +293,7 @@ static func advance_day(
 	# 1. Radiation & Weather Decay
 	var weather_note: String = _tick_radiation_and_weather(generous_hot_soup, rng)
 	var peak_temp_today_c: float = maxf(pre_weather_temp_c, GameState.bunker_temp_c)
-	day_lines.append("Geiger counter: %.2f Sv/hr topside | Shelter thermometer: %.1f °C." % [
-		GameState.surface_radiation_sv, GameState.bunker_temp_c
-	])
+	day_lines.append(RadiationModel.tick_day(cur_day) + " Thermometer: %.1f °C." % GameState.bunker_temp_c)
 	if weather_note != "":
 		day_lines.append(weather_note)
 
@@ -377,6 +388,9 @@ static func advance_day(
 			m["thirst"] = maxi(0, int(m.get("thirst", 0)) - w_drop)
 		else:
 			var dww: int = int(m.get("days_without_water", 0)) + 1
+			if int(m.get("sickness", 0)) >= 2 and dww >= 2 and cur_day % 2 == 0:
+				dww += 1
+				day_lines.append("%s's fever is burning through what little water is left in the body." % m_name)
 			if peak_temp_today_c >= 25.0 and not bool(m.get("heat_thirst_ticked", false)) and (peak_temp_today_c >= 29.0 or dww >= 2):
 				dww += 1
 				m["heat_thirst_ticked"] = true
@@ -451,10 +465,38 @@ static func advance_day(
 		var is_mutant: bool = bool(m.get("is_mutant", false))
 		var iron_resist_mult: float = 0.5 if trait_id == "iron_stomach" else 1.0
 
-		# High Radiation (> 65.0): ~18% Miraculous Mutant Transformation vs Radiation Sickness
+		# Radiation: acute radiation sickness from the 7-day dose (RadiationModel).
+		var recent_msv: float = RadiationModel.recent_dose(m, cur_day)
+		m["dose_recent_msv"] = recent_msv
+		m["radiation"] = recent_msv / 50.0
+		var ars: int = RadiationModel.ars_stage(recent_msv)
+		m["ars_stage"] = ars
 		var rad_val: float = float(m.get("radiation", 0.0))
+		if not is_mutant and ars >= 2 and ars < 4:
+			# Mild/moderate ARS: nausea and fever unless well fed and watered.
+			var ars_p: float = (0.25 if ars == 2 else 0.5) * iron_resist_mult
+			if int(m.get("hunger", 0)) >= 2 or int(m.get("thirst", 0)) >= 2:
+				ars_p += 0.2
+			if int(m.get("sickness", 0)) < ars - 1 and rng.randf() < ars_p:
+				m["sickness"] = maxi(int(m.get("sickness", 0)), ars - 1)
+				day_lines.append("%s is showing %s — nausea and fever." % [m_name, RadiationModel.ars_label(ars).to_lower()])
+		if not is_mutant and ars >= 4:
+			# Severe ARS: marrow failure. Water, food and a medkit improve the odds; nothing guarantees them.
+			var care: float = 0.0
+			if int(m.get("thirst", 0)) == 0:
+				care += 0.1
+			if int(m.get("hunger", 0)) == 0:
+				care += 0.05
+			var p_die: float = clampf((0.12 if ars == 4 else 0.35) - care, 0.03, 0.6)
+			m["sickness"] = maxi(int(m.get("sickness", 0)), 2)
+			if rng.randf() < p_die:
+				m["alive"] = false
+				m["death_reason"] = "Died of acute radiation sickness (%s in a week)." % RadiationModel.format_dose(recent_msv)
+				deaths_today.append(m_name)
+				day_lines.append("%s's body could not recover from %s of radiation in a week. %s died in the night." % [m_name, RadiationModel.format_dose(recent_msv), m_name])
+				continue
 		if not is_mutant and rad_val > 65.0:
-			if rng.randf() < 0.18:
+			if rng.randf() < 0.06:
 				m["is_mutant"] = true
 				is_mutant = true
 				m["sickness"] = 0
@@ -468,8 +510,7 @@ static func advance_day(
 			else:
 				if int(m.get("sickness", 0)) < 2 and rng.randf() < (0.45 * iron_resist_mult):
 					m["sickness"] = maxi(int(m.get("sickness", 0)), 2)
-					day_lines.append("Heavy absorbed fallout (%.0f rads) made %s violently feverish with radiation sickness!" % [rad_val, m_name])
-				m["radiation"] = maxf(48.0, rad_val - 12.0)
+					day_lines.append("A heavy recent dose (%s) left %s violently feverish." % [RadiationModel.format_dose(recent_msv), m_name])
 
 		if is_mutant:
 			m["sickness"] = 0
@@ -494,12 +535,24 @@ static func advance_day(
 				m["sickness"] = 1
 				day_lines.append("Shivering in the sub-zero shelter air (%.1f °C) on an empty stomach, %s caught a rattling chest cold." % [GameState.bunker_temp_c, m_name])
 
+		# Weakened bodies catch infections: dehydration and hunger raise the odds of falling ill.
+		if int(m.get("sickness", 0)) == 0 and (thirst_now >= 2 or hunger_now >= 3):
+			var weak_p: float = (0.08 + 0.06 * float(maxi(thirst_now - 1, 0)) + 0.04 * float(maxi(hunger_now - 2, 0))) * iron_resist_mult
+			if rng.randf() < weak_p:
+				m["sickness"] = 1
+				day_lines.append("Weak from %s, %s came down with a fever." % ["thirst" if thirst_now >= 2 else "hunger", m_name])
+
 		# Sickness & Injury Natural Recovery vs Fatal Escalation
 		var sick_lvl: int = int(m.get("sickness", 0))
 		var inj_lvl: int = int(m.get("injury", 0))
 
 		if hunger_now == 0 and thirst_now == 0 and (sick_lvl > 0 or inj_lvl > 0):
 			var rec_chance: float = 0.32 + (0.15 if has_medic_or_book else 0.0)
+			# Radiation sickness suppresses the immune system and slows healing.
+			if ars >= 3:
+				rec_chance *= 0.35
+			elif ars == 2:
+				rec_chance *= 0.7
 			if sick_lvl > 0 and rng.randf() < rec_chance:
 				sick_lvl = maxi(0, sick_lvl - 1)
 				m["sickness"] = sick_lvl
@@ -526,6 +579,9 @@ static func advance_day(
 				day_lines.append("%s's untreated illness worsened into a burning fever!" % m_name)
 			elif sick_lvl >= 2 and s_days >= 4:
 				var mal_pen: float = (0.16 * iron_resist_mult) if malnourished else 0.0
+				# Fever dehydrates: an untreated fever without water is far more dangerous.
+				if thirst_now >= 2:
+					mal_pen += 0.1
 				var fatal_s_prob: float = (0.08 + float(s_days - 4) * 0.07) * iron_resist_mult + mal_pen
 				if sick_lvl >= 3:
 					fatal_s_prob += 0.10 * iron_resist_mult
@@ -546,7 +602,7 @@ static func advance_day(
 				m["injury"] = 2
 				day_lines.append("%s's untreated cuts grew inflamed and infected!" % m_name)
 			elif inj_lvl >= 2 and i_days >= 4:
-				var fatal_i_prob: float = 0.08 + float(i_days - 4) * 0.07 + (0.16 if malnourished else 0.0)
+				var fatal_i_prob: float = 0.08 + float(i_days - 4) * 0.07 + (0.16 if malnourished else 0.0) + (0.12 if ars >= 3 else 0.0)
 				if inj_lvl >= 3:
 					fatal_i_prob += 0.10
 				if rng.randf() < fatal_i_prob:
@@ -666,7 +722,7 @@ static func advance_day(
 		day_lines.append(end_line)
 
 	_refresh_all_status_notes()
-	var day_title: String = "DAY %d — %s" % [cur_day, house_addr.to_upper()]
+	var day_title: String = "DAY %d — %s" % [cur_day, LocationText.area_header().to_upper()]
 	GameState.daily_log_entries.append({
 		"day": cur_day,
 		"title": day_title,
@@ -757,11 +813,7 @@ static func _tick_radiation_and_weather(generous_hot_soup: bool, rng: RandomNumb
 	var fallout_days: int = maxi(3, int(nuke.get("fallout_days", 14)))
 	var zone_str: String = str(nuke.get("zone", "fallout_plume")).to_lower()
 
-	# Smoothly decay surface_radiation_sv toward 0.15 Sv/hr over fallout_days
-	var excess_sv: float = maxf(0.0, GameState.surface_radiation_sv - 0.15)
-	var decay_rate: float = clampf(2.4 / float(fallout_days), 0.08, 0.45)
-	var linear_nudge: float = maxf(0.04, (init_sv - 0.15) / float(fallout_days * 3))
-	GameState.surface_radiation_sv = maxf(0.15, 0.15 + excess_sv * (1.0 - decay_rate) - linear_nudge)
+	# Radiation now follows RadiationModel (t^-1.2 decay, plume, hotspots); see advance_day().
 
 	var is_nuclear_winter: bool = (zone_str.find("winter") != -1) or (float(nuke.get("bunker_temp_c", 20.0)) <= 5.0)
 	var has_axe: bool = GameState.has_working_item("axe")
@@ -1022,8 +1074,9 @@ static func _evaluate_win_or_loss(house_addr: String) -> String:
 		if GameState.ending_title.strip_edges() == "":
 			GameState.ending_title = "NEIGHBORHOOD SANCTUARY!"
 		if GameState.ending_description.strip_edges() == "":
-			GameState.ending_description = "On Day %d, our peaceful expeditions to real neighborhood churches and schools paid off! A lantern-lit community convoy arrived at %s and welcomed %s into a thriving local sanctuary with clean rainwater and rooftop gardens." % [
-				GameState.day, house_addr, names_str
+			var sanc_place: String = EventDeck._get_sanctuary_poi_name()
+			GameState.ending_description = "On day %d the survivors organised at %s sent an escort to %s and brought %s into their shelter, where water and food are shared." % [
+				GameState.day, sanc_place if sanc_place != "" else "a nearby shelter", house_addr, names_str
 			]
 		return "VICTORY! Neighborhood sanctuary bells rang across the block—friends from our local shelter escorted %s from %s into a safe, rebuilt community!" % [names_str, house_addr]
 

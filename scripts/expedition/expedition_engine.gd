@@ -27,8 +27,16 @@ const ITEM_NAMES: Dictionary = {
 	"axe": "Fireman's Axe",
 	"rifle": "Hunting Rifle",
 	"suitcase": "Leather Suitcase",
-	"toolbox": "Repair Toolbox"
+	"toolbox": "Repair Toolbox",
+	"car_battery": "Car Battery",
+	"fuel_can": "Jerry Can (10 L)",
+	"spark_plugs": "Spark Plugs",
+	"fan_belt": "Fan Belt",
+	"tire_patch": "Tire Patch Kit"
 }
+
+const BASE_CARRY_SLOTS: int = 4
+const SUITCASE_CARRY_SLOTS: int = 6
 
 
 static func get_expedition_gear_ids() -> Array[String]:
@@ -37,16 +45,12 @@ static func get_expedition_gear_ids() -> Array[String]:
 
 static func get_radiation_hazard_label(sv_hr: float = -1.0) -> String:
 	var rad: float = GameState.surface_radiation_sv if sv_hr < 0.0 else sv_hr
-	if rad < 1.5:
-		return "Low"
-	elif rad < 5.0:
-		return "Moderate"
-	return "EXTREME"
+	return RadiationModel.risk_short(rad * 1000.0)
 
 
 static func get_available_targets() -> Array:
 	if GameState.nearby_pois.is_empty():
-		GameState.nearby_pois = _generate_fallback_pois(GameState.selected_house)
+		GameState.nearby_pois = _fictional_targets(GameState.selected_house)
 
 	var rad_label: String = get_radiation_hazard_label(GameState.surface_radiation_sv)
 	var raider_aggr: float = float(GameState.nuke_config.get("raider_aggression", 0.45))
@@ -60,7 +64,7 @@ static func get_available_targets() -> Array:
 			continue
 		var poi: Dictionary = raw_entry
 		var cat: String = _normalize_category(poi)
-		var dist_m: float = _extract_distance_m(poi, house_lat, house_lon, i)
+		var dist_m: float = float(poi.get("walk_m", _extract_distance_m(poi, house_lat, house_lon, i)))
 		var bearing: String = _extract_bearing(poi, house_lat, house_lon, i)
 		var base_name: String = _extract_base_name(poi, cat, i)
 		var display_name: String = _format_target_display(base_name, dist_m, bearing)
@@ -75,9 +79,8 @@ static func get_available_targets() -> Array:
 				travel_days = 3
 
 		var visited_count: int = int(poi.get("visited_count", 0))
-		var depleted: bool = visited_count >= 2 or bool(poi.get("depleted", false))
-		if visited_count >= 2:
-			depleted = true
+		poi["category"] = cat
+		var depleted: bool = LootInventory.remaining_total(poi) == 0
 
 		var bandit_risk: String = "Moderate"
 		var risk_score: float = raider_aggr + float(visited_count) * 0.12
@@ -102,8 +105,15 @@ static func get_available_targets() -> Array:
 		poi["travel_days"] = travel_days
 		poi["expected_days"] = travel_days
 		poi["effective_days_with_map"] = maxi(1, travel_days - 1)
-		poi["radiation_risk"] = rad_label
-		poi["hazard_level"] = rad_label
+		var p_lat: float = float(poi.get("lat", house_lat))
+		var p_lon: float = float(poi.get("lon", house_lon))
+		var loc_rate: float = RadiationModel.dose_rate_msv_h(p_lat, p_lon, RadiationModel.hours_since_detonation(GameState.day), GameState.day)
+		poi["dose_rate_msv_h"] = loc_rate
+		poi["radiation_risk"] = RadiationModel.risk_short(loc_rate)
+		poi["hazard_level"] = poi["radiation_risk"]
+		poi["dose_estimate_msv"] = RadiationModel.expedition_dose_estimate(p_lat, p_lon, travel_days, false)
+		poi["dose_estimate_mask_msv"] = RadiationModel.expedition_dose_estimate(p_lat, p_lon, travel_days, true)
+		poi["loot_status"] = LootInventory.status_label(poi)
 		poi["bandit_risk"] = bandit_risk
 		poi["expected_loot"] = expected_loot
 		poi["loot_icons"] = expected_loot.duplicate()
@@ -290,7 +300,7 @@ static func _resolve_expedition_return(exp_data: Dictionary, member: Dictionary)
 	var member_id: String = str(exp_data.get("member_id", ""))
 	var member_name: String = str(exp_data.get("member_name", "Survivor"))
 	var poi_index: int = int(exp_data.get("poi_index", 0))
-	var target_display: String = str(exp_data.get("target_name", "Neighborhood Ruins"))
+	var target_display: String = str(exp_data.get("target_name", "the ruins"))
 	var short_target: String = str(exp_data.get("short_target_name", target_display))
 	var category: String = str(exp_data.get("category", "house"))
 	var days_total: int = maxi(1, int(exp_data.get("days_total", 1)))
@@ -302,16 +312,17 @@ static func _resolve_expedition_return(exp_data: Dictionary, member: Dictionary)
 		GameState.active_expedition = {}
 		GameState.inventory_changed.emit()
 		GameState.family_changed.emit()
-		return {
-			"active": false,
-			"returned": true,
-			"survived": false,
-			"member_id": member_id,
-			"member_name": member_name,
-			"target_name": target_display,
-			"narrative": "%s never returned from %s." % [member_name, target_display],
-			"loot": {}
-		}
+		return {"active": false, "returned": true, "survived": false, "member_id": member_id, "member_name": member_name,
+			"target_name": target_display, "narrative": "%s never returned from %s." % [member_name, target_display], "loot": {}}
+
+	var poi_ref: Dictionary = exp_data.get("poi", {})
+	if poi_index >= 0 and poi_index < GameState.nearby_pois.size():
+		var stored_poi: Variant = GameState.nearby_pois[poi_index]
+		if stored_poi is Dictionary:
+			poi_ref = stored_poi
+	var p_lat: float = float(poi_ref.get("lat", GameState.selected_house.get("lat", 0.0)))
+	var p_lon: float = float(poi_ref.get("lon", GameState.selected_house.get("lon", 0.0)))
+	var prior_visits: int = int(poi_ref.get("visited_count", 0))
 
 	var is_mutant: bool = bool(member.get("is_mutant", false))
 	var trait_id: String = str(member.get("trait", "")).to_lower()
@@ -325,200 +336,163 @@ static func _resolve_expedition_return(exp_data: Dictionary, member: Dictionary)
 	var story_parts: Array[String] = []
 	story_parts.append(_build_arrival_prose(member_name, target_display, category, has_flashlight))
 
-	# 1. Surface Radiation Exposure (90% blocked by Gas Mask; Mutants 100% immune)
-	var sv_hr: float = GameState.surface_radiation_sv
-	var raw_rad_dose: float = sv_hr * (3.2 + float(days_total) * 1.45)
-	var rad_gained: float = 0.0
+	# 1. Radiation: real dose for this place and these days (plume position, decay, hotspots).
+	var launch_day: int = int(exp_data.get("launch_day", GameState.day - days_total))
+	var dose: float = 0.0
+	for d in range(days_total):
+		var day_n: int = launch_day + d
+		var start_h: float = RadiationModel.hours_since_detonation(day_n) + 4.0
+		var outside: float = RadiationModel.outdoor_dose_msv(p_lat, p_lon, start_h, RadiationModel.HOURS_OUTSIDE_PER_TRIP_DAY, day_n)
+		var inside_h: float = 24.0 - RadiationModel.HOURS_OUTSIDE_PER_TRIP_DAY
+		var inside: float = RadiationModel.outdoor_dose_msv(p_lat, p_lon, start_h + RadiationModel.HOURS_OUTSIDE_PER_TRIP_DAY, inside_h, day_n) / RadiationModel.BUILDING_PF_WHILE_SCAVENGING
+		dose += outside + inside
+	dose *= rng.randf_range(0.8, 1.2)
+	if has_gas_mask:
+		dose *= RadiationModel.GAS_MASK_FACTOR
+	var loc_rate: float = RadiationModel.dose_rate_msv_h(p_lat, p_lon, RadiationModel.hours_since_detonation(GameState.day), GameState.day)
 	if is_mutant:
-		rad_gained = 0.0
-		if sv_hr >= 4.0:
-			story_parts.append("%s's mutated physiology shrugged off the %.1f Sv/hr fallout haze like morning mist." % [member_name, sv_hr])
-	elif has_gas_mask:
-		rad_gained = raw_rad_dose * 0.10
-		if sv_hr >= 2.5:
-			story_parts.append("The Gas Mask canisters hissed steadily, blocking 90%% of the %.1f Sv/hr radioactive ash drifting across the street." % sv_hr)
+		story_parts.append("%s's mutation shrugged off the fallout (%s at %s)." % [member_name, RadiationModel.format_rate(loc_rate), short_target])
 	else:
-		rad_gained = raw_rad_dose
-		var iron_mult: float = 0.5 if trait_id == "iron_stomach" else 1.0
-		if sv_hr >= 5.0:
-			story_parts.append("Without a Gas Mask in %.1f Sv/hr fallout, %s inhaled stinging ash and returned coughing with radiation burns!" % [sv_hr, member_name])
-			if rng.randf() < (0.65 * iron_mult):
-				member["sickness"] = maxi(int(member.get("sickness", 0)), 2)
-			elif rng.randf() < iron_mult:
-				member["sickness"] = maxi(int(member.get("sickness", 0)), 1)
-		elif sv_hr >= 2.0 and rng.randf() < (0.35 * iron_mult):
-			story_parts.append("Unfiltered fallout dust left %s queasy and rasping." % member_name)
+		RadiationModel.add_dose(member, dose, GameState.day)
+		var stage: int = RadiationModel.ars_stage(float(member.get("dose_recent_msv", 0.0)))
+		var mask_txt: String = " The gas mask kept fallout dust out of %s's lungs." % member_name if has_gas_mask else ""
+		story_parts.append("Dosimeter: %s absorbed %s out there (%s, %s).%s" % [member_name, RadiationModel.format_dose(dose), RadiationModel.format_rate(loc_rate), RadiationModel.risk_short(loc_rate).to_lower(), mask_txt])
+		if not has_gas_mask and loc_rate >= 10.0 and rng.randf() < (0.4 if trait_id != "iron_stomach" else 0.2):
 			member["sickness"] = maxi(int(member.get("sickness", 0)), 1)
+			story_parts.append("Without a mask, %s inhaled fallout dust and came back coughing." % member_name)
+		if stage >= 2:
+			story_parts.append("%s now shows %s." % [member_name, RadiationModel.ars_label(stage).to_lower()])
 
-	member["radiation"] = float(member.get("radiation", 0.0)) + rad_gained
-
-	# Retrieve & update POI visited count
-	var poi_ref: Dictionary = exp_data.get("poi", {})
-	if poi_index >= 0 and poi_index < GameState.nearby_pois.size():
-		var stored_poi: Variant = GameState.nearby_pois[poi_index]
-		if stored_poi is Dictionary:
-			poi_ref = stored_poi
-	var prior_visits: int = int(poi_ref.get("visited_count", 0))
-
-	# 2. Bandit / Scavenger Ambush Resolution
+	# 2. Ambush
 	var raider_aggr: float = float(GameState.nuke_config.get("raider_aggression", 0.45))
-	var ambush_chance: float = 0.20 + raider_aggr * 0.34 + float(prior_visits) * 0.06
+	var ambush_chance: float = 0.18 + raider_aggr * 0.32 + float(prior_visits) * 0.05
 	if category == "church" or category == "school":
 		ambush_chance -= 0.15
-	elif category == "grocery" or category == "pharmacy":
+	elif category in ["grocery", "pharmacy", "auto", "hardware"]:
 		ambush_chance += 0.06
-	ambush_chance = clampf(ambush_chance, 0.08, 0.72)
-
+	ambush_chance = clampf(ambush_chance, 0.06, 0.72)
 	var was_ambushed: bool = rng.randf() < ambush_chance
-	var loot_stolen_factor: float = 1.0
-	var bonus_raider_ammo: bool = false
-
+	var loot_loss_share: float = 0.0
 	if was_ambushed:
 		if has_rifle:
 			if GameState.ammo_count > 0:
 				GameState.break_or_consume_item("ammo")
-				story_parts.append("Hostile raiders cornered %s outside %s, but a single warning crack from the Hunting Rifle sent them scrambling over abandoned cars!" % [member_name, short_target])
+				story_parts.append("Raiders cornered %s outside %s; one warning shot from the rifle sent them running." % [member_name, short_target])
 			else:
-				story_parts.append("Desperate looters crept out of an alley near %s, until %s leveled the Hunting Rifle and backed them down without firing a shot!" % [short_target, member_name])
-			if rng.randf() < 0.35:
-				bonus_raider_ammo = true
+				story_parts.append("Looters crept out near %s until %s raised the empty rifle and bluffed them away." % [short_target, member_name])
 		elif has_axe:
-			story_parts.append("Two masked scavengers lunged from behind a stairwell at %s, but %s swung the Fireman's Axe through a doorframe and sent them fleeing!" % [short_target, member_name])
+			story_parts.append("Two masked scavengers lunged at %s inside %s; the axe drove them off." % [member_name, short_target])
 		elif is_mutant:
-			story_parts.append("Wasteland bandits tried to ambush %s near %s—one glimpse of %s's glowing mutant eyes sent the gang sprinting in terror!" % [member_name, short_target, member_name])
+			story_parts.append("Bandits took one look at %s's glowing eyes near %s and fled." % [member_name, short_target])
 		else:
-			# Unguarded ambush!
-			loot_stolen_factor = 0.55
+			loot_loss_share = 0.45
 			var wound_add: int = 1 if (trait_id == "tough" or rng.randf() < 0.65) else 2
 			var prev_inj: int = int(member.get("injury", 0))
 			var prev_sick: int = int(member.get("sickness", 0))
 			if prev_inj >= 3 and prev_sick >= 2 and rng.randf() < 0.35:
-				# Rare fatal ambush only if explorer was sent out already critically wounded & sick without weapons
 				member["alive"] = false
 				member["on_expedition"] = false
 				member["days_away"] = 0
-				member["death_reason"] = "Overwhelmed by wasteland raiders near %s." % short_target
+				member["death_reason"] = "Overwhelmed by raiders near %s." % short_target
 				member["status_note"] = str(member["death_reason"])
 				poi_ref["visited_count"] = prior_visits + 1
-				poi_ref["depleted"] = int(poi_ref["visited_count"]) >= 2
-				if poi_index >= 0 and poi_index < GameState.nearby_pois.size():
-					GameState.nearby_pois[poi_index] = poi_ref
 				_clear_checked_out_flags(gear_ids)
 				GameState.active_expedition = {}
 				GameState.inventory_changed.emit()
 				GameState.family_changed.emit()
-				var tragic_msg: String = "Tragedy struck topside: already gravely weakened and unarmed, %s was ambushed near %s and never came back through the hatch." % [member_name, target_display]
-				return {
-					"active": false,
-					"returned": true,
-					"survived": false,
-					"member_id": member_id,
-					"member_name": member_name,
-					"target_name": target_display,
-					"category": category,
-					"ambushed": true,
-					"rad_gained": rad_gained,
-					"narrative": tragic_msg,
-					"loot": {}
-				}
+				return {"active": false, "returned": true, "survived": false, "member_id": member_id, "member_name": member_name,
+					"target_name": target_display, "category": category, "ambushed": true, "rad_gained": dose,
+					"narrative": "Already gravely weakened and unarmed, %s was ambushed near %s and never came back." % [member_name, target_display], "loot": {}}
 			member["injury"] = mini(3, prev_inj + wound_add)
-			story_parts.append("Unarmed near %s, %s was jumped by crowbar-wielding raiders who snatched nearly half the pack and left %s bruised and bleeding!" % [short_target, member_name, member_name])
+			story_parts.append("Unarmed near %s, %s was jumped by raiders who took part of the haul." % [short_target, member_name])
 
-	# 3. Restore Checked-Out Gear FIRST so _roll_category_loot / _pick_needed_durable sees carried gear as owned
-	# and never overwrites newly scavenged item counts!
+	# 3. Return checked-out gear
 	var broken_gear: Array[String] = []
 	for raw_gid in gear_ids:
 		var gid: String = str(raw_gid)
 		if not GameState.bunker_items.has(gid):
 			continue
 		var entry: Dictionary = GameState.bunker_items[gid]
-		var restore_cnt: int = maxi(1, int(checked_out_counts.get(gid, 1)))
 		entry["owned"] = true
 		entry["checked_out"] = false
-		entry["count"] = maxi(int(entry.get("count", 0)), restore_cnt)
+		entry["count"] = maxi(int(entry.get("count", 0)), maxi(1, int(checked_out_counts.get(gid, 1))))
 
-	# 4. Calculate Scavenged Loot (Suitcase 2x, Flashlight +35%, Depletion scaling)
-	var mult: float = 1.0
-	if has_flashlight:
-		mult *= 1.35
-	if has_suitcase:
-		mult *= 2.0
-	if trait_id == "scout":
-		mult *= 1.15
-	if prior_visits == 1:
-		mult *= 0.62
-	elif prior_visits >= 2:
-		mult *= 0.35
-	mult *= loot_stolen_factor
-
-	var loot_dict: Dictionary = _roll_category_loot(category, mult, rng)
-	if bonus_raider_ammo:
-		loot_dict["soup"] = int(loot_dict.get("soup", 0)) + 1
-
+	# 4. Finite loot: search part of what is left in THIS building; carry what fits.
+	var before_left: int = LootInventory.remaining_total(poi_ref)
+	var capacity: int = SUITCASE_CARRY_SLOTS + BASE_CARRY_SLOTS if has_suitcase else BASE_CARRY_SLOTS
+	var share: float = 0.35 + 0.1 * float(days_total - 1) + (0.2 if has_flashlight else 0.0) + (0.1 if trait_id == "scout" else 0.0)
+	var taken: Dictionary = LootInventory.raid(poi_ref, capacity, share, rng, _loot_priorities())
+	if loot_loss_share > 0.0:
+		taken = LootInventory.lose_share(taken, loot_loss_share, rng)
+	var after_left: int = LootInventory.remaining_total(poi_ref)
+	var arrivals: Array = []
 	var loot_labels: Array[String] = []
-	for item_key in loot_dict.keys():
+	for item_key in taken.keys():
 		var iid: String = str(item_key)
-		var qty: int = int(loot_dict.get(iid, 0))
+		var qty: int = int(taken[iid])
 		if qty <= 0:
 			continue
-		GameState.add_scavenged_item(iid, qty)
-		var nice_name: String = str(ITEM_NAMES.get(iid, iid.capitalize()))
-		if iid == "soup":
-			loot_labels.append("%d %s" % [qty, "can of Soup" if qty == 1 else "cans of Soup"])
-		elif iid == "water":
-			loot_labels.append("%d %s" % [qty, "bottle of Water" if qty == 1 else "bottles of Water"])
-		elif iid == "ammo":
-			loot_labels.append("%d %s" % [qty * 2, "Rifle rounds"])
-		elif qty > 1:
-			loot_labels.append("%dx %s" % [qty, nice_name])
+		if iid in ["car_battery", "fuel_can", "spark_plugs", "fan_belt", "tire_patch"]:
+			GameState.add_scavenged_item(iid, qty)
 		else:
-			loot_labels.append(nice_name)
-
-	if has_suitcase and not loot_labels.is_empty():
-		story_parts.append("Stuffing the Leather Suitcase doubled what %s could haul home!" % member_name)
-	elif has_flashlight and not loot_labels.is_empty():
-		story_parts.append("The Flashlight beam uncovered untouched shelves in the pitch-black back room (+35%% haul).")
-
-	var loot_summary: String = "nothing but empty wrappers"
+			GameState.add_scavenged_item(iid, qty)
+		arrivals.append({"item_id": iid, "count": qty})
+		var nice: String = str(ITEM_NAMES.get(iid, iid.capitalize()))
+		if iid == "soup":
+			loot_labels.append("%d %s" % [qty, "can of soup" if qty == 1 else "cans of soup"])
+		elif iid == "water":
+			loot_labels.append("%d %s" % [qty, "bottle of water" if qty == 1 else "bottles of water"])
+		elif iid == "ammo":
+			loot_labels.append("%d rifle rounds" % (qty * 2))
+		elif qty > 1:
+			loot_labels.append("%dx %s" % [qty, nice])
+		else:
+			loot_labels.append(nice)
+	var loot_summary: String = "nothing at all"
 	if not loot_labels.is_empty():
 		loot_summary = ", ".join(loot_labels)
-	story_parts.append("Three sharp knocks echoed on the bunker hatch—%s returned carrying: %s." % [member_name, loot_summary])
+	if after_left == 0 and before_left > 0:
+		story_parts.append("%s is now stripped bare — there is nothing left to find there." % short_target)
+	elif before_left == 0:
+		story_parts.append("%s had already been picked clean; the trip was for nothing." % short_target)
+	elif prior_visits > 0:
+		story_parts.append("Earlier raids had already emptied most shelves at %s." % short_target)
+	story_parts.append("Three knocks on the hatch — %s is back carrying: %s." % [member_name, loot_summary])
+	if not arrivals.is_empty():
+		GameState.storage_arrivals.append({"member_id": member_id, "member_name": member_name, "items": arrivals, "day": GameState.day, "from": short_target})
 
-	# 5. Update POI visited_count & Sanctuary Rescue Chain
+	# 5. Visits & sanctuary chain (only real churches/schools can host a sanctuary)
 	poi_ref["visited_count"] = prior_visits + 1
-	poi_ref["depleted"] = int(poi_ref["visited_count"]) >= 2
+	poi_ref["depleted"] = after_left == 0
 	if poi_index >= 0 and poi_index < GameState.nearby_pois.size():
 		GameState.nearby_pois[poi_index] = poi_ref
-
 	var sanctuary_advanced: bool = false
-	if category == "church" or category == "school":
+	if (category == "church" or category == "school") and not bool(poi_ref.get("fictional", false)):
 		var cur_sanc: int = int(GameState.rescue_chains.get("sanctuary", 0))
 		if cur_sanc < 3:
 			var next_sanc: int = mini(3, cur_sanc + 1)
 			GameState.rescue_chains["sanctuary"] = next_sanc
 			sanctuary_advanced = true
 			if next_sanc == 1:
-				story_parts.append("Inside %s, %s traded peaceful Civil Defense hand signals with candlelit neighborhood survivors organizing a relief shelter (Sanctuary 1/3)." % [short_target, member_name])
+				story_parts.append("Inside %s, %s met survivors organising a relief shelter (Sanctuary 1/3)." % [short_target, member_name])
 			elif next_sanc == 2:
-				story_parts.append("Volunteers fortified inside %s shared rainwater blueprints and marked our street on their convoy roster (Sanctuary 2/3)!" % short_target)
+				story_parts.append("The volunteers at %s put our household on their convoy roster (Sanctuary 2/3)." % short_target)
 			else:
-				story_parts.append("The community council at %s rang their bell and dispatched an armed neighborhood escort directly to our address (Sanctuary 3/3)!" % short_target)
+				story_parts.append("The council at %s promised an escort to our door (Sanctuary 3/3)." % short_target)
 
-	# 6. Realistic Minor Wear Chance on Carried Gear (if not handy and not freshly scavenged)
+	# 6. Wear on carried gear
 	if not gear_ids.is_empty() and trait_id != "handy":
-		var wear_chance: float = 0.06 if is_armed else 0.20
+		var wear_chance: float = 0.06 if is_armed else 0.2
 		if was_ambushed and not is_armed:
 			wear_chance = 0.35
 		if rng.randf() < wear_chance:
-			var pick_idx: int = rng.randi_range(0, gear_ids.size() - 1)
-			var worn_gid: String = str(gear_ids[pick_idx])
-			if GameState.bunker_items.has(worn_gid) and not loot_dict.has(worn_gid):
+			var worn_gid: String = str(gear_ids[rng.randi_range(0, gear_ids.size() - 1)])
+			if GameState.bunker_items.has(worn_gid) and not taken.has(worn_gid):
 				GameState.break_or_consume_item(worn_gid)
 				broken_gear.append(worn_gid)
-				var worn_label: String = str(ITEM_NAMES.get(worn_gid, worn_gid.capitalize()))
-				story_parts.append("Rough scrapes on the trip cracked our %s (needs Toolbox repair)." % worn_label)
+				story_parts.append("Rough going cracked our %s (needs a toolbox repair)." % str(ITEM_NAMES.get(worn_gid, worn_gid.capitalize())))
 
-	# 7. Explorer Fatigue, Wasteland Hunger/Thirst & Bunker State Reset
+	# 7. Hunger/thirst on the road
 	member["on_expedition"] = false
 	member["days_away"] = 0
 	member["fatigue"] = mini(2, int(member.get("fatigue", 0)) + 1)
@@ -532,97 +506,31 @@ static func _resolve_expedition_return(exp_data: Dictionary, member: Dictionary)
 	GameState.active_expedition = {}
 	GameState.inventory_changed.emit()
 	GameState.family_changed.emit()
-
 	return {
-		"active": false,
-		"returned": true,
-		"survived": true,
-		"member_id": member_id,
-		"member_name": member_name,
-		"target_name": target_display,
-		"category": category,
-		"loot": loot_dict,
-		"loot_summary": loot_summary,
-		"broken_gear": broken_gear,
-		"sanctuary_advanced": sanctuary_advanced,
-		"ambushed": was_ambushed,
-		"rad_gained": rad_gained,
-		"narrative": " ".join(story_parts)
+		"active": false, "returned": true, "survived": true, "member_id": member_id, "member_name": member_name,
+		"target_name": target_display, "category": category, "loot": taken, "loot_summary": loot_summary,
+		"broken_gear": broken_gear, "sanctuary_advanced": sanctuary_advanced, "ambushed": was_ambushed,
+		"rad_gained": dose, "dose_msv": dose, "place_left": after_left, "narrative": " ".join(story_parts)
 	}
 
 
-static func _roll_category_loot(category: String, mult: float, rng: RandomNumberGenerator) -> Dictionary:
-	var loot: Dictionary = {}
-	match category:
-		"grocery", "restaurant":
-			var soup_cnt: int = maxi(1, roundi(float(rng.randi_range(2, 3)) * mult))
-			var water_cnt: int = maxi(1, roundi(float(rng.randi_range(2, 3)) * mult))
-			loot["soup"] = soup_cnt
-			loot["water"] = water_cnt
-			if rng.randf() < 0.28 * mult:
-				loot["bug_spray"] = 1
-		"pharmacy":
-			var med_cnt: int = maxi(1, roundi(float(rng.randi_range(1, 2)) * clampf(mult * 0.85, 0.7, 2.2)))
-			loot["medkit"] = med_cnt
-			loot["water"] = maxi(1, roundi(1.2 * mult))
-			if rng.randf() < 0.35:
-				loot["bug_spray"] = 1
-			if not GameState.has_working_item("gas_mask") and rng.randf() < 0.32 * mult:
-				loot["gas_mask"] = 1
-		"hardware":
-			loot["water"] = maxi(1, roundi(1.0 * mult))
-			if rng.randf() < 0.55:
-				loot["soup"] = maxi(1, roundi(0.9 * mult))
-			if rng.randf() < 0.45 * clampf(mult, 0.8, 1.8):
-				loot["ammo"] = maxi(1, roundi(0.9 * mult))
-			var hw_pool: Array[String] = ["toolbox", "axe", "rifle", "ammo", "padlock", "flashlight", "bug_spray"]
-			var picked_durable: String = _pick_needed_durable(hw_pool, rng)
-			if picked_durable != "":
-				loot[picked_durable] = maxi(1, int(loot.get(picked_durable, 0)))
-			if mult >= 1.75:
-				var second_hw: String = _pick_needed_durable(["rifle", "ammo", "padlock", "bug_spray", "toolbox", "axe"], rng)
-				if second_hw != "" and not loot.has(second_hw):
-					loot[second_hw] = 1
-		"church":
-			loot["soup"] = maxi(1, roundi(float(rng.randi_range(1, 2)) * mult))
-			loot["water"] = maxi(1, roundi(float(rng.randi_range(1, 2)) * mult))
-			if rng.randf() < 0.40 * mult:
-				loot["medkit"] = 1
-			var church_gift: String = _pick_needed_durable(["book", "harmonica", "cards"], rng)
-			if church_gift != "" and rng.randf() < 0.45:
-				loot[church_gift] = 1
-		"school":
-			loot["soup"] = maxi(1, roundi(1.3 * mult))
-			loot["water"] = maxi(1, roundi(1.3 * mult))
-			var school_gear: String = _pick_needed_durable(["map", "book", "flashlight", "checkers", "cards"], rng)
-			if school_gear != "":
-				loot[school_gear] = 1
-		"civic":
-			loot["water"] = maxi(1, roundi(1.2 * mult))
-			loot["ammo"] = maxi(1, roundi(1.1 * mult))
-			var civic_gear: String = _pick_needed_durable(["rifle", "gas_mask", "radio", "medkit"], rng)
-			if civic_gear != "":
-				loot[civic_gear] = 1
-		"park":
-			loot["water"] = maxi(1, roundi(float(rng.randi_range(1, 2)) * mult))
-			if rng.randf() < 0.65:
-				loot["soup"] = maxi(1, roundi(1.0 * mult))
-			var cache_item: String = _pick_needed_durable(["harmonica", "ammo", "map", "bug_spray"], rng)
-			if cache_item != "" and rng.randf() < 0.55:
-				loot[cache_item] = 1
-		_:
-			# Neighboring House / Residential default
-			loot["soup"] = maxi(1, roundi(float(rng.randi_range(1, 2)) * mult))
-			loot["water"] = maxi(1, roundi(float(rng.randi_range(1, 2)) * mult))
-			var home_pool: Array[String] = [
-				"medkit", "ammo", "suitcase", "radio", "flashlight",
-				"cards", "checkers", "padlock", "harmonica", "bug_spray"
-			]
-			if rng.randf() < 0.65 * clampf(mult, 0.6, 1.6):
-				var home_pick: String = _pick_needed_durable(home_pool, rng)
-				if home_pick != "":
-					loot[home_pick] = 1
-	return loot
+## What the household needs most decides what the explorer carries home first.
+static func _loot_priorities() -> Array:
+	var pri: Array = []
+	var veh_needs: Array = VehicleSystem.missing_parts() if GameState.vehicle is Dictionary and not GameState.vehicle.is_empty() else []
+	var people: int = maxi(1, GameState.get_all_living_members().size())
+	if GameState.water_quarters < people * 4:
+		pri.append("water")
+	if GameState.soup_quarters < people * 4:
+		pri.append("soup")
+	for m_v in GameState.get_all_living_members():
+		if int((m_v as Dictionary).get("sickness", 0)) > 0 or int((m_v as Dictionary).get("injury", 0)) > 0:
+			pri.append("medkit")
+			break
+	for part in veh_needs:
+		pri.append(str(part))
+	pri.append_array(["medkit", "water", "soup", "gas_mask", "radio", "toolbox", "car_battery", "fuel_can", "spark_plugs", "fan_belt", "tire_patch", "map", "flashlight", "rifle", "axe", "ammo"])
+	return pri
 
 
 static func _pick_needed_durable(pool: Array[String], rng: RandomNumberGenerator) -> String:
@@ -688,6 +596,8 @@ static func _find_member_any_state(member_id: String) -> Dictionary:
 
 static func _normalize_category(poi: Dictionary) -> String:
 	var raw_cat: String = str(poi.get("category", poi.get("type", poi.get("poi_type", poi.get("amenity", poi.get("shop", poi.get("building_type", ""))))))).to_lower()
+	if raw_cat in ["auto", "fuel", "car_repair", "car_parts", "tyres"]:
+		return "auto"
 	if raw_cat in ["grocery", "supermarket", "convenience", "bakery", "greengrocer", "deli", "market", "marketplace"]:
 		return "grocery"
 	if raw_cat in ["restaurant", "cafe", "fast_food", "bar", "diner"]:
@@ -760,35 +670,21 @@ static func _extract_bearing(poi: Dictionary, house_lat: float, house_lon: float
 	return fallback_dirs[idx % fallback_dirs.size()]
 
 
-static func _extract_base_name(poi: Dictionary, cat: String, idx: int) -> String:
-	var nm: String = str(poi.get("name", poi.get("label", poi.get("title", poi.get("address", ""))))).strip_edges()
+static func _extract_base_name(poi: Dictionary, cat: String, _idx: int) -> String:
+	var nm: String = str(poi.get("name", "")).strip_edges()
 	if nm != "":
-		# Strip trailing "(240m SE)" if already embedded so base_name stays clean
 		var paren_pos: int = nm.rfind("(")
 		if paren_pos > 2 and nm.ends_with(")") and nm.substr(paren_pos).find("m ") != -1:
 			nm = nm.substr(0, paren_pos).strip_edges()
 		return nm
-	match cat:
-		"grocery":
-			return "Neighborhood Grocery Market"
-		"church":
-			return "Community Parish Church"
-		"pharmacy":
-			return "Corner Drugstore & Pharmacy"
-		"hardware":
-			return "Neighborhood Hardware & Supply"
-		"school":
-			return "Public Elementary School"
-		"civic":
-			return "Engine Co. Firehouse"
-		"park":
-			return "Municipal Civil Defense Park"
-		_:
-			return "Neighboring House #%d" % (idx + 1)
+	# Never invent a name: describe what OSM says the place is.
+	if not str(poi.get("kind_label", "")).is_empty():
+		return LocationText.poi_label(poi)
+	return "Unnamed %s" % OsmService.get_category_label(cat).to_lower()
 
 
 static func _format_target_display(base_name: String, dist_m: float, bearing: String) -> String:
-	return "%s (%dm %s)" % [base_name, int(round(dist_m)), bearing]
+	return "%s (%dm walk %s)" % [base_name, int(round(dist_m)), bearing]
 
 
 static func _expected_loot_for_category(cat: String) -> Array:
@@ -811,49 +707,19 @@ static func _expected_loot_for_category(cat: String) -> Array:
 			return ["soup", "water", "ammo", "cards"]
 
 
-static func _generate_fallback_pois(house: Dictionary) -> Array:
-	var addr: String = str(house.get("address", "518 E Roy St, Capitol Hill, Seattle, WA"))
-	var addr_lower: String = addr.to_lower()
-	var h_lat: float = float(house.get("lat", 47.6242))
-	var h_lon: float = float(house.get("lon", -122.3195))
-
-	if addr_lower.find("concord") != -1:
-		return [
-			{"name": "Neighboring Colonial House", "category": "house", "distance_m": 68.0, "bearing": "W", "lat": h_lat, "lon": h_lon - 0.0009},
-			{"name": "Crosby's Marketplace", "category": "grocery", "distance_m": 255.0, "bearing": "SE", "lat": h_lat - 0.0016, "lon": h_lon + 0.0018},
-			{"name": "First Parish Church in Concord", "category": "church", "distance_m": 205.0, "bearing": "E", "lat": h_lat + 0.0002, "lon": h_lon + 0.0024},
-			{"name": "Concord Family Pharmacy", "category": "pharmacy", "distance_m": 320.0, "bearing": "SW", "lat": h_lat - 0.0021, "lon": h_lon - 0.0020},
-			{"name": "Vanderhoof Hardware Store", "category": "hardware", "distance_m": 290.0, "bearing": "N", "lat": h_lat + 0.0026, "lon": h_lon + 0.0003},
-			{"name": "Concord Free Public Library", "category": "school", "distance_m": 240.0, "bearing": "NE", "lat": h_lat + 0.0015, "lon": h_lon + 0.0018}
-		]
-	elif addr_lower.find("brooklyn") != -1 or addr_lower.find("carroll") != -1:
-		return [
-			{"name": "Neighboring Carroll St Brownstone", "category": "house", "distance_m": 58.0, "bearing": "E", "lat": h_lat, "lon": h_lon + 0.0007},
-			{"name": "Union Market Carroll Gardens", "category": "grocery", "distance_m": 220.0, "bearing": "N", "lat": h_lat + 0.0020, "lon": h_lon + 0.0002},
-			{"name": "Sacred Hearts & St. Stephen Church", "category": "church", "distance_m": 190.0, "bearing": "NW", "lat": h_lat + 0.0013, "lon": h_lon - 0.0014},
-			{"name": "Court Street Corner Pharmacy", "category": "pharmacy", "distance_m": 305.0, "bearing": "NE", "lat": h_lat + 0.0021, "lon": h_lon + 0.0019},
-			{"name": "Mazzone True Value Hardware", "category": "hardware", "distance_m": 365.0, "bearing": "S", "lat": h_lat - 0.0032, "lon": h_lon - 0.0004},
-			{"name": "P.S. 58 The Carroll School", "category": "school", "distance_m": 275.0, "bearing": "SW", "lat": h_lat - 0.0018, "lon": h_lon - 0.0019}
-		]
-	elif addr_lower.find("seattle") != -1 or addr_lower.find("roy") != -1 or addr_lower.find("capitol hill") != -1:
-		return [
-			{"name": "524 E Roy St Neighbor House", "category": "house", "distance_m": 65.0, "bearing": "E", "lat": h_lat, "lon": h_lon + 0.0008},
-			{"name": "QFC Supermarket", "category": "grocery", "distance_m": 240.0, "bearing": "SE", "lat": h_lat - 0.0015, "lon": h_lon + 0.0019},
-			{"name": "All Pilgrims Christian Church", "category": "church", "distance_m": 185.0, "bearing": "SW", "lat": h_lat - 0.0012, "lon": h_lon - 0.0014},
-			{"name": "Walgreens Pharmacy", "category": "pharmacy", "distance_m": 310.0, "bearing": "N", "lat": h_lat + 0.0028, "lon": h_lon + 0.0002},
-			{"name": "City Peoples Hardware & Mercantile", "category": "hardware", "distance_m": 445.0, "bearing": "NE", "lat": h_lat + 0.0029, "lon": h_lon + 0.0031},
-			{"name": "Lowell Elementary School", "category": "school", "distance_m": 370.0, "bearing": "E", "lat": h_lat - 0.0003, "lon": h_lon + 0.0048}
-		]
-
-	# Custom live-searched address anywhere in the world: extract street segment
-	var street_part: String = addr.split(",")[0].strip_edges()
-	if street_part == "":
-		street_part = "Maple Ave"
-	return [
-		{"name": "Neighboring House near %s" % street_part, "category": "house", "distance_m": 70.0, "bearing": "E", "lat": h_lat, "lon": h_lon + 0.0008},
-		{"name": "%s Local Grocery Market" % street_part, "category": "grocery", "distance_m": 235.0, "bearing": "SE", "lat": h_lat - 0.0015, "lon": h_lon + 0.0018},
-		{"name": "%s Community Church" % street_part, "category": "church", "distance_m": 190.0, "bearing": "SW", "lat": h_lat - 0.0012, "lon": h_lon - 0.0014},
-		{"name": "%s Corner Pharmacy" % street_part, "category": "pharmacy", "distance_m": 315.0, "bearing": "N", "lat": h_lat + 0.0028, "lon": h_lon + 0.0002},
-		{"name": "%s Hardware & Supply" % street_part, "category": "hardware", "distance_m": 440.0, "bearing": "NE", "lat": h_lat + 0.0028, "lon": h_lon + 0.0030},
-		{"name": "%s Public School Shelter" % street_part, "category": "school", "distance_m": 360.0, "bearing": "NW", "lat": h_lat + 0.0023, "lon": h_lon - 0.0024}
-	]
+## Only used when no real buildings exist at all (unmapped coordinates): clearly fictional places.
+static func _fictional_targets(house: Dictionary) -> Array:
+	var h_lat: float = float(house.get("lat", 0.0))
+	var h_lon: float = float(house.get("lon", 0.0))
+	var out: Array = []
+	var specs: Array = [["Abandoned farmstead", 0.0, 380.0], ["Roadside barn", 120.0, 520.0], ["Empty cottage", 250.0, 300.0]]
+	for i in range(specs.size()):
+		var sp: Array = specs[i]
+		var pt: Dictionary = NukePhysics.destination_point(h_lat, h_lon, float(sp[1]), float(sp[2]) / 1000.0)
+		out.append({
+			"osm_id": -100 - i, "name": "%s (fictional)" % str(sp[0]), "category": "neighbor_house", "fictional": true,
+			"source": "fictional", "lat": float(pt["lat"]), "lon": float(pt["lon"]), "distance_m": float(sp[2]),
+			"walk_m": int(float(sp[2]) * 1.35), "walk_source": "estimate", "bearing_dir": NukePhysics.compass_label(float(sp[1])),
+			"travel_days": 2, "named": false, "visited_count": 0, "depleted": false
+		})
+	return out

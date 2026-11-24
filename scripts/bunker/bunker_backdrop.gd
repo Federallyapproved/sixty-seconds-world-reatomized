@@ -500,12 +500,12 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 	draw_rect(g_plate, COL_INK, true)
 	var sv_col := COL_GREEN if sv < 2.0 else (COL_HAZARD if sv < 5.5 else COL_RED)
 	draw_rect(g_plate, sv_col, false, 1.5)
-	draw_string(font, g_plate.position + Vector2(0.0, 15.0), "%.1f Sv/hr" % sv, HORIZONTAL_ALIGNMENT_CENTER, g_plate.size.x, 11, sv_col)
+	draw_string(font, g_plate.position + Vector2(0.0, 15.0), RadiationModel.format_rate(sv * 1000.0), HORIZONTAL_ALIGNMENT_CENTER, g_plate.size.x, 11, sv_col)
 
 	_register_hotspot(
 		Rect2(gc.x - 52.0, gc.y - 52.0, 104.0, 124.0),
 		"GEIGER-MÜLLER RADIATION COUNTER",
-		"Surface Dose: %.2f Sv/hr" % sv,
+		"Outdoor dose rate: %s (%s) · shelter PF %d" % [RadiationModel.format_rate(sv * 1000.0), RadiationModel.risk_label(sv * 1000.0), int(round(RadiationModel.shelter_pf()))],
 		"High surface radiation requires a working Gas Mask on expeditions to avoid severe fallout sickness.",
 		sv_col
 	)
