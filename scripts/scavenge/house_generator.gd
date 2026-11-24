@@ -2,11 +2,11 @@ class_name HouseGenerator
 extends RefCounted
 
 ## Procedural real-world OpenStreetMap house floorplan generator for
-## "60 Seconds: World Reatomized".
+## "The End Is Near".
 ## Converts an OSM building polygon (footprint_meters) into a scaled, centered,
 ## 6-room mid-century suburban house with wide doorways, thematic props,
 ## self-healing BFS walkability verification from the Fallout Bunker Hatch,
-## A* pathfinding, and authentic 60 Seconds! survival item & family spawns.
+## A* pathfinding, and classic survival item & family spawns.
 
 const PX_PER_METER: float = 46.0
 const MIN_HOUSE_WIDTH_M: float = 14.0
@@ -249,7 +249,7 @@ static func _legacy_generate_from_osm_house(
 	nav_grid.erase("_resolved_walls")
 
 	# 6. Place leader_start_pos (~90 px from hatch_pos), non-leader family_members,
-	#    and authentic 60 Seconds! survival items on verified BFS-reachable cells.
+	#    and classic survival items on verified BFS-reachable cells.
 	var leader_start_pos: Vector2 = _pick_leader_start_pos(nav_grid, rooms, walls, furniture, hatch_pos)
 	var family_spawns: Array = _spawn_family_members(
 		family_members,
@@ -1868,7 +1868,7 @@ static func _find_unreachable_rooms(rooms: Array, nav_grid: Dictionary) -> Array
 
 
 # ---------------------------------------------------------------------------
-# Step 6: Leader Start, Family Spawns & Authentic 60 Seconds! Item Spawning
+# Step 6: Leader Start, Family Spawns & Classic Item Spawning
 # ---------------------------------------------------------------------------
 
 static func _collect_room_reachable_points(
@@ -2072,7 +2072,7 @@ static func _spawn_house_items(
 		var fsd: Dictionary = fs
 		occupied_family.append(fsd["pos"])
 
-	# Build exact 60 Seconds! spawn manifest:
+	# Build the classic spawn manifest:
 	# - 6..8 "soup" cans (weighted toward Kitchen & Utility, plus random rooms)
 	# - 6..8 "water" bottles (weighted toward Kitchen & Bathroom/Utility, plus random rooms)
 	# - Guaranteed core survival items: 1 "medkit", 1 "gas_mask", 1 "radio", 1 "suitcase", 1 "book", 1 weapon ("rifle" or "axe")

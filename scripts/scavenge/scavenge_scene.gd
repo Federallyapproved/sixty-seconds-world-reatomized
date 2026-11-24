@@ -1,7 +1,7 @@
 class_name ScavengeScene
 extends Node2D
 
-## 60-Second Real-World OSM House Scavenge Sequence for "60 Seconds: World Reatomized".
+## 60-Second Real-World OSM House Scavenge Sequence for "The End Is Near".
 ## Runs the Recon/Scout phase + frantic 60.0-second CONELRAD countdown inside the
 ## player's chosen OpenStreetMap house footprint, with sliding physics, furniture bump
 ## juice, multi-slot carry management, automatic Bunker Hatch chute drops, and a smart
@@ -679,7 +679,7 @@ func _start_scavenge_phase() -> void:
 	_has_click_target = false
 	_shake_strength = 7.5
 	SoundManager.play_sfx("siren")
-	_spawn_popup(_player_pos + Vector2(0.0, -34.0), "CONELRAD ALERT! 60 SECONDS!", COL_HAZARD_YELLOW, 1.55)
+	_spawn_popup(_player_pos + Vector2(0.0, -34.0), "CONELRAD ALERT! %d SECONDS!" % int(round(_scavenge_total)), COL_HAZARD_YELLOW, 1.55)
 
 
 func _process_scavenge_phase(dt: float) -> void:

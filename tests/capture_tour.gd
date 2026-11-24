@@ -2,13 +2,13 @@ extends SceneTree
 
 ## Automated Visual Tour & Smoke Verification Runner for Critic Sub-Agents.
 ## Usage:
-## xvfb-run -a -s "-screen 0 1280x720x24" /home/antigravity/.local/bin/godot --path /home/antigravity/sixty_seconds_world --rendering-driver opengl3 -s res://tests/capture_tour.gd
+## xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -s res://tests/capture_tour.gd
 
 func _init() -> void:
 	call_deferred("_run_tour")
 
 func _run_tour() -> void:
-	var out_dir := "/home/antigravity/sixty_seconds_world/screenshots"
+	var out_dir := ProjectSettings.globalize_path("res://").path_join("screenshots")
 	DirAccess.make_dir_recursive_absolute(out_dir)
 
 	var main_packed: PackedScene = load("res://scenes/main.tscn")

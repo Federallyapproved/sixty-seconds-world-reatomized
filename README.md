@@ -1,12 +1,12 @@
-# 60 Seconds: World Reatomized (Godot 4.3)
+# The End Is Near (Godot 4.3)
 
-A full-featured re-imagining and expansion of *60 Seconds! Reatomized* built in **Godot 4.3** where **any real-world house on Earth** via **OpenStreetMap** becomes your playable 60-second scavenging floorplan and fallout bunker headquarters.
+**The End Is Near** is a nuclear-survival game built in **Godot 4.3** where **any real-world house on Earth** via **OpenStreetMap** becomes your scavenging floorplan and fallout shelter. Inspired by *60 Seconds! Reatomized* and *Zombies Aren't Real*.
 
 ## Play in Browser & Watch Demo Video
 
-- **Play Directly in Your Browser (WebAssembly)**: **[https://federallyapproved.github.io/sixty-seconds-world-reatomized/](https://federallyapproved.github.io/sixty-seconds-world-reatomized/)**
-- **Watch the Full-HD 1280x720 Gameplay Demo Video**: **[https://federallyapproved.github.io/sixty-seconds-world-reatomized/demo.html](https://federallyapproved.github.io/sixty-seconds-world-reatomized/demo.html)**
-- **Gameplay Improvement Pass (preview build, footage, before/after)**: **[/next/](https://federallyapproved.github.io/sixty-seconds-world-reatomized/next/)** · **[/next/media.html](https://federallyapproved.github.io/sixty-seconds-world-reatomized/next/media.html)** · validation report: [`docs/PASS2_REPORT.md`](docs/PASS2_REPORT.md)
+- **Play Directly in Your Browser (WebAssembly)**: **[https://federallyapproved.github.io/the-end-is-near/](https://federallyapproved.github.io/the-end-is-near/)**
+- **Watch the Full-HD 1280x720 Gameplay Demo Video**: **[https://federallyapproved.github.io/the-end-is-near/demo.html](https://federallyapproved.github.io/the-end-is-near/demo.html)**
+- **Gameplay Improvement Pass (preview build, footage, before/after)**: **[/next/](https://federallyapproved.github.io/the-end-is-near/next/)** · **[/next/media.html](https://federallyapproved.github.io/the-end-is-near/next/media.html)** · validation report: [`docs/PASS2_REPORT.md`](docs/PASS2_REPORT.md)
 
 ### Controls
 
@@ -23,7 +23,7 @@ A full-featured re-imagining and expansion of *60 Seconds! Reatomized* built in 
 1. Download **Godot Engine 4.3** (Standard, single binary—no install required) from [godotengine.org/download](https://godotengine.org/download/).
 2. Clone this repository (or click **Code -> Download ZIP** on GitHub and unzip it):
    ```bash
-   git clone https://github.com/Federallyapproved/sixty-seconds-world-reatomized.git
+   git clone https://github.com/Federallyapproved/the-end-is-near.git
    ```
 3. Open Godot 4.3, click **Import**, select `project.godot`, and press **Play (`F5`)**!
 

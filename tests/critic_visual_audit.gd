@@ -1,14 +1,14 @@
 extends SceneTree
 
 ## Ruthless Visual Direction, UI Layout & Screenshot Inspection Audit Script.
-## Renders 14 distinct 1280x720 PNG states to /home/antigravity/sixty_seconds_world/screenshots/audit_*.png
+## Renders 14 distinct 1280x720 PNG states to <project>/screenshots/audit_*.png
 ## without modifying any game files under scripts/ or scenes/.
 
 func _init() -> void:
 	call_deferred("_run_audit")
 
 func _run_audit() -> void:
-	var out_dir := "/home/antigravity/sixty_seconds_world/screenshots"
+	var out_dir := ProjectSettings.globalize_path("res://").path_join("screenshots")
 	DirAccess.make_dir_recursive_absolute(out_dir)
 
 	var main_packed: PackedScene = load("res://scenes/main.tscn")

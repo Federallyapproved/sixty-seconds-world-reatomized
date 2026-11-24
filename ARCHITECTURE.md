@@ -1,4 +1,4 @@
-# 60 Seconds: World Reatomized — Master Architecture & Interface Contract
+# The End Is Near — Master Architecture & Interface Contract
 
 ## Overview
 Godot 4.3 (`gl_compatibility`, `1280x720`) survival strategy + frantic real-world house scavenge game.
@@ -59,7 +59,7 @@ Interactive Family Customization screen (`1280x720`).
 
 ### 4. `OsmService` (`res://scripts/osm/osm_service.gd`, `class_name OsmService extends Node`) & `OsmSlippyMap` (`res://scripts/osm/osm_slippy_map.gd`, `class_name OsmSlippyMap extends Control`) & `HouseSelectScreen` (`res://scripts/ui/house_select_screen.gd`, `class_name HouseSelectScreen extends Control`)
 - `OsmService`:
-  - Live geocoding via `https://nominatim.openstreetmap.org/search?q=<encoded>&format=json&limit=5` (`User-Agent: SixtySecondsWorldReatomized/1.0`).
+  - Live geocoding via `https://nominatim.openstreetmap.org/search?q=<encoded>&format=json&limit=5` (`User-Agent: TheEndIsNear/1.0`).
   - Live neighborhood fetch via `https://api.openstreetmap.org/api/0.6/map.json?bbox=min_lon,min_lat,max_lon,max_lat` (~0.008 deg span around lat/lon).
   - Bundled instant preset loader from `res://data/osm_presets/seattle_capitol_hill.json`, `res://data/osm_presets/concord_massachusetts.json`, `res://data/osm_presets/brooklyn_carroll_gardens.json`.
   - `static func parse_osm_json(data: Dictionary, ref_lat: float, ref_lon: float) -> Dictionary`
@@ -81,7 +81,7 @@ Interactive Family Customization screen (`1280x720`).
 - `static func generate_from_osm_house(house_data: Dictionary, family_members: Array, rng: RandomNumberGenerator) -> Dictionary`
 - Scale: `const PX_PER_METER: float = 46.0`. Clamps/normalizes extreme OSM footprints to reasonable residential playable dimensions (`11m..24m` span) while preserving the exact polygon silhouette / aspect ratio of the selected OSM house!
 - Subdivides interior into named rooms (`Kitchen`, `Living Room`, `Master Bedroom`, `Bedroom`, `Bathroom`, `Garage / Study`, `Hallway`), places central **Bunker Hatch** (`hatch_pos: Vector2`, `hatch_radius: float = 52.0`), builds wall segments (`Array[Rect2]` or `Array[Dictionary]`) with doorways (`>= 72 px` wide), furniture props, and **verifies via grid BFS flood-fill** from `hatch_pos` that every spawned item & family member sits on a walkable tile reachable from `hatch_pos`!
-- Guarantees rich classic *60 Seconds!* random house spawn:
+- Guarantees a rich classic random house spawn:
   - `5..8` Soup cans (`"soup"`), `5..8` Water bottles (`"water"`), `1` `"medkit"`, `1` `"gas_mask"`, `1` `"radio"`, plus `8..11` randomized items from `ItemDB.get_scavenge_pool_ids()` (ensuring `"suitcase"`, `"book"`, `"flashlight"`, `"map"`, `"axe"` or `"rifle"`, `"padlock"`, `"cards"`/`"checkers"`, `"bug_spray"` frequently appear!), plus all non-leader `family_members` placed in bedrooms/living room, and `leader_start_pos` near `hatch_pos`.
 - Returns Dictionary:
   `{"bounds": Rect2, "outer_polygon": PackedVector2Array, "rooms": Array, "walls": Array, "furniture": Array, "hatch_pos": Vector2, "hatch_radius": float, "leader_start_pos": Vector2, "items": Array, "family_spawns": Array, "nav_grid": Dictionary}`.

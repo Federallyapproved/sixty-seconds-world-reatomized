@@ -481,7 +481,7 @@ func _build_ui() -> void:
 	add_child(_difficulty_btn)
 
 	_launch_btn = _HazardSirenButton.new()
-	_launch_btn.text = "[ SOUND THE SIREN — BEGIN 60 SECONDS! > ]"
+	_launch_btn.text = "[ SOUND THE SIREN — BEGIN %d SECONDS! > ]" % (30 if GameState.difficulty == "hard" else 60)
 	_launch_btn.position = Vector2(732.0, 658.0)
 	_launch_btn.size = Vector2(532.0, 48.0)
 	_launch_btn.focus_mode = Control.FOCUS_NONE

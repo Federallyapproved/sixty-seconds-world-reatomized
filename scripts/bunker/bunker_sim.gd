@@ -1,7 +1,7 @@
 class_name BunkerSim
 extends RefCounted
 
-## Authentic "60 Seconds! Reatomized" Bunker Survival Simulation Engine.
+## The End Is Near — Bunker Survival Simulation Engine.
 ## Governs Day 1 blast aftermath, fractional soup/water rationing, exact dehydration/starvation
 ## curves, temperature & fallout decay, sickness/injury/mutation, morale items & pets,
 ## OpenStreetMap wasteland expeditions, and Rescue / Game-Over endings.
@@ -322,7 +322,7 @@ static func advance_day(
 			else:
 				day_lines.append("We used a First Aid Medkit on %s for a thorough Civil Defense checkup." % m_name)
 
-	# 4. Fractional Soup & Water Rationing (Exact 60 Seconds! Thresholds)
+	# 4. Fractional Soup & Water Rationing (classic thresholds)
 	var deaths_today: Array[String] = []
 	var fed_names: Array[String] = []
 	var watered_names: Array[String] = []

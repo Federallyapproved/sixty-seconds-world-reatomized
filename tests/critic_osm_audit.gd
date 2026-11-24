@@ -2,7 +2,7 @@ extends SceneTree
 
 ## Ruthless OpenStreetMap, Geospatial Floorplan & Nuclear Physics Audit Suite
 ## Run with:
-## /home/antigravity/.local/bin/godot --headless --path /home/antigravity/sixty_seconds_world -s res://tests/critic_osm_audit.gd
+## godot --headless --path . -s res://tests/critic_osm_audit.gd
 
 var pass_count: int = 0
 var fail_count: int = 0

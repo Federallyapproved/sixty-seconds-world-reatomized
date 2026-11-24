@@ -1,8 +1,8 @@
 extends SceneTree
 
-## Ruthless 60 Seconds! Reatomized Fidelity Critic — Headless Simulation & Audit Suite
+## Ruthless The End Is Near Fidelity Critic — Headless Simulation & Audit Suite
 ## Run with:
-## /home/antigravity/.local/bin/godot --headless --path /home/antigravity/sixty_seconds_world -s res://tests/critic_60s_audit.gd
+## godot --headless --path . -s res://tests/critic_60s_audit.gd
 
 var pass_count: int = 0
 var fail_count: int = 0
@@ -56,7 +56,7 @@ func _run_all_audits() -> void:
 	await _wait_frames(2)
 
 	print("=================================================================")
-	print("RUTHLESS 60 SECONDS! REATOMIZED FIDELITY AUDIT STARTING")
+	print("RUTHLESS THE END IS NEAR FIDELITY AUDIT STARTING")
 	print("=================================================================")
 
 	var gs: Node = root.get_node("GameState")
@@ -410,7 +410,7 @@ func _audit_2_scavenge_sequence(gs: Node) -> void:
 	for _i in range(45):
 		scav_child_only.call("_process", 0.05)
 	_check(bool(gs.get("game_over")),
-		"Child-only bunker rule (ARCHITECTURE.md:103 & 60 Seconds! Reatomized: requires adult/teen survivor)",
+		"Child-only bunker rule (ARCHITECTURE.md:103: requires adult/teen survivor)",
 		"ScavengeScene:745 allowed 9-year-old child Timmy to continue into SCREEN_BUNKER alone without any adult/teen (game_over=%s, screen=%s)" % [str(gs.get("game_over")), str(gs.get("current_screen"))])
 	scav_child_only.queue_free()
 	await _wait_frames(2)

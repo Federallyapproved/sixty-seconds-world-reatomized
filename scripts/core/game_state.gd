@@ -1,6 +1,6 @@
 extends Node
 
-## Central GameState Autoload for "60 Seconds: World Reatomized".
+## Central GameState Autoload for "The End Is Near".
 ## Owns canonical state shared across Title, Family Creator, OSM House Picker,
 ## Global Nuke Selector, 60-Second Scavenge Sequence, Bunker Survival, and End Screen.
 
@@ -82,7 +82,7 @@ var storage_arrivals: Array = []
 # Family car state (see VehicleSystem); empty until the shelter run starts
 var vehicle: Dictionary = {}
 
-# Active Expedition State (at most 1 expedition out at a time, just like 60 Seconds!)
+# Active Expedition State (at most 1 expedition out at a time, as in the classic game)
 var active_expedition: Dictionary = {} # Empty when nobody is outside
 
 # Rescue & Storyline Chains

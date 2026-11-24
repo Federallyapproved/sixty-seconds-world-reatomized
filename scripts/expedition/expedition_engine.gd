@@ -1,7 +1,7 @@
 class_name ExpeditionEngine
 extends RefCounted
 
-## Real-World OpenStreetMap Wasteland Expedition Engine for "60 Seconds: World Reatomized".
+## Real-World OpenStreetMap Wasteland Expedition Engine for "The End Is Near".
 ## Turns real nearby Neighborhood Houses, Supermarkets, Churches, Pharmacies, Schools,
 ## and Hardware Stores into high-stakes wasteland scavenging runs.
 

@@ -1678,7 +1678,7 @@ func _toggle_expedition_gear(gid: String) -> void:
 
 	var has_suitcase: bool = _selected_gear_ids.has("suitcase") and GameState.has_working_item("suitcase")
 	if not has_suitcase:
-		# Classic 60 Seconds! rule: max 1 gear item without Suitcase (selecting new replaces previous)
+		# Classic rule: max 1 gear item without Suitcase (selecting new replaces previous)
 		_selected_gear_ids.clear()
 		_selected_gear_ids.append(gid)
 	else:

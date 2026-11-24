@@ -11,7 +11,7 @@ signal map_data_failed(error_message: String)
 signal status_changed(status_text: String, is_busy: bool)
 signal extended_data_loaded(extended: Dictionary)
 
-const USER_AGENT_HEADER := "User-Agent: SixtySecondsWorldReatomized/1.0"
+const USER_AGENT_HEADER := "User-Agent: TheEndIsNear/1.0 (+https://github.com/Federallyapproved/the-end-is-near)"
 const ACCEPT_JSON_HEADER := "Accept: application/json"
 const NOMINATIM_SEARCH_URL := "https://nominatim.openstreetmap.org/search?q=%s&format=json&limit=5&addressdetails=1"
 const OSM_MAP_BBOX_URL := "https://api.openstreetmap.org/api/0.6/map.json?bbox=%.6f,%.6f,%.6f,%.6f"

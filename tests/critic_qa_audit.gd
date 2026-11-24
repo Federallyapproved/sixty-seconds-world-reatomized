@@ -3,9 +3,9 @@ extends SceneTree
 ## Ruthless End-to-End QA, Stress Fuzzer, Memory Leak & Demo Showcase Audit Runner.
 ## Usage:
 ##   1) Full audit (fuzzer + audio + edge cases + demo showcase at 30 FPS):
-##      /home/antigravity/.local/bin/godot --headless --fixed-fps 30 --verbose --path /home/antigravity/sixty_seconds_world -s res://tests/critic_qa_audit.gd
+##      godot --headless --fixed-fps 30 --verbose --path . -s res://tests/critic_qa_audit.gd
 ##   2) Pure demo showcase timing run (with optional --clean-audio-exit to verify leak fix):
-##      /home/antigravity/.local/bin/godot --headless --fixed-fps 30 --verbose --path /home/antigravity/sixty_seconds_world -s res://tests/critic_qa_audit.gd -- --only-demo --clean-audio-exit
+##      godot --headless --fixed-fps 30 --verbose --path . -s res://tests/critic_qa_audit.gd -- --only-demo --clean-audio-exit
 
 var FamilyScreenScript: GDScript
 var ScavengeSceneScript: GDScript

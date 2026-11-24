@@ -2,7 +2,7 @@ class_name ItemDB
 extends RefCounted
 
 ## Canonical Item Database and Procedural Mid-Century CONELRAD Illustrator
-## for "60 Seconds: World Reatomized".
+## for "The End Is Near".
 ## Provides metadata, slot rules, room affinities, and crisp multi-layered 2D
 ## vector illustrations for all 18 scavenge/bunker items plus companions.
 

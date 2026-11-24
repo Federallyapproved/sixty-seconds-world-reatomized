@@ -437,8 +437,8 @@ func _draw_radiation_emblem(center: Vector2, radius: float, _font: Font) -> void
 	draw_circle(center, radius * 0.05, ThemeHelper.COLOR_ATOMIC_ORANGE)
 
 func _draw_hero_typography(vp: Vector2, font: Font) -> void:
-	var title_str := "60 SECONDS: WORLD REATOMIZED"
-	var title_size: int = 42
+	var title_str := "THE END IS NEAR"
+	var title_size: int = 58
 	var t_dim: Vector2 = font.get_string_size(title_str, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size)
 	var tx: float = vp.x * 0.5 - t_dim.x * 0.5
 	var ty: float = 266.0

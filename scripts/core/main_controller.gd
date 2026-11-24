@@ -1,6 +1,6 @@
 extends Control
 
-## Root scene router & transition manager for "60 Seconds: World Reatomized".
+## Root scene router & transition manager for "The End Is Near".
 ## Connects GameState.screen_requested to instantiate each screen cleanly,
 ## applies ThemeHelper's global CONELRAD theme, and supports CLI hooks for
 ## automated Critic screenshot tours and Movie Maker demo showcase recording.

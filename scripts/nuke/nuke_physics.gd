@@ -1,7 +1,7 @@
 class_name NukePhysics
 extends RefCounted
 
-## Global & Regional Nuclear Detonation Impact Physics Engine for "60 Seconds: World Reatomized".
+## Global & Regional Nuclear Detonation Impact Physics Engine for "The End Is Near".
 ## Computes great-circle Haversine distance, forward azimuth bearings, cube-root scaled blast &
 ## thermal overpressure radii, downwind fallout plume alignment, and the 4 Civil Defense survival zones.
 

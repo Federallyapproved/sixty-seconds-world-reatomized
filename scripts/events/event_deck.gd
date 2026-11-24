@@ -1,8 +1,8 @@
 class_name EventDeck
 extends RefCounted
 
-## 60 Seconds: World Reatomized — Branching Daily Event Deck.
-## Combines 60 distinct classic 60 Seconds! Reatomized dark-comedy dilemmas,
+## The End Is Near — Branching Daily Event Deck.
+## Combines 60 distinct classic dark-comedy dilemmas,
 ## 3-stage Rescue Victory Chains (Military, Real-World OSM Sanctuary, Vault Scientist & Sharikov),
 ## Nuke Ground Zero / Nuclear Winter physics events, and live OpenStreetMap neighborhood stories.
 
@@ -42,7 +42,7 @@ const ALL_EVENT_IDS: Array[String] = [
 	"rescue_scientist_1",
 	"rescue_scientist_2",
 	"rescue_scientist_3",
-	# Core Classic 60 Seconds! Hazards, Companions, Raiders & Traders (13 events)
+	# Core Classic Hazards, Companions, Raiders & Traders (13 events)
 	"hazard_mutant_roaches",
 	"hazard_vent_filter",
 	"raiders_blast_hatch",
@@ -72,7 +72,7 @@ const ALL_EVENT_IDS: Array[String] = [
 	"osm_civic_siren_malfunction",
 	"osm_street_delivery_van",
 	"osm_firefighter_check",
-	# Iconic Reatomized Bunker Survival, Quirky & Companion Events (23 events)
+	# Iconic Bunker Survival, Quirky & Companion Events (23 events)
 	"classic_radioactive_spider",
 	"classic_pancake_treasure",
 	"classic_sharikov_mice",
@@ -528,7 +528,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 			]
 
 		# ----------------------------------------------------------------------
-		# 11-23. CLASSIC 60 SECONDS! HAZARDS, RAIDERS, OOZE, TRADER, REPAIR
+		# 11-23. CLASSIC HAZARDS, RAIDERS, OOZE, TRADER, REPAIR
 		# ----------------------------------------------------------------------
 		"hazard_mutant_roaches":
 			ev["title"] = "Rad-Roaches the Size of Loafers!"
@@ -915,7 +915,7 @@ static func build_event_by_id(event_id: String, day: int, rng: RandomNumberGener
 			]
 
 		# ----------------------------------------------------------------------
-		# 38-60. ICONIC REATOMIZED QUIRKY, COMPANION & SURVIVAL EVENTS
+		# 38-60. ICONIC QUIRKY, COMPANION & SURVIVAL EVENTS
 		# ----------------------------------------------------------------------
 		"classic_radioactive_spider":
 			ev["title"] = "Dinner-Plate Spider Over the Soup Shelf!"
@@ -1480,7 +1480,7 @@ static func resolve_event(event_dict: Dictionary, choice_id: String, rng: Random
 				tags = ["neutral"]
 
 		# ----------------------------------------------------------------------
-		# 11-23. CLASSIC 60 SECONDS! HAZARDS, RAIDERS, OOZE, TRADER, REPAIR
+		# 11-23. CLASSIC HAZARDS, RAIDERS, OOZE, TRADER, REPAIR
 		# ----------------------------------------------------------------------
 		"hazard_mutant_roaches":
 			match chosen:
@@ -2219,7 +2219,7 @@ static func resolve_event(event_dict: Dictionary, choice_id: String, rng: Random
 					tags = ["neutral"]
 
 		# ----------------------------------------------------------------------
-		# 38-60. ICONIC REATOMIZED QUIRKY, COMPANION & SURVIVAL EVENTS
+		# 38-60. ICONIC QUIRKY, COMPANION & SURVIVAL EVENTS
 		# ----------------------------------------------------------------------
 		"classic_radioactive_spider":
 			match chosen:
@@ -2904,7 +2904,7 @@ static func _find_member_by_id_or_random(member_id: String, _rng: RandomNumberGe
 
 static func _pick_mutant_candidate(rng: RandomNumberGenerator) -> Dictionary:
 	var present: Array = _get_present_members()
-	# Priority 1: Mary Jane or teen who isn't mutated yet (classic 60 Seconds! Mutant Mary Jane nod!)
+	# Priority 1: Mary Jane or teen who isn't mutated yet (classic mutant-teen nod)
 	for m_v in present:
 		var m: Dictionary = m_v
 		if not bool(m.get("is_mutant", false)):

@@ -346,7 +346,7 @@ func _build_ui() -> void:
 	left_vbox.add_child(preset_row)
 
 	var classic_btn := Button.new()
-	classic_btn.text = "CLASSIC REATOMIZED"
+	classic_btn.text = "CLASSIC FAMILY"
 	classic_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	classic_btn.custom_minimum_size = Vector2(0, 32)
 	_style_button(classic_btn, COL_BG_PANEL, COL_PARCHMENT, COL_INK, 11)

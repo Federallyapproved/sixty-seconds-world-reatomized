@@ -485,7 +485,7 @@ func _draw() -> void:
 		Vector2(folder_rect.position.x, folder_rect.position.y)
 	])
 	draw_polyline(perimeter, ThemeHelper.COLOR_INK, 2.5)
-	draw_string(font, Vector2(68.0, 30.0), "DOSSIER FILE #CD-1958-REATOMIZED", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ThemeHelper.COLOR_INK)
+	draw_string(font, Vector2(68.0, 30.0), "DOSSIER FILE #CD-1958-END-IS-NEAR", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ThemeHelper.COLOR_INK)
 
 	# Subtle ledger horizontal rules across top narrative section
 	for line_y in [86.0, 108.0, 130.0, 152.0, 174.0]:
