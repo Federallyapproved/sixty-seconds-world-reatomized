@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The End Is Near v3 — M1 preview</title>
+<title>The End Is Near v3 — M2 preview</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; background: #171a16; color: #efe3c8; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.45; }
@@ -23,12 +23,24 @@
 </head>
 <body>
 <main>
-  <h1>The End Is Near v3 — Milestone 1 preview</h1>
-  <p>Harder, fairer, present day. Survival rules with real deadlines, trips to real places that take days and can go wrong, raids once you are followed home, three rescues that take a month, and every number on screen before you commit. The live game at the site root is unchanged until the pull request is merged.</p>
-  <a class="play" href="./">Play the M1 preview build</a>
+  <h1>The End Is Near v3 — Milestone 2 preview: events and drama</h1>
+  <p>People break: at morale 0, after a warning the day before, they turn Selfish, Paranoid, Reckless or Withdrawn. Every four days a House meeting can pass one more House Rule, each with a real bonus and a morale cost. Some neighbours are still home, and what you take from them stays with you. One rare stranger per run, two gamble endings, 108 events, a Survival Almanac and 33 achievements. The live game at the site root is unchanged until the pull requests are merged.</p>
+  <a class="play" href="./">Play the M2 preview build</a>
   <p class="cap">Grab: WASD/arrows move · SPACE grabs and drops your load at the hatch · Q / 1–7 select a carried slot · F climbs down · TAB ends the look-around. Shelter: 1–4 or click answers the day's dilemma · Give/Skip food and water per person · Treat · Rest or Trip… opens the trip planner · ENTER ends the day · SPACE skips an animation.</p>
 
-  <h2>Measured balance (10,000 simulated runs per policy, 37 real homes)</h2>
+  <h2>Milestone 2</h2>
+  <div class="grid">
+    <div><video controls preload="metadata" src="media/m2_shelter_keyboard_mouse.mp4" poster="media/m2_shelter_keyboard_mouse.jpg"></video><div class="cap">Twelve shelter days driven with simulated keys and mouse: House meetings, a warning and then an affliction, an achievement toast, and a trip planned from the risk preview.</div></div>
+    <img src="media/m2_before_after_house_meeting.png" alt="Day 4 before and after: a House meeting">
+    <img src="media/m2_before_after_affliction.png" alt="An affliction shown in the family row">
+    <img src="media/m2_before_after_summary.png" alt="End-of-run report before and after">
+    <img src="media/m2_before_after_title.png" alt="Title screen with the Almanac and achievements">
+    <img src="media/m2_almanac.png" alt="The Survival Almanac">
+    <img src="media/m2_achievements.png" alt="The achievements screen">
+  </div>
+  <p class="cap">Balance with the M2 rules (10,000 runs per policy): random 0.0%, naive 14.9%, expert 56.5%. Report: <a href="https://github.com/Federallyapproved/the-end-is-near/blob/v3-m2-drama/docs/M2_REPORT.md">docs/M2_REPORT.md</a>.</p>
+
+  <h2>Milestone 1: measured balance (10,000 simulated runs per policy, 37 real homes)</h2>
   <table>
     <tr><th>Policy</th><th>Win rate</th><th>Target</th></tr>
     <tr><td>Random (coin-flip rations, random answers)</td><td>0.1%</td><td>≤ 5%</td></tr>
