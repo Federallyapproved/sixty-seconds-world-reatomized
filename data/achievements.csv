@@ -32,3 +32,6 @@ ration_book,Ration Book,Be rescued without anyone ever going thirsty.,win_never_
 everyone_home,Everyone Home,Make 4 or more trips in one run and lose nobody on the road.,trips_all_back:4,
 good_neighbour,Good Neighbour,Leave a family in an occupied home in peace.,occupied_left_alone:1,
 well_fed,Well Fed,Be rescued without anyone going hungry.,win_never_hungry,
+arts_and_crafts,Arts and Crafts,Be rescued after using 5 makeshift items.,makeshift_win:5,
+night_school,Night School,Learn all four chapters of the manual in one run.,chapters:4,
+small_print,Read the Small Print,Learn a chapter of the manual from a pamphlet found on a trip.,pamphlet_learned:1,

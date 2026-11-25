@@ -27,7 +27,7 @@
 		"id": "fleas", "title": "Fleas", "type": "pests", "mood": "bad", "system": true,
 		"setup": "Everyone is scratching. The dog looks innocent, which is suspicious.",
 		"options": [
-			{"id": "spray", "label": "Spray everything", "item": "bug_spray", "cinematic": "repair",
+			{"id": "spray", "label": "Spray everything", "item": "bug_spray", "alt": [{"item": "soap_spray"}], "cinematic": "repair",
 				"effects": [{"do": "use", "item": "bug_spray", "what": "the fleas are gone"}],
 				"outcome": "The shelter smells like a summer evening. The fleas disagree, briefly."},
 			{"id": "scratch", "label": "Scratch and bear it", "cinematic": "gloom",

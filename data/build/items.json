@@ -61,6 +61,123 @@
 		"slots": 2,
 		"variants": []
 	},
+	"bedsheet": {
+		"almanac": "Thread count unknown. It tears into good long strips.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Bedroom",
+			"Master Bedroom",
+			"Storage",
+			"Utility Room"
+		],
+		"icon": "res://assets/icons/items/bedsheet.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#e8a0bf",
+		"icon_source": "delapouite/rolled-cloth",
+		"id": "bedsheet",
+		"name": "Bedsheet",
+		"narration_ids": [],
+		"purpose": "Breaks into 2 Cloth",
+		"repair": "none",
+		"scrap": {
+			"cloth": 2
+		},
+		"short_name": "Sheet",
+		"slots": 1,
+		"variants": []
+	},
+	"bindle": {
+		"almanac": "A sheet, a knot and a pole. It carries two more things home before the knot gives.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"carry": 2,
+			"gear": 1,
+			"stands_in": "suitcase",
+			"uses": 2
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/bindle.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#c49a6c",
+		"icon_source": "delapouite/bindle",
+		"id": "bindle",
+		"name": "Bedsheet bindle",
+		"narration_ids": [],
+		"purpose": "Makeshift suitcase: +2 carry for 2 trips",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Bindle",
+		"slots": 1,
+		"variants": []
+	},
+	"bottle_filter": {
+		"almanac": "Sand, cloth and a cut bottle. The water comes out slowly and tastes like the inside of a bottle.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"filter": 4,
+			"uses": 3
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/bottle_filter.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#7fc8f8",
+		"icon_source": "delapouite/funnel",
+		"id": "bottle_filter",
+		"name": "Bottle filter",
+		"narration_ids": [],
+		"purpose": "Makeshift purifier: dirty water becomes water, 3 jugs",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Filter",
+		"slots": 1,
+		"variants": []
+	},
+	"bottles": {
+		"almanac": "Saved for the recycling, which is not coming.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Kitchen",
+			"Utility Room",
+			"Garage Bay"
+		],
+		"icon": "res://assets/icons/items/bottles.svg",
+		"icon_author": "Caro Asercion",
+		"icon_color": "#7fc8f8",
+		"icon_source": "caro-asercion/soda-bottle",
+		"id": "bottles",
+		"name": "Bag of bottles",
+		"narration_ids": [],
+		"purpose": "Breaks into 2 Plastic",
+		"repair": "none",
+		"scrap": {
+			"plastic": 2
+		},
+		"short_name": "Bottles",
+		"slots": 1,
+		"variants": []
+	},
 	"bug_spray": {
 		"almanac": "Smells like a summer evening. The bugs disagree.",
 		"breaks_on": {
@@ -122,6 +239,37 @@
 		"slots": 1,
 		"variants": []
 	},
+	"cleaning_spray": {
+		"almanac": "Kills 99.9% of household germs, says the label. The other 0.1% are welcome to the shelter.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Kitchen",
+			"Bathroom",
+			"Utility Room"
+		],
+		"icon": "res://assets/icons/items/cleaning_spray.svg",
+		"icon_author": "Lorc",
+		"icon_color": "#8fd694",
+		"icon_source": "lorc/spray",
+		"id": "cleaning_spray",
+		"name": "Cleaning spray",
+		"narration_ids": [],
+		"purpose": "Breaks into 1 Chemicals, 1 Plastic",
+		"repair": "none",
+		"scrap": {
+			"chemicals": 1,
+			"plastic": 1
+		},
+		"short_name": "Cleaner",
+		"slots": 1,
+		"variants": []
+	},
 	"console": {
 		"almanac": "Battery at 61%. Somebody's save file is at stake.",
 		"breaks_on": {
@@ -152,6 +300,97 @@
 			"plastic": 1
 		},
 		"short_name": "Console",
+		"slots": 1,
+		"variants": []
+	},
+	"door_barricade": {
+		"almanac": "Pans, pipe and tape wedged under the hatch. It holds once, if it holds at all.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"defence": 1,
+			"raid_stop": 0.6,
+			"stands_in": "padlock",
+			"uses": 1
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/door_barricade.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#b0bec5",
+		"icon_source": "delapouite/barricade",
+		"id": "door_barricade",
+		"name": "Door barricade",
+		"narration_ids": [],
+		"purpose": "Makeshift padlock: stops one raid 60% of the time, then breaks",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Barricade",
+		"slots": 1,
+		"variants": []
+	},
+	"duct_tape": {
+		"almanac": "Holds most of a house together if you ask it to.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Garage Bay",
+			"Utility Room",
+			"Storage"
+		],
+		"icon": "res://assets/icons/items/duct_tape.svg",
+		"icon_author": "Lorc",
+		"icon_color": "#c49a6c",
+		"icon_source": "lorc/bandage-roll",
+		"id": "duct_tape",
+		"name": "Duct tape",
+		"narration_ids": [],
+		"purpose": "Breaks into 2 Binding",
+		"repair": "none",
+		"scrap": {
+			"binding": 2
+		},
+		"short_name": "Tape",
+		"slots": 1,
+		"variants": []
+	},
+	"extension_cord": {
+		"almanac": "Ten metres of copper and an orange jacket.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Garage Bay",
+			"Living Room",
+			"Study",
+			"Storage"
+		],
+		"icon": "res://assets/icons/items/extension_cord.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#ffd166",
+		"icon_source": "delapouite/plug",
+		"id": "extension_cord",
+		"name": "Extension cord",
+		"narration_ids": [],
+		"purpose": "Breaks into 1 Electronics, 1 Binding",
+		"repair": "none",
+		"scrap": {
+			"binding": 1,
+			"electronics": 1
+		},
+		"short_name": "Cord",
 		"slots": 1,
 		"variants": []
 	},
@@ -362,6 +601,37 @@
 		"slots": 2,
 		"variants": []
 	},
+	"old_phone": {
+		"almanac": "The screen is cracked and two software updates are waiting. The circuit board still works.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Bedroom",
+			"Study",
+			"Living Room",
+			"Kids Bedroom"
+		],
+		"icon": "res://assets/icons/items/old_phone.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#9fb3c8",
+		"icon_source": "delapouite/smartphone",
+		"id": "old_phone",
+		"name": "Old phone",
+		"narration_ids": [],
+		"purpose": "Breaks into 2 Electronics",
+		"repair": "none",
+		"scrap": {
+			"electronics": 2
+		},
+		"short_name": "Phone",
+		"slots": 1,
+		"variants": []
+	},
 	"padlock": {
 		"almanac": "Holds the hatch shut once. After that it is jewellery.",
 		"breaks_on": {
@@ -394,6 +664,91 @@
 		"slots": 1,
 		"variants": []
 	},
+	"phone_torch": {
+		"almanac": "Two dead phones and a battery that wasn't. Enough light to see your hands.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"stands_in": "flashlight",
+			"uses": 2
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/phone_torch.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#ffd166",
+		"icon_source": "delapouite/vibrating-smartphone",
+		"id": "phone_torch",
+		"name": "Phone torch",
+		"narration_ids": [],
+		"purpose": "Makeshift flashlight for dark moments, 2 uses; can't signal a rescue",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Ph. torch",
+		"slots": 1,
+		"variants": []
+	},
+	"pipe_club": {
+		"almanac": "A length of pipe with a taped grip. It ends arguments about half the time.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"break_p": 0.5,
+			"defence": 1,
+			"raid_stop": 0.5,
+			"stands_in": "axe"
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/pipe_club.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#b0bec5",
+		"icon_source": "delapouite/lead-pipe",
+		"id": "pipe_club",
+		"name": "Pipe club",
+		"narration_ids": [],
+		"purpose": "Makeshift axe for raid nights: stops a raid 50% of the time; may break",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Club",
+		"slots": 1,
+		"variants": []
+	},
+	"pots_pans": {
+		"almanac": "Nested, heavy, and loud on the ladder. Mostly useful as metal.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Kitchen",
+			"Dining Room"
+		],
+		"icon": "res://assets/icons/items/pots_pans.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#b0bec5",
+		"icon_source": "delapouite/cooking-pot",
+		"id": "pots_pans",
+		"name": "Pots & pans",
+		"narration_ids": [],
+		"purpose": "Breaks into 2 Metal",
+		"repair": "none",
+		"scrap": {
+			"metal": 2
+		},
+		"short_name": "Pots",
+		"slots": 2,
+		"variants": []
+	},
 	"radio": {
 		"almanac": "Hand-cranked. Mostly static, occasionally hope, once a mattress commercial.",
 		"breaks_on": {
@@ -424,6 +779,62 @@
 			"electronics": 2
 		},
 		"short_name": "Radio",
+		"slots": 1,
+		"variants": []
+	},
+	"rag_bandage": {
+		"almanac": "Torn sheet boiled in sanitizer. It closes a wound; it does nothing for a fever.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"cure_injured": 1,
+			"stands_in": "medkit",
+			"uses": 1
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/rag_bandage.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#e8a0bf",
+		"icon_source": "delapouite/hand-bandage",
+		"id": "rag_bandage",
+		"name": "Rag bandage",
+		"narration_ids": [],
+		"purpose": "Makeshift medkit: cures Injured only",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Bandage",
+		"slots": 1,
+		"variants": []
+	},
+	"rag_respirator": {
+		"almanac": "Three layers of cloth and a strip of tape. Better than breathing the street.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"gear": 1,
+			"stands_in": "gas_mask",
+			"uses": 2
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/rag_respirator.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#e8a0bf",
+		"icon_source": "delapouite/bandana",
+		"id": "rag_respirator",
+		"name": "Rag respirator",
+		"narration_ids": [],
+		"purpose": "Makeshift gas mask: halves the fallout sickness risk for 2 trips",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Respirator",
 		"slots": 1,
 		"variants": []
 	},
@@ -462,6 +873,150 @@
 		"slots": 2,
 		"variants": []
 	},
+	"sanitizer": {
+		"almanac": "Seventy percent alcohol, thirty percent gel.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Bathroom",
+			"Hallway",
+			"Kitchen"
+		],
+		"icon": "res://assets/icons/items/sanitizer.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#8fd694",
+		"icon_source": "delapouite/liquid-soap",
+		"id": "sanitizer",
+		"name": "Hand sanitizer",
+		"narration_ids": [],
+		"purpose": "Breaks into 1 Chemicals",
+		"repair": "none",
+		"scrap": {
+			"chemicals": 1
+		},
+		"short_name": "Sanitizer",
+		"slots": 1,
+		"variants": []
+	},
+	"scrap_receiver": {
+		"almanac": "It hears the news through the hiss about half the time. Nobody can hear you on it.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"listen_p": 0.5,
+			"stands_in": "radio"
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/scrap_receiver.svg",
+		"icon_author": "Lorc",
+		"icon_color": "#ffb020",
+		"icon_source": "lorc/radar-dish",
+		"id": "scrap_receiver",
+		"name": "Scrap receiver",
+		"narration_ids": [],
+		"purpose": "Makeshift radio: hears broadcasts on half the days; can't transmit",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Receiver",
+		"slots": 1,
+		"variants": []
+	},
+	"smart_speaker": {
+		"almanac": "It used to tell you the weather. It has nothing to say about this weather.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Living Room",
+			"Kitchen",
+			"Study"
+		],
+		"icon": "res://assets/icons/items/smart_speaker.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#9fb3c8",
+		"icon_source": "delapouite/speaker",
+		"id": "smart_speaker",
+		"name": "Smart speaker",
+		"narration_ids": [],
+		"purpose": "Breaks into 1 Electronics, 1 Plastic",
+		"repair": "none",
+		"scrap": {
+			"electronics": 1,
+			"plastic": 1
+		},
+		"short_name": "Speaker",
+		"slots": 1,
+		"variants": []
+	},
+	"soap_spray": {
+		"almanac": "Soap, alcohol and water in a sprayer. The ants are not impressed by everything.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"stands_in": "bug_spray",
+			"success": 0.65,
+			"uses": 1
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/soap_spray.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#8fd694",
+		"icon_source": "delapouite/soap",
+		"id": "soap_spray",
+		"name": "Soap spray",
+		"narration_ids": [],
+		"purpose": "Makeshift bug spray: works 65% of the time, once",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Soap",
+		"slots": 1,
+		"variants": []
+	},
+	"sock_puppets": {
+		"almanac": "Two socks, buttons for eyes and a plot nobody rehearsed. It works exactly once.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"morale_all": 1,
+			"stands_in": "console",
+			"uses": 1
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/sock_puppets.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#b388ff",
+		"icon_source": "delapouite/socks",
+		"id": "sock_puppets",
+		"name": "Sock puppet show",
+		"narration_ids": [],
+		"purpose": "Makeshift console: +1 morale for everyone, once",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Puppets",
+		"slots": 1,
+		"variants": []
+	},
 	"suitcase": {
 		"almanac": "Wheels, a handle, and room for three more reasons to come home.",
 		"breaks_on": {
@@ -491,6 +1046,94 @@
 		},
 		"short_name": "Suitcase",
 		"slots": 3,
+		"variants": []
+	},
+	"tin_can_alarm": {
+		"almanac": "Cans on a string across the ladder. The oldest burglar alarm there is.",
+		"breaks_on": {
+
+		},
+		"category": "makeshift",
+		"effects": {
+			"alarm": 1,
+			"defence": 1,
+			"uses": 2
+		},
+		"grab_rooms": [],
+		"icon": "res://assets/icons/items/tin_can_alarm.svg",
+		"icon_author": "Guard13007",
+		"icon_color": "#b0bec5",
+		"icon_source": "guard13007/soda-can",
+		"id": "tin_can_alarm",
+		"name": "Tin-can alarm",
+		"narration_ids": [],
+		"purpose": "Wakes the shelter when a thief comes at night; works twice",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Alarm",
+		"slots": 1,
+		"variants": []
+	},
+	"toaster": {
+		"almanac": "It will never toast again, but the wiring inside is still good.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Kitchen"
+		],
+		"icon": "res://assets/icons/items/toaster.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#c9b8a3",
+		"icon_source": "delapouite/toaster",
+		"id": "toaster",
+		"name": "Toaster",
+		"narration_ids": [],
+		"purpose": "Breaks into 2 Metal, 1 Electronics",
+		"repair": "none",
+		"scrap": {
+			"electronics": 1,
+			"metal": 2
+		},
+		"short_name": "Toaster",
+		"slots": 2,
+		"variants": []
+	},
+	"umbrella": {
+		"almanac": "Rated for drizzle. Its ribs make good wire.",
+		"breaks_on": {
+
+		},
+		"category": "junk",
+		"effects": {
+
+		},
+		"grab_rooms": [
+			"Hallway",
+			"Garage Bay",
+			"Storage"
+		],
+		"icon": "res://assets/icons/items/umbrella.svg",
+		"icon_author": "Lorc",
+		"icon_color": "#e8a0bf",
+		"icon_source": "lorc/umbrella",
+		"id": "umbrella",
+		"name": "Umbrella",
+		"narration_ids": [],
+		"purpose": "Breaks into 1 Metal, 1 Cloth",
+		"repair": "none",
+		"scrap": {
+			"cloth": 1,
+			"metal": 1
+		},
+		"short_name": "Umbrella",
+		"slots": 1,
 		"variants": []
 	},
 	"water": {

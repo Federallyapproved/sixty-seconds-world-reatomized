@@ -34,6 +34,7 @@ static func start_bunker_run() -> void:
 		"rad_factors": factors, "h1_home_msv": RadiationModel.h1_home_msv(), "difficulty": GameState.difficulty,
 		"seed": GameState.rng.randi(), "temp_c": GameState.bunker_temp_c, "zone": str(nuke.get("zone", "")),
 		"known_items": Almanac.known_items(GameState.almanac), "hide_unknown": not GameState.demo_mode,
+		"need_parts": (GameState.almanac.get("need_parts", {}) as Dictionary),
 	})
 	GameState.shelter = s
 	for k in GameState.grab_haul.keys():

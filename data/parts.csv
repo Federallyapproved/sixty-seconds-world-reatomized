@@ -1,1 +1,7 @@
 id,name,icon_shape,color,icon
+cloth,Cloth,square,#cc79a7,
+metal,Metal,hexagon,#a7b4c2,
+electronics,Electronics,diamond,#f0e442,
+plastic,Plastic,circle,#56b4e9,
+binding,Binding,triangle,#e69f00,
+chemicals,Chemicals,drop,#2fbf8f,

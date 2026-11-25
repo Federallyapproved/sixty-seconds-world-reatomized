@@ -6,7 +6,10 @@ extends RefCounted
 ## * naive  — feeds everyone every 5 days, always uses an item when an event offers one, goes to
 ##            the nearest store when the shelf runs low;
 ## * expert — rations to the thresholds, scores every option by its effects, plans trips by
-##            loot, risk and need, keeps the rescue items working.
+##            loot, risk and need, keeps the rescue items working; studies the manual on idle days,
+##            makes what the situation calls for at the bench and tags the parts it is short of;
+## * crafter — the expert, but it grabs the manual and junk first and keeps the bench busy every
+##            free day (a stress test for the crafted-credit cap, section 6).
 ## Policies only read what the player can see (stock, statuses, the risk preview), never the
 ## random numbers.
 
@@ -14,10 +17,24 @@ const ITEM_VALUE: Dictionary = {
 	"food": 5.0, "water": 6.0, "medkit": 9.0, "gas_mask": 7.0, "radio": 9.0, "map": 7.0, "flashlight": 6.0,
 	"padlock": 6.0, "rifle": 7.0, "ammo": 2.0, "axe": 5.0, "suitcase": 5.0, "manual": 4.0, "bug_spray": 2.0,
 	"cards": 2.0, "console": 2.0,
+	# M3: makeshift items are worth less than the real thing; junk only for its parts.
+	"rag_bandage": 4.0, "bindle": 3.0, "bottle_filter": 5.0, "rag_respirator": 4.0, "door_barricade": 4.0,
+	"tin_can_alarm": 2.0, "pipe_club": 3.0, "phone_torch": 2.0, "scrap_receiver": 4.0, "soap_spray": 1.5,
+	"sock_puppets": 1.5,
+	"toaster": 1.0, "pots_pans": 1.0, "old_phone": 1.0, "smart_speaker": 0.8, "bedsheet": 1.0, "umbrella": 0.8,
+	"bottles": 0.8, "cleaning_spray": 0.8, "sanitizer": 0.6, "duct_tape": 1.0, "extension_cord": 0.8,
 }
 const EXPERT_GRAB: Array[String] = [
 	"water", "water", "food", "suitcase", "water", "medkit", "radio", "gas_mask", "map", "flashlight", "food", "water",
-	"padlock", "food", "rifle", "ammo", "axe", "manual", "water", "food", "bug_spray", "cards", "console",
+	"padlock", "food", "rifle", "ammo", "axe", "manual", "duct_tape", "bedsheet", "water", "food", "bug_spray",
+	"bottles", "sanitizer", "cards", "console",
+]
+
+
+const CRAFTER_GRAB: Array[String] = [
+	"water", "water", "food", "manual", "duct_tape", "bedsheet", "suitcase", "medkit", "radio", "gas_mask", "water",
+	"sanitizer", "bottles", "pots_pans", "map", "flashlight", "food", "padlock", "extension_cord", "rifle", "ammo", "axe",
+	"food", "water", "bug_spray", "cards", "console",
 ]
 
 
@@ -62,7 +79,7 @@ static func grab(policy: String, rng: RandomNumberGenerator, budget: int) -> Dic
 			order.append_array(rest)
 		_:
 			var pool: Array[String] = spawn.duplicate()
-			for want in EXPERT_GRAB:
+			for want in (CRAFTER_GRAB if policy == "crafter" else EXPERT_GRAB):
 				var i: int = pool.find(want)
 				if i >= 0:
 					order.append(want)
@@ -117,10 +134,22 @@ static func pick_option(s: ShelterState, policy: String, rng: RandomNumberGenera
 	for o_v in avail:
 		var o: Dictionary = o_v
 		var src: Dictionary = {}
+		var base_id: String = str(o["id"]).get_slice("@", 0)
 		for so in s.today_event.get("options", []):
-			if str((so as Dictionary)["id"]) == str(o["id"]):
+			if str((so as Dictionary)["id"]) == base_id:
 				src = so
-		var v: float = score_effects(s, src.get("effects", []), s.today_event.get("ctx", {}))
+		var ctx: Dictionary = s.today_event.get("ctx", {})
+		var v: float = score_effects(s, src.get("effects", []), ctx)
+		if str(o["id"]).find("@") != -1:
+			# A makeshift stand-in: its own (cheaper) use, and the costly fallback when it fails.
+			var alt_item: String = str(o["id"]).get_slice("@", 1)
+			var pa: float = 1.0
+			for a_v in src.get("alt", []):
+				if str((a_v as Dictionary).get("item", "")) == alt_item:
+					pa = ShelterEvents._alt_p(a_v)
+			var ok_v: float = score_effects(s, ShelterEvents._swap_item(src.get("effects", []), str(src.get("item", "")), alt_item), ctx)
+			var fail_v: float = score_effects(s, (ShelterEvents._fallback_option(s.today_event) as Dictionary).get("effects", []), ctx)
+			v = pa * ok_v + (1.0 - pa) * fail_v
 		if v > best_v:
 			best_v = v
 			best = str(o["id"])
@@ -257,6 +286,12 @@ static func score_effects(s: ShelterState, effs: Array, ctx: Dictionary) -> floa
 			"fallout_news":
 				if not s.fallout_announced:
 					v += 3.0
+			"dirty_water":
+				v += n * (1.2 if s.has("bottle_filter") or s.chapters.has("ch1") else 0.3)
+			"junk":
+				v += float(ITEM_VALUE.get(it, 1.0)) * n
+			"parts":
+				v += 0.8 * n
 	return v
 
 
@@ -278,6 +313,8 @@ static func _use_cost(s: ShelterState, it: String, mode: String) -> float:
 			return 5.0 * _need_mult(s, "food")
 		"water":
 			return 6.0 * _need_mult(s, "water")
+	if ShelterCraft.is_makeshift(it):
+		return 1.0   # cheaper to spend than the real thing
 	return 0.0
 
 
@@ -289,6 +326,8 @@ static func make_plan(s: ShelterState, policy: String, rng: RandomNumberGenerato
 			return _plan_random(s, rng)
 		"naive":
 			return _plan_naive(s)
+		"crafter":
+			return _plan_expert(s, true)
 	return _plan_expert(s)
 
 
@@ -308,6 +347,12 @@ static func _plan_random(s: ShelterState, rng: RandomNumberGenerator) -> Diction
 				if s.has(g) and rng.randf() < 0.5:
 					gear.append(g)
 			jobs[mid] = {"job": "trip", "place": rng.randi_range(0, s.places.size() - 1), "gear": gear}
+		elif rng.randf() < 0.08:
+			var known: Array = ShelterCraft.recipe_ids().filter(func(r: Variant) -> bool: return ShelterCraft.known(s, str(r)))
+			if not known.is_empty():
+				jobs[mid] = {"job": "craft", "recipes": [{"id": str(known[rng.randi_range(0, known.size() - 1)])}]}
+		elif rng.randf() < 0.04 and s.has("manual"):
+			jobs[mid] = {"job": "study", "chapter": ""}
 	return {"rations": rations, "treat": treat, "jobs": jobs}
 
 
@@ -349,7 +394,7 @@ static func _plan_naive(s: ShelterState) -> Dictionary:
 	return {"rations": rations, "treat": treat, "jobs": jobs}
 
 
-static func _plan_expert(s: ShelterState) -> Dictionary:
+static func _plan_expert(s: ShelterState, busy_bench: bool = false) -> Dictionary:
 	var rations: Dictionary = {}
 	var treat: Dictionary = {}
 	var jobs: Dictionary = {}
@@ -378,10 +423,16 @@ static func _plan_expert(s: ShelterState) -> Dictionary:
 			food_left -= 1
 		rations[mid] = {"food": give_f, "water": give_w}
 	var medkits: int = s.count("medkit")
+	var bandages: int = s.count("rag_bandage")
 	for m_v in home:
 		var m: Dictionary = m_v
+		var wound_only: bool = bool(m.get("injured", false)) and not bool(m.get("sick", false))
+		if wound_only and bandages > 0:
+			treat[str(m["id"])] = "rag_bandage"
+			bandages -= 1
+			continue
 		if medkits <= 0:
-			break
+			continue
 		if bool(m.get("sick", false)) or (bool(m.get("injured", false)) and int(m.get("injured_days", 0)) >= 4):
 			treat[str(m["id"])] = true
 			medkits -= 1
@@ -396,7 +447,108 @@ static func _plan_expert(s: ShelterState) -> Dictionary:
 		if int(em.get("dwf", 0)) >= 4 and s.food() > 0:
 			r["food"] = true
 		rations[str(trip["member"])] = r
+	_expert_bench(s, jobs, busy_bench)
 	return {"rations": rations, "treat": treat, "jobs": jobs}
+
+
+## The expert's day at the bench: study a chapter that matters soon, make what the situation calls
+## for, and tag what it is short of so trips bring the right junk home.
+static func _expert_bench(s: ShelterState, jobs: Dictionary, busy: bool = false) -> void:
+	var free: Array = []
+	for m_v in s.home():
+		var m: Dictionary = m_v
+		if jobs.has(str(m["id"])) or ShelterCraft.can_work(s, m) != "":
+			continue
+		free.append(m)
+	if free.is_empty():
+		return
+	# Study first (an adult or teen), while the manual is on the shelf.
+	var ch: String = _expert_chapter(s)
+	if ch != "":
+		for m_v in free:
+			var m: Dictionary = m_v
+			if ShelterCraft.can_study(s, m, ch) == "":
+				jobs[str(m["id"])] = {"job": "study", "chapter": ch}
+				free.erase(m)
+				break
+	var wants: Array = _expert_wants(s)
+	if busy:
+		# Anything makeable that isn't on the shelf yet, after what the situation calls for.
+		for rid_v in ShelterCraft.recipe_ids():
+			var rid0: String = str(rid_v)
+			var mk: String = str(ShelterData.recipe(rid0).get("makes", ""))
+			if not wants.has(rid0) and mk != "patch" and not s.has(mk):
+				wants.append(rid0)
+	s.need_parts.clear()
+	for w_v in wants:
+		var short: Dictionary = ShelterCraft.short_by(s, ShelterCraft.parts_needed(s, str(w_v)))
+		for pid in short.keys():
+			s.need_parts[pid] = true
+		if not short.is_empty():
+			break
+	for m_v in free:
+		var m: Dictionary = m_v
+		var picks: Array = []
+		for w_v in wants:
+			var rid: String = str(w_v)
+			if ShelterCraft.can_make(s, m, rid, "", picks) == "":
+				picks.append({"id": rid})
+				if str(ShelterData.recipe(rid).get("time", "")) == "day" or picks.size() >= ShelterData.Bi("quick_per_day", 2):
+					break
+		if not picks.is_empty():
+			jobs[str(m["id"])] = {"job": "craft", "recipes": picks}
+			for p_v in picks:
+				wants.erase(str((p_v as Dictionary)["id"]))
+
+
+static func _expert_chapter(s: ShelterState) -> String:
+	if not s.has("manual"):
+		return ""
+	var order: Array[String] = []
+	if s.dirty_water > 0 or (ShelterTrips.heavy_fallout(s) and not s.has("gas_mask")):
+		order.append("ch1")
+	if s.followed or s.day >= 6:
+		order.append("ch2")
+	if not s.has("radio"):
+		order.append("ch3")
+	for c in ["ch1", "ch2", "ch3", "ch4"]:
+		if not order.has(c):
+			order.append(c)
+	for c in order:
+		if not s.chapters.has(c):
+			return c
+	return ""
+
+
+## Recipes worth making now, most useful first (only what the situation calls for).
+static func _expert_wants(s: ShelterState) -> Array:
+	var w: Array = []
+	var injured: bool = s.living().any(func(m: Dictionary) -> bool: return bool(m.get("injured", false)) and not bool(m.get("sick", false)))
+	if injured and not s.has("rag_bandage"):
+		w.append("rag_bandage")
+	if s.dirty_water >= 2 and not s.has("bottle_filter"):
+		w.append("bottle_filter")
+	if s.followed and not s.has("door_barricade"):
+		w.append("door_barricade")
+	if s.followed and not s.has("pipe_club") and not s.has("rifle") and not s.has("axe"):
+		w.append("pipe_club")
+	if s.day >= ShelterData.Bi("thief_min_day", 6) and not s.has("tin_can_alarm"):
+		w.append("tin_can_alarm")
+	if ShelterTrips.heavy_fallout(s) and not s.has("gas_mask") and not s.has("rag_respirator"):
+		w.append("rag_respirator")
+	if not s.has("radio") and not s.has("scrap_receiver") and not s.fallout_announced:
+		w.append("scrap_receiver")
+	for t in ["gas_mask", "radio", "flashlight"]:
+		if s.broken_count(t) > 0 and not s.has(t):
+			w.append("patch_job")
+			break
+	if not s.has("suitcase") and not s.has("bindle"):
+		w.append("bindle")
+	if s.home().any(func(m: Dictionary) -> bool: return int(m.get("morale", 5)) <= 3) and not s.has("sock_puppets"):
+		w.append("sock_puppets")
+	if not s.has("rag_bandage") and s.count("medkit") < 2:
+		w.append("rag_bandage")
+	return w
 
 
 static func _expert_trip(s: ShelterState, rations: Dictionary, treat: Dictionary) -> Dictionary:
@@ -537,6 +689,8 @@ static func _expected_loot_value(s: ShelterState, p: Dictionary, carry: int, wan
 	for k in stock.keys():
 		var it: String = str(k)
 		var per: float = float(ITEM_VALUE.get(it, 2.0)) * _need_mult(s, it)
+		if ShelterCraft.junk_matches_need(it, s.need_parts):
+			per += 1.5
 		if it == "medkit" and want_medkit:
 			per += 12.0
 		if chain_gap and it in ["map", "flashlight", "radio"] and not s.owns(it):

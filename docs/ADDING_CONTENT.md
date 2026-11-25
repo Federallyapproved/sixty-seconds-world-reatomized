@@ -31,13 +31,22 @@ It compiles `data/*.csv` and `data/events/*.json` into `data/build/*.json` (what
 
 The item now appears in the grab, the stores, tooltips and the validator. A **core** item must gate at least 3 events, so the build fails until you write them.
 
-## A junk piece
+## A junk piece (M3)
 
-The same as an item, with `category` set to `junk`, a `scrap_yield` (`metal:2;electronics:1`) and `loot_weights.csv` rows in the place types that sell it. Every recipe part must be obtainable from junk in at least 2 place types.
+The same as an item, with `category` set to `junk`, a `scrap_yield` (`metal:2;electronics:1`), `grab_rooms` for the house and `loot_weights.csv` rows in the place types that stock it (`home` is the house grab, `shelter_box` the shelter's own box of odds and ends, `electronics` phone and electronics shops). Its tooltip is built from the yield ("Toaster [2] → 2 Metal, 1 Electronics"), so the `purpose_line` only needs to say the same in words. The build fails if a part a recipe needs can't be found in junk from at least 2 place types.
+
+The six parts live in `data/parts.csv` (`id,name,icon_shape,color`). Each needs its own shape (`square`, `hexagon`, `diamond`, `circle`, `triangle`, `drop`) so colour-blind players can tell them apart.
 
 ## A recipe (M3)
 
-Add a row to `data/recipes.csv`: `id,name,parts,tool,time,makes,effect_line,unlock`, e.g. `rag_bandage,Rag Bandage,cloth:2;chemicals:1,,quick,rag_bandage,Cures Injured only (the Medkit cures both),known`. `makes` must be an item row with `category` set to `makeshift`.
+1. Add the makeshift item to `data/items.csv` with `category` `makeshift`, an icon (the recolour tool tapes it so it looks handmade), and its `effects`, from the keys the rules know (`DataSchema.MAKESHIFT_EFFECTS`): `uses` (how many times it works), `stands_in=<core item>` (the real thing it imitates), `gear=1` (it can be packed for a trip), `defence=1` (only one at a time), and the numbers its own code reads (`carry`, `filter`, `raid_stop`, `break_p`, `listen_p`, `success`, `morale_all`, `cure_injured`).
+2. Add a row to `data/recipes.csv`: `id,name,parts,tool,time,makes,purpose,compare,unlock`, e.g. `rag_bandage,Rag Bandage,cloth:2;chemicals:1,,quick,rag_bandage,Closes a wound without the medkit.,Makeshift medkit: cures Injured only (the medkit cures both),known`.
+   - `time` is `quick` (two a day) or `day` (the crafter's whole day); `tool` is a core item that must be on the shelf (never used up; the axe takes wear on Day recipes).
+   - `purpose` and `compare` are the first two lines of the recipe card; `compare` says how it is weaker than the real thing.
+   - `unlock` is `known` or a chapter id from `data/manual_chapters.csv` (`id,order,title,pamphlet,pamphlet_places`). A chapter is learned by a day of study with the manual, or by bringing home its pamphlet from one of its `pamphlet_places`.
+   - `makes: patch` with a `match:1` part is the Patch Job: one more use for a broken item.
+3. Give it at least one event: either an option with `"item": "<id>"`, or a stand-in on an existing option, `"alt": [{"item": "soap_spray", "p": 0.65, "label": "Soap-spray the shelf"}]`. A stand-in does the real item's job with probability `p` (default: its `success` effect, else 1); when it fails it is spent anyway and the event's costly no-item option happens instead (or the alt's own `fail` effects). Rescue steps can't take a stand-in: makeshift items never meet rescue or ending conditions, and the build fails if one is listed there.
+4. If it does something outside events (a raid, the night, a trip), that is a few lines in `scripts/shelter/shelter_craft.gd` and a check in `tests/m3/craft_suite.gd`.
 
 ## An event
 
@@ -67,6 +76,10 @@ M2 fields:
 - `"stranger": true` (type `stranger`) for a rare visitor with an item-gated option of their own; the game allows one per run.
 - Effects: `later` (`{"in": 3, "trigger": "house_quiet", "quiet_place": true}`: the narrator brings it up days later), `end_run` (`{"ending": "maybe_walk_out"}` or `maybe_stranger`: a gamble the family chooses), `trip_flag`. Conditions: `needs_affliction` (`selfish`, `paranoid`, `reckless`, `withdrawn` or `any`), `needs_guilt`, `needs_rule` / `not_rule` (a House Rule id), `trip_occupied`, `needs_pet_any`. Weight keys: `afflicted`, `guilt`, `rule:<id>`, `place:<category>`.
 
+M3 fields:
+- `"alt"` on an item option: makeshift stand-ins (see "A recipe" above).
+- Effects: `junk` (`{"item": "old_phone", "n": 1}`: a piece of junk for the shelf), `dirty_water` (`{"n": 4}`: rations a Bottle Filter can make drinkable; negative to pour it away), `parts` (`{"n": 1, "part": "metal"}`, a random part without `part`). Conditions: `needs_dirty_water` (rations), `needs_crafted` (anything made or taken apart this run).
+
 ## A House Rule
 
 Add a row to `data/house_rules.csv`: `id,name,order,bonus,cost,morale_hit,needs,narrator_line`. Meetings offer the next two rules by `order`; `needs` can be `pet` or `child`. The bonus and cost text is what the meeting card shows; the effect itself is code (`s.has_rule("<id>")` where the rule acts), so a new rule needs a few lines in `scripts/shelter/` and a test in `tests/m2/drama_suite.gd`.
@@ -77,7 +90,7 @@ Add a row to `data/house_rules.csv`: `id,name,order,bonus,cost,morale_hit,needs,
 
 ## An achievement (M2)
 
-Add a row to `data/achievements.csv`: `id,name,description,condition,unlocks`. `condition` is one of `Achievements.CONDITIONS` (`scripts/meta/achievements.gd`), with a number or id after a colon where it takes one (`padlock_stops:3`, `ending:rescue_convoy`). Every achievement must depend on decisions, not drops (nothing for surviving N days), and needs a setup in `tests/m2/achievements_suite.gd` that earns it.
+Add a row to `data/achievements.csv`: `id,name,description,condition,unlocks`. `condition` is one of `Achievements.CONDITIONS` (`scripts/meta/achievements.gd`), with a number or id after a colon where it takes one (`padlock_stops:3`, `ending:rescue_convoy`, `makeshift_win:5`, `chapters:4`). Every achievement must depend on decisions, not drops (nothing for surviving N days), and needs a setup in `tests/m2/achievements_suite.gd` that earns it.
 
 ## A narration line
 

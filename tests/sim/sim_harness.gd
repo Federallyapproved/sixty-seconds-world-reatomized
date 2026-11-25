@@ -12,7 +12,7 @@ const FIXTURE_DIR: String = "res://tests/fixtures/sim_homes"
 const MAX_DAYS: int = 120
 
 var runs: int = 1000
-var policies: Array[String] = ["random", "naive", "expert"]
+var policies: Array[String] = ["random", "naive", "expert", "crafter"]
 var difficulty: String = "normal"
 var shard: int = 0
 var shards: int = 1
@@ -114,4 +114,15 @@ static func run_one(fx: Dictionary, policy: String, seed_v: int, diff: String) -
 		"alive": s.living().size(), "clear": s.fallout_clear_day,
 		"rules": s.rules.size(), "aff": int(s.stats["afflictions"]), "maybe": s.ending_kind == "maybe",
 		"guilt": int(s.stats["stole"]) > 0, "stranger": str(s.stats["stranger"]) != "",
+		# M3: crafting and salvage
+		"made": _crafted_total(s), "cf": int(s.stats["craft_fails"]), "ta": int(s.stats["taken_apart"]),
+		"st": int(s.stats["studied"]), "pm": int(s.stats["pamphlet_learned"]), "th": int(s.stats["thefts"]),
+		"al": int(s.stats["alarms"]), "fi": int(s.stats["filtered"]), "ch": s.chapters.size(),
 	}
+
+
+static func _crafted_total(s: ShelterState) -> int:
+	var n: int = 0
+	for k in (s.stats["crafted"] as Dictionary).keys():
+		n += int(s.stats["crafted"][k])
+	return n

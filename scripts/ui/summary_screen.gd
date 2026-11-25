@@ -230,6 +230,9 @@ func _build_items_card(rect: Rect2) -> Control:
 	for e_v in mv["missing"]:
 		miss.append("%s ×%d" % [ShelterData.item_name(str((e_v as Dictionary)["item"])), int((e_v as Dictionary)["count"])])
 	t += "[color=%s]Missing when it counted:[/color] %s\n" % [red, "nothing" if miss.is_empty() else ", ".join(miss)]
+	var bench: String = ShelterCraft.run_summary(s)
+	if bench != "":
+		t += "[color=%s]Workbench:[/color] %s\n" % [_hex(Color("#d9c7a0")), bench]
 	var info: Dictionary = ShelterSim.ending_info(s)
 	if str(info.get("rules_text", "")) != "":
 		t += "[color=%s]%s[/color]\n" % [amber, str(info["rules_text"])]
@@ -241,6 +244,10 @@ func _build_items_card(rect: Rect2) -> Control:
 		if names.size() > 3:
 			shown += " and %d more" % (names.size() - 3)
 		t += "[color=%s]Unlocked:[/color] %s" % [amber, shown]
+	if t.count("\n") >= 7:
+		# A busy run (the workbench, House Rules and unlocks) still fits the card.
+		r.add_theme_font_size_override("normal_font_size", 12)
+		r.add_theme_font_size_override("bold_font_size", 12)
 	r.text = t
 	return card
 

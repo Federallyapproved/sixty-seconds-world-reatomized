@@ -1,4 +1,4 @@
-# Balance report — shelter phase (M1)
+# Balance report — shelter phase (M3)
 
 _Measured by `tests/sim/sim_harness.gd` (the game's own rules, headless) and summarised by `tests/sim/sim_report.gd`. Regenerate with `tools/run_sim.sh`._
 
@@ -8,66 +8,82 @@ _Measured by `tests/sim/sim_harness.gd` (the game's own rules, headless) and sum
 
 | Check | Result | |
 |---|---|---|
-| Random win rate ≤ 5% | 0.0% | ✅ |
-| Random median death day 15–25 | day 17.0 | ✅ |
-| Naive win rate 10–20% | 14.9% | ✅ |
-| Expert win rate 45–60% | 56.5% | ✅ |
-| Expert − random ≥ 40 points | 56.5 points | ✅ |
-| Expert: everyone dead before day 15 in < 10% | 0.3% | ✅ |
+| Random win rate ≤ 5% | 0.1% | ✅ |
+| Random median death day 15–25 | day 15.0 | ✅ |
+| Naive win rate 10–20% | 11.1% | ✅ |
+| Expert win rate 45–60% | 54.1% | ✅ |
+| Expert − random ≥ 40 points | 54.0 points | ✅ |
+| Expert: everyone dead before day 15 in < 10% | 0.4% | ✅ |
 | Expert: no cause > 40% of deaths | largest: thirst 39% | ✅ |
-| Expert makes 3–6 expeditions | mean 4.4, median 4.0 | ✅ |
-| Expert runs lost to dice with zero mistakes < 10% | 0.0% (zero-mistake losses of any kind: 23.9%) | ✅ |
-| Expert win-rate spread across distance quartiles ≤ 20 points | 5.6 points | ✅ |
-| Crafted items ≤ 25% of expert Used: credits | 0.0% | ✅ |
-| Expert median winning day 30–45 | day 38.0 (earliest 27) | ✅ |
+| Expert makes 3–6 expeditions | mean 4.5, median 4.0 | ✅ |
+| Expert runs lost to dice with zero mistakes < 10% | 0.0% (zero-mistake losses of any kind: 26.3%) | ✅ |
+| Expert win-rate spread across distance quartiles ≤ 20 points | 7.7 points | ✅ |
+| Crafted items ≤ 25% of expert Used: credits | 1.8% | ✅ |
+| Expert median winning day 30–45 | day 38.0 (earliest 26) | ✅ |
+| Crafted items ≤ 25% of Used: credits for an expert who crafts all it can | 6.0% (2.0 made per run) | ✅ |
 
 ## Win rates and run length
 
 | Policy | Win rate | Median losing day | Median winning day | Earliest win | Median run (days) | Expeditions / run | Trip death rate |
 |---|---|---|---|---|---|---|---|
-| Random | 0.0% | 17.0 | 36.0 | 33 | 17.0 | 2.72 | 14.3% |
-| Naive | 14.9% | 28.0 | 38.0 | 27 | 30.0 | 0.92 | 14.4% |
-| Expert | 56.5% | 36.0 | 38.0 | 27 | 38.0 | 4.36 | 3.7% |
+| Random | 0.1% | 15.0 | 36.5 | 35 | 15.0 | 2.31 | 15.6% |
+| Naive | 11.1% | 27.0 | 38.0 | 27 | 29.0 | 1.02 | 15.4% |
+| Expert | 54.1% | 36.0 | 38.0 | 26 | 37.0 | 4.51 | 3.6% |
+| Crafter | 37.9% | 34.0 | 40.0 | 27 | 37.0 | 3.82 | 8.3% |
 
 ## Win rate by distance to the nearest store (quartiles)
 
 | Policy | Q1 (closest) | Q2 | Q3 | Q4 (farthest) | Spread |
 |---|---|---|---|---|---|
 | Random | 0% | 0% | 0% | 0% | 0 points |
-| Naive | 15% | 15% | 16% | 14% | 2 points |
-| Expert | 58% | 58% | 57% | 53% | 6 points |
+| Naive | 11% | 10% | 12% | 11% | 1 points |
+| Expert | 55% | 57% | 55% | 49% | 8 points |
+| Crafter | 38% | 42% | 37% | 35% | 7 points |
 
 ## Cause of death
 
 | Policy | Causes (share of all deaths) |
 |---|---|
-| Random | thirst 65%, starvation 19%, trip 10%, sickness 5%, air 0% |
-| Naive | thirst 61%, sickness 32%, starvation 4%, trip 4% |
-| Expert | thirst 39%, starvation 26%, sickness 23%, trip 11% |
+| Random | thirst 70%, starvation 17%, trip 10%, sickness 3%, air 0% |
+| Naive | thirst 59%, sickness 32%, starvation 5%, trip 4% |
+| Expert | thirst 39%, starvation 29%, sickness 22%, trip 10% |
+| Crafter | thirst 37%, starvation 27%, sickness 21%, trip 15% |
 
 ## When people die (all deaths, by day)
 
 | Policy | 00-04 | 05-09 | 10-14 | 15-19 | 20-24 | 25-29 | 30-34 | 35-39 | 40-44 | 45-49 | 50-54 | 55-59 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Random | 47 | 12194 | 10689 | 7970 | 4222 | 1594 | 498 | 134 | 37 | 16 | 3 | 1 |
-| Naive | 0 | 20185 | 705 | 3397 | 4790 | 2548 | 1887 | 1236 | 665 | 315 | 199 | 113 |
-| Expert | 0 | 45 | 791 | 715 | 1207 | 2308 | 2129 | 2742 | 1808 | 788 | 542 | 298 |
+| Random | 28 | 16098 | 11361 | 6187 | 2661 | 946 | 288 | 80 | 21 | 8 | 0 | 1 |
+| Naive | 0 | 19853 | 757 | 3616 | 5145 | 2684 | 1971 | 1275 | 684 | 331 | 186 | 92 |
+| Expert | 0 | 38 | 857 | 732 | 1399 | 2507 | 2369 | 3197 | 1840 | 798 | 572 | 361 |
+| Crafter | 0 | 758 | 1441 | 1847 | 2387 | 3436 | 2775 | 3171 | 2212 | 989 | 727 | 422 |
 
 ## Drama (M2)
 
 | Policy | House Rules passed / run | Afflictions / run | Gamble endings | Stole from neighbours | Met a stranger |
 |---|---|---|---|---|---|
-| Random | 2.45 | 0.77 | 0.3% | 9.0% | 13.8% |
-| Naive | 0.00 | 0.52 | 0.0% | 1.4% | 24.9% |
-| Expert | 1.90 | 0.28 | 0.0% | 0.0% | 28.6% |
+| Random | 2.12 | 0.77 | 0.1% | 6.7% | 11.4% |
+| Naive | 0.00 | 0.63 | 0.0% | 1.2% | 22.5% |
+| Expert | 1.92 | 0.33 | 0.0% | 0.0% | 25.6% |
+| Crafter | 2.32 | 0.43 | 0.0% | 0.0% | 25.4% |
+
+## Crafting and salvage (M3)
+
+| Policy | Makeshift items made / run | Runs that crafted | Failed crafts / run | Junk taken apart / run | Chapters learned / run | From pamphlets / run | Night thefts / run | Thieves caught by the alarm / run | Rations filtered / run | Crafted share of Used: credits |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Random | 0.66 | 54% | 0.15 | 1.50 | 0.86 | 0.59 | 0.25 | 0.00 | 0.0 | 3.8% |
+| Naive | 0.00 | 0% | 0.00 | 0.00 | 0.11 | 0.11 | 0.67 | 0.00 | 0.0 | 0.0% |
+| Expert | 0.80 | 67% | 0.18 | 1.71 | 1.08 | 1.06 | 1.02 | 0.00 | 0.4 | 1.8% |
+| Crafter | 1.97 | 96% | 0.13 | 3.07 | 3.42 | 0.19 | 0.97 | 0.05 | 0.3 | 6.0% |
 
 ## Endings
 
 | Policy | Endings |
 |---|---|
-| Random |  loss_all_dead: 7653, loss_empty: 885, loss_no_adult: 1346, maybe_walk_out: 29, loss_takeover: 83, rescue_airlift: 4  |
-| Naive |  rescue_convoy: 135, loss_all_dead: 6408, rescue_airlift: 1351, loss_no_adult: 1723, loss_takeover: 381, rescue_neighbourhood: 2  |
-| Expert |  loss_all_dead: 2000, rescue_airlift: 3482, rescue_convoy: 2050, loss_takeover: 1892, loss_no_adult: 397, rescue_neighbourhood: 117, timeout: 62  |
+| Random |  loss_all_dead: 7900, loss_empty: 824, loss_no_adult: 1210, loss_takeover: 54, maybe_walk_out: 6, rescue_airlift: 6  |
+| Naive |  loss_no_adult: 1724, rescue_airlift: 1020, loss_all_dead: 6836, loss_takeover: 334, rescue_convoy: 81, rescue_neighbourhood: 5  |
+| Expert |  loss_all_dead: 2278, loss_takeover: 1851, rescue_airlift: 3341, rescue_convoy: 1949, loss_no_adult: 385, rescue_neighbourhood: 119, timeout: 77  |
+| Crafter |  loss_takeover: 2274, loss_all_dead: 3244, rescue_neighbourhood: 78, rescue_convoy: 1270, timeout: 94, loss_no_adult: 601, rescue_airlift: 2439  |
 
 ## What was wrong before (measured on `main`)
 
@@ -103,10 +119,18 @@ _Measured by `tests/sim/sim_harness.gd` (the game's own rules, headless) and sum
 17. **"Nobody opens the hatch" costs 2 morale (was 1).** The harness expert adopted it at the first meeting nearly every run; it then lost the water trades the rule blocks and thirst went back to 45%. At 2 it is a real trade-off. Trips are a little more dangerous too (never returning: 3%/night, was 2.5%).
 18. **An unanswered gang counts as a mistake.** A takeover comes after 20–30 days of "Noticed" raids and a warning the morning before, so the harness now records it as a decision (`gang_unanswered`) instead of bad luck; before, a takeover with nobody dead counted as a loss to dice. Final (1,000 runs): random 0.2%, naive 14.6%, expert 55.8%, thirst 37% of expert deaths.
 
+## M3: crafting and salvage (numbers from 1,000- and 2,000-run checks; the tables above are the final 10,000-run sweep)
+
+19. **M3 rules and content as specified, no retuning: random 0.1%, naive 10.2%, expert 51.5%, and thirst 42% of expert deaths** (over the 40% limit). Three things moved: junk in the house grab cost the random and naive policies core items; silent thieves took a whole can (4 rations) of whichever pile was bigger, usually water; and the expert barely crafted (0.5% of its credits), because its 12-slot grab never has room for junk or the manual, so it had no parts.
+20. **A silent thief takes 2 rations of food (water only when the food is gone) or one small thing, 3% a night (×1.5 when Noticed).** It was 5% (×2) and a whole can. Thirst 37% of expert deaths.
+21. **The shelter has its own box of odds and ends** (`shelter_box` in `loot_weights.csv`: an extension cord, duct tape, usually a bedsheet, sometimes an umbrella), the box marked CABLES, MISC that the backdrop already drew. Day 1 now has something for the bench whatever the grab brought. The expert crafts in about two runs in three (0.8 items per run).
+22. **The harness expert uses the bench.** It studies a chapter on a free day when the manual is on the shelf (Water and Air first once there is dirty water, Home Security once Noticed or from day 6), makes what the situation calls for (a bandage for a wound, a barricade when Noticed, a filter for dirty water…), tags the parts it lacks with the Need toggle, and counts junk holding a tagged part at +1.5 when it picks a trip. At +2.5 it chose hardware stores over water and thirst went back to 43%. A fourth policy, **crafter**, grabs the manual and junk first and keeps the bench busy every free day: a stress test for the crafted-credit cap. It makes about 2 makeshift items per run and wins less than the expert (about 38%): junk in the grab costs gear, and makeshift things are weaker than the real ones.
+
 ## Known limits
 
 - The expert is a heuristic, not an optimal player: it never takes a second expedition while one is out, and it can't see hidden rolls. Human experts should do better.
 - Gang takeovers end about 15% of expert runs in M1 and about 20% in M2. They are always preceded by a warning and by days of "Noticed" raids. The harness expert rarely passes "Nobody opens the hatch" at its M2 cost, and it never keeps a weapon back for the gang's night; a human who does both should lose far fewer runs this way.
+- The harness expert crafts little (under 1 makeshift item per run): it plays for gear, not junk. The crafter policy shows the other end. Humans will sit in between.
 - 0.2% of expert runs survive to the 120-day cap without a rescue (every chain went silent); the harness counts them as losses.
 - Mid-game gaps: the neighbourhood rescue needs a real church or school and a visit after the all-clear, so it is the rarest of the three rescues (2.5% of expert runs).
 - Fixtures are US neighbourhoods (city, suburb, small town, farmland). Other countries' OSM tagging should behave the same, but that hasn't been measured.

@@ -134,6 +134,50 @@ static func achievements() -> Dictionary:
 	return _table("achievements")
 
 
+# ---------------------------------------------------------------- crafting (M3)
+
+static func parts() -> Dictionary:
+	return _table("parts")
+
+
+static func part(part_id: String) -> Dictionary:
+	return parts().get(part_id, {})
+
+
+## The six parts in a fixed display order.
+static func part_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for k in ["cloth", "metal", "electronics", "plastic", "binding", "chemicals"]:
+		if parts().has(k):
+			ids.append(k)
+	return ids
+
+
+static func recipes() -> Dictionary:
+	return _table("recipes")
+
+
+static func recipe(recipe_id: String) -> Dictionary:
+	return recipes().get(recipe_id, {})
+
+
+static func chapters() -> Dictionary:
+	return _table("chapters")
+
+
+static func chapter(chapter_id: String) -> Dictionary:
+	return chapters().get(chapter_id, {})
+
+
+static func ids_in(category: String) -> Array[String]:
+	var ids: Array[String] = []
+	for k in items().keys():
+		if str((items()[k] as Dictionary).get("category", "")) == category:
+			ids.append(str(k))
+	ids.sort()
+	return ids
+
+
 static func balance() -> Dictionary:
 	return _table("balance")
 

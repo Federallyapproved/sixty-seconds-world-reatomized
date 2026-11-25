@@ -436,7 +436,9 @@ func _reachable_by_setup(eid: String) -> bool:
 				for e_v in DataBuilder._flat_effects((o_v as Dictionary).get("effects", [])):
 					if str((e_v as Dictionary).get("do", "")) == "schedule" and str((e_v as Dictionary).get("event", "")) == eid:
 						return true
-		return eid == "occupied_house"   # scheduled by ShelterTrips.launch at an occupied home
+		# Scheduled by code: ShelterTrips.launch at an occupied home; ShelterCraft._thief when the
+		# tin-can alarm catches a night thief (M3).
+		return eid in ["occupied_house", "cans_rattled"]
 	var c: Dictionary = ev.get("conditions", {})
 	var places: Array = _places()
 	for cat in ["school", "civic", "auto", "restaurant", "park", "hardware"]:
@@ -476,6 +478,10 @@ func _reachable_by_setup(eid: String) -> bool:
 		m1["affliction"] = "withdrawn" if want == "any" else want
 	if bool(c.get("needs_guilt", false)):
 		m1["guilt"] = true
+	if c.has("needs_dirty_water"):
+		t.dirty_water = int(c["needs_dirty_water"])
+	if bool(c.get("needs_crafted", false)):
+		t.stats["taken_apart"] = 1
 	if c.has("needs_missing"):
 		t.stock.erase(str(c["needs_missing"]))
 	if c.has("needs_broken"):

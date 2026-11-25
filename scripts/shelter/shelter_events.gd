@@ -215,6 +215,10 @@ static func _conditions_ok(s: ShelterState, ev: Dictionary, forced: bool) -> boo
 		return false
 	if bool(c.get("needs_pet_any", false)) and s.pets.is_empty():
 		return false
+	if c.has("needs_dirty_water") and s.dirty_water < int(c["needs_dirty_water"]):
+		return false
+	if bool(c.get("needs_crafted", false)) and (s.stats["crafted"] as Dictionary).is_empty() and int(s.stats["taken_apart"]) == 0:
+		return false
 	# Somebody has to be home and able to act on a shelter event.
 	if not forced and actor(s).is_empty() and not c.has("trip_place"):
 		return false
@@ -369,36 +373,84 @@ static func meeting_event(s: ShelterState) -> Dictionary:
 # ---------------------------------------------------------------- options
 
 ## Options as the card shows them: basic first, then item options; unavailable item options are
-## greyed "Needs: X". Each carries a stakes band.
+## greyed "Needs: X". Each carries a stakes band. An item option may accept a makeshift stand-in
+## (its "alt" list, section 10): shown instead of the greyed option when only the stand-in is on
+## hand, or next to the real one when the card has room.
 static func options_for(s: ShelterState, ev: Dictionary) -> Array:
 	var res: Array = []
 	if ev.is_empty():
 		return res
 	var ctx: Dictionary = ev.get("ctx", {})
 	var para: Dictionary = ShelterSim.paranoid_home(s)
+	var extra: Array = []
 	for o_v in ev.get("options", []):
 		var o: Dictionary = o_v
 		var it: String = str(o.get("item", ""))
 		var avail: bool = true
 		var need: String = ""
+		var stand_in: Dictionary = _alt_ready(s, o, ctx)
 		if it != "":
-			if s.hide_unknown and not s.known_items.has(it) and not s.owns(it):
-				continue
 			avail = _item_ready(s, it, ctx)
+			var hidden: bool = s.hide_unknown and not s.known_items.has(it) and not s.owns(it)
+			if not avail and not stand_in.is_empty():
+				res.append(_alt_card(s, o, stand_in, ctx, para))
+				continue
+			if hidden:
+				continue
 			if not avail:
 				need = "Needs: %s" % ShelterData.item_name(it)
+			elif not stand_in.is_empty():
+				extra.append(_alt_card(s, o, stand_in, ctx, para))
 		if avail and bool(o.get("hatch", false)):
-			if s.has_rule("nobody_opens_hatch"):
+			var block: String = _hatch_block(s, para)
+			if block != "":
 				avail = false
-				need = "House Rule: Nobody opens the hatch"
-			elif not para.is_empty():
-				avail = false
-				need = "Paranoid %s won't open the hatch" % str(para.get("name", ""))
+				need = block
 		res.append({
 			"id": str(o["id"]), "label": str(o.get("label", "")), "item": it, "available": avail,
 			"needs": need, "stakes": str(o.get("stakes", "")) if str(o.get("stakes", "")) != "" else stakes_for(o.get("effects", []), s.difficulty == "story"),
 		})
+	for x in extra:
+		if res.size() < 4:
+			res.append(x)
 	return res
+
+
+static func _hatch_block(s: ShelterState, para: Dictionary) -> String:
+	if s.has_rule("nobody_opens_hatch"):
+		return "House Rule: Nobody opens the hatch"
+	if not para.is_empty():
+		return "Paranoid %s won't open the hatch" % str(para.get("name", ""))
+	return ""
+
+
+## The first makeshift stand-in for this option that is on hand ({} if none).
+static func _alt_ready(s: ShelterState, o: Dictionary, ctx: Dictionary) -> Dictionary:
+	for a_v in o.get("alt", []):
+		if a_v is Dictionary and _item_ready(s, str((a_v as Dictionary).get("item", "")), ctx):
+			return a_v
+	return {}
+
+
+static func _alt_p(a: Dictionary) -> float:
+	var ai: String = str(a.get("item", ""))
+	return float(a.get("p", ShelterData.item_effect(ai, "success", 1.0)))
+
+
+static func _alt_card(s: ShelterState, o: Dictionary, a: Dictionary, ctx: Dictionary, para: Dictionary) -> Dictionary:
+	var ai: String = str(a.get("item", ""))
+	var pa: float = _alt_p(a)
+	var stakes: String = str(o.get("stakes", "")) if str(o.get("stakes", "")) != "" else stakes_for(o.get("effects", []), s.difficulty == "story")
+	if pa < 1.0:
+		var odds: String = ("%d%%" % int(round(pa * 100.0))) if s.difficulty == "story" else ("likely" if pa >= 0.6 else "maybe")
+		stakes = ("Makeshift: %s to work" % odds) + ("; " + stakes if stakes != "" else "")
+	var avail: bool = true
+	var need: String = ""
+	if bool(o.get("hatch", false)):
+		need = _hatch_block(s, para)
+		avail = need == ""
+	return {"id": "%s@%s" % [str(o["id"]), ai], "label": _fill(s, str(a.get("label", o.get("label", ""))), ctx), "item": ai,
+		"available": avail, "needs": need, "stakes": stakes, "alt_of": str(o.get("item", ""))}
 
 
 static func _item_ready(s: ShelterState, it: String, ctx: Dictionary) -> bool:
@@ -467,13 +519,23 @@ static func _unit_word(item_id: String, n: int) -> String:
 
 static func resolve(s: ShelterState, ev: Dictionary, option_id: String) -> Dictionary:
 	var opt: Dictionary = {}
+	var base_id: String = option_id.get_slice("@", 0)
+	var alt_item: String = option_id.get_slice("@", 1) if option_id.find("@") != -1 else ""
 	for o_v in ev.get("options", []):
-		if str((o_v as Dictionary).get("id", "")) == option_id:
+		if str((o_v as Dictionary).get("id", "")) == base_id:
 			opt = o_v
 	if opt.is_empty():
 		return {}
 	var ctx: Dictionary = ev.get("ctx", {})
 	var it: String = str(opt.get("item", ""))
+	var alt: Dictionary = {}
+	if alt_item != "":
+		for a_v in opt.get("alt", []):
+			if a_v is Dictionary and str((a_v as Dictionary).get("item", "")) == alt_item:
+				alt = a_v
+		if alt.is_empty():
+			return {}
+		it = alt_item
 	if it != "" and not _item_ready(s, it, ctx):
 		return {}
 	if bool(opt.get("hatch", false)) and (s.has_rule("nobody_opens_hatch") or not ShelterSim.paranoid_home(s).is_empty()):
@@ -501,15 +563,87 @@ static func resolve(s: ShelterState, ev: Dictionary, option_id: String) -> Dicti
 	if bool(opt.get("loud", false)):
 		s.loud_bonus += 0.1
 	var tags: Array = []
-	apply_effects(s, opt.get("effects", []), ctx, tags)
+	var effs: Array = opt.get("effects", [])
+	var text: String = _fill(s, str(opt.get("outcome", "")), ctx)
+	if not alt.is_empty():
+		if s.rng.randf() < _alt_p(alt):
+			# The stand-in does the real item's job (and wears out the way makeshift things do).
+			effs = _swap_item(effs, str(opt.get("item", "")), alt_item)
+			if not _uses(effs, alt_item):
+				if str(ctx.get("explorer", "")) != "":
+					_spend_trip_makeshift(s, alt_item, ctx)
+				else:
+					ShelterCraft.spend_use(s, alt_item)
+				s.credit(alt_item, "stood in for the %s" % ShelterData.item_name(str(opt.get("item", ""))).to_lower())
+		else:
+			# It didn't work: it is spent anyway, and the costly no-item option happens instead.
+			var gone: bool = _spend_trip_makeshift(s, alt_item, ctx) if str(ctx.get("explorer", "")) != "" else ShelterCraft.spend_use(s, alt_item)
+			s.say("break", "The %s didn't do the job.%s" % [ShelterData.item_name(alt_item).to_lower(), ShelterCraft.used_text(alt_item, gone)], [alt_item])
+			var fb: Dictionary = _fallback_option(ev)
+			effs = alt.get("fail", fb.get("effects", []))
+			text = "The %s didn't do the job. %s" % [ShelterData.item_name(alt_item).to_lower(), _fill(s, str(alt.get("fail_text", fb.get("outcome", ""))), ctx)]
+			tags.append("makeshift_failed")
+	apply_effects(s, effs, ctx, tags)
 	var lines: Array = s.receipt.slice(mark)
 	s.receipt = s.receipt.slice(0, mark)
-	var text: String = _fill(s, str(opt.get("outcome", "")), ctx)
 	return {
 		"event_id": eid, "choice_id": option_id, "item_used": it, "text": text, "lines": lines,
 		"items": ([it] if it != "" else []), "tags": tags, "cinematic": str(opt.get("cinematic", "")),
 		"actor_id": str(ctx.get("actor", "")), "subject_id": str(ctx.get("subject", "")),
 	}
+
+
+## Swaps the real item for the makeshift stand-in in "use" effects (recursing into chances).
+static func _swap_item(effs: Array, real: String, alt: String) -> Array:
+	var out: Array = []
+	for e_v in effs:
+		var e: Dictionary = (e_v as Dictionary).duplicate(true)
+		if str(e.get("do", "")) == "use" and str(e.get("item", "")) == real:
+			e["item"] = alt
+		if e.has("then"):
+			e["then"] = _swap_item(e["then"], real, alt)
+		if e.has("else"):
+			e["else"] = _swap_item(e["else"], real, alt)
+		out.append(e)
+	return out
+
+
+static func _uses(effs: Array, item_id: String) -> bool:
+	for e_v in DataBuilder._flat_effects(effs):
+		if str((e_v as Dictionary).get("do", "")) == "use" and str((e_v as Dictionary).get("item", "")) == item_id:
+			return true
+	return false
+
+
+## The no-item option that costs something (what happens when a makeshift stand-in fails).
+static func _fallback_option(ev: Dictionary) -> Dictionary:
+	var first: Dictionary = {}
+	for o_v in ev.get("options", []):
+		var o: Dictionary = o_v
+		if str(o.get("item", "")) != "":
+			continue
+		if first.is_empty():
+			first = o
+		for e_v in DataBuilder._flat_effects(o.get("effects", [])):
+			var e: Dictionary = e_v
+			var op: String = str(e.get("do", ""))
+			if op in ["lose", "steal", "sick", "injure", "dose", "break", "tired", "followed", "pet_leaves", "guilt"] or ((op == "morale" or op == "rations") and int(e.get("n", 0)) < 0):
+				return o
+	return first
+
+
+## A makeshift item packed on the trip in progress loses a use (gone from the pack at 0).
+static func _spend_trip_makeshift(s: ShelterState, it: String, ctx: Dictionary) -> bool:
+	var mx: int = ShelterCraft.max_uses(it)
+	if mx <= 0:
+		return false
+	var left: int = ShelterCraft.uses_left(s, it) - 1
+	if left <= 0:
+		s.uses.erase(it)
+		_take_trip_gear(s, it, ctx)
+		return true
+	s.uses[it] = left
+	return false
 
 
 static func apply_effects(s: ShelterState, effs: Array, ctx: Dictionary, tags: Array) -> void:
@@ -782,7 +916,24 @@ static func apply_effect(s: ShelterState, e: Dictionary, ctx: Dictionary, tags: 
 			ShelterSim.finish(s, str(e.get("ending", "maybe_walk_out")))
 			tags.append("gameover")
 		"junk":
-			pass
+			s.add(it, n)
+			tags.append("item_gained")
+			s.say("gain", "+%d %s (junk: %s)" % [n, ShelterData.item_name(it), ShelterCraft.parts_text(ShelterCraft.scrap_yield(it)).to_lower()], [it])
+		"dirty_water":
+			s.dirty_water = maxi(0, s.dirty_water + n)
+			if n > 0:
+				s.stats["dirty_collected"] = int(s.stats["dirty_collected"]) + n
+				s.say("gain", "+%d rations of dirty water (a Bottle Filter makes them drinkable)" % n, ["water"])
+			else:
+				s.say("lost", "−%d rations of dirty water" % -n, ["water"])
+		"parts":
+			var pid: String = str(e.get("part", ""))
+			if pid == "":
+				var ids: Array[String] = ShelterData.part_ids()
+				pid = ids[s.rng.randi_range(0, ids.size() - 1)]
+			var kept: Dictionary = ShelterCraft.add_parts(s, {pid: n})["kept"]
+			if not kept.is_empty():
+				s.say("gain", "+%s for the part shelf" % ShelterCraft.parts_text(kept), [])
 		"say":
 			s.say(str(e.get("kind", "info")), _fill(s, str(e.get("text", "")), ctx))
 		"drain":
@@ -846,8 +997,20 @@ static func _use_item(s: ShelterState, it: String, mode: String, what: String, c
 		"food", "water":
 			s.remove(it, int(ShelterData.item_effect(it, "rations", 4.0)))
 			s.credit(it, what)
+		"pipe_club":
+			var broke: bool = s.rng.randf() < ShelterData.B("pipe_club_break_p", 0.5)
+			if broke:
+				if on_trip:
+					_take_trip_gear(s, it, ctx)
+				else:
+					s.remove(it, 1)
+			s.credit(it, what + ("." + ShelterCraft.used_text(it, true) if broke else ""))
 		_:
-			s.credit(it, what)
+			if ShelterCraft.is_makeshift(it):
+				var gone: bool = _spend_trip_makeshift(s, it, ctx) if on_trip else ShelterCraft.spend_use(s, it)
+				s.credit(it, what + ("." + ShelterCraft.used_text(it, gone) if gone else ""))
+			else:
+				s.credit(it, what)
 
 
 ## An item carried on a trip breaks: it comes home broken (if it comes home at all).

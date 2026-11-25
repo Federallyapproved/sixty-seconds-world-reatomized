@@ -88,6 +88,29 @@ func _event(s: ShelterState, eid: String, oid: String) -> void:
 ## Each returns [ShelterState or null, ctx, meta].
 func _setups() -> Dictionary:
 	return {
+		# M3: crafting and salvage
+		"arts_and_crafts": func() -> Array:
+			var s: ShelterState = _run({"food": 10, "water": 10})
+			for _i in range(5):
+				s.add("sock_puppets", 1)
+				for m_v in s.home():
+					(m_v as Dictionary)["morale"] = 3
+				ShelterCraft.night(s)
+			ShelterSim.finish(s, "rescue_airlift")
+			return [s, {}, Almanac.blank()],
+		"night_school": func() -> Array:
+			var s: ShelterState = _run({"food": 20, "water": 20, "manual": 1})
+			for ch in ["ch1", "ch2", "ch3", "ch4"]:
+				var plan: Dictionary = _feed(s)
+				plan["jobs"] = {"m0": {"job": "study", "chapter": ch}}
+				_quiet_day(s, plan)
+			return [s, {}, Almanac.blank()],
+		"small_print": func() -> Array:
+			var s: ShelterState = _run({"food": 10, "water": 10})
+			(s.places[5] as Dictionary)["pamphlet"] = "ch2"
+			(s.places[5] as Dictionary)["stock"] = {"duct_tape": 1}
+			_trip(s, "m1", 5, ["axe"])
+			return [s, {}, Almanac.blank()],
 		"item_whisperer": func() -> Array:
 			var s: ShelterState = _run({"food": 10, "water": 10, "rifle": 1, "ammo": 20})
 			for _i in range(10):

@@ -92,7 +92,8 @@ static func analyse(results: Array) -> Dictionary:
 			by_p[p] = {"n": 0, "wins": 0, "endings": {}, "loss_days": [], "win_days": [], "death_causes": {}, "deaths": 0,
 				"death_days": {}, "wipe_before_15": 0, "trips": [], "trip_deaths": 0, "dice_losses": 0, "zero_mistake_losses": 0,
 				"q": [[0, 0], [0, 0], [0, 0], [0, 0]], "groups": {}, "cr": 0, "cm": 0, "mistakes": {}, "item_opts": 0, "events": 0,
-				"followed": 0, "raids": 0, "end_days": [], "rules": 0, "aff": 0, "maybe": 0, "guilt": 0, "stranger": 0}
+				"followed": 0, "raids": 0, "end_days": [], "rules": 0, "aff": 0, "maybe": 0, "guilt": 0, "stranger": 0,
+				"made": 0, "cf": 0, "ta": 0, "st": 0, "pm": 0, "th": 0, "al": 0, "fi": 0, "ch": 0, "crafters": 0}
 		var s: Dictionary = by_p[p]
 		s["n"] = int(s["n"]) + 1
 		var win: bool = str(r["k"]) == "win"
@@ -147,6 +148,9 @@ static func analyse(results: Array) -> Dictionary:
 		s["maybe"] = int(s["maybe"]) + (1 if bool(r.get("maybe", false)) else 0)
 		s["guilt"] = int(s["guilt"]) + (1 if bool(r.get("guilt", false)) else 0)
 		s["stranger"] = int(s["stranger"]) + (1 if bool(r.get("stranger", false)) else 0)
+		for ck in ["made", "cf", "ta", "st", "pm", "th", "al", "fi", "ch"]:
+			s[ck] = int(s[ck]) + int(r.get(ck, 0))
+		s["crafters"] = int(s["crafters"]) + (1 if int(r.get("made", 0)) > 0 else 0)
 		var mks: Dictionary = s["mistakes"]
 		for k in (r["mk"] as Dictionary).keys():
 			mks[k] = int(mks.get(k, 0)) + int(r["mk"][k])
@@ -178,6 +182,10 @@ static func analyse(results: Array) -> Dictionary:
 			"mistakes": s["mistakes"],
 			"rules_per_run": float(s["rules"]) / n, "afflictions_per_run": float(s["aff"]) / n,
 			"maybe_rate": float(s["maybe"]) / n, "stole_share": float(s["guilt"]) / n, "stranger_share": float(s["stranger"]) / n,
+			"made_per_run": float(s["made"]) / n, "craft_fails_per_run": float(s["cf"]) / n, "taken_apart_per_run": float(s["ta"]) / n,
+			"studied_per_run": float(s["st"]) / n, "pamphlets_per_run": float(s["pm"]) / n, "chapters_per_run": float(s["ch"]) / n,
+			"thefts_per_run": float(s["th"]) / n, "alarms_per_run": float(s["al"]) / n, "filtered_per_run": float(s["fi"]) / n,
+			"crafted_runs": float(s["crafters"]) / n,
 		}
 	return out
 
@@ -227,6 +235,9 @@ func _check_targets() -> bool:
 		ok = _check("Expert win-rate spread across distance quartiles ≤ 20 points", float(e["quartile_spread"]) <= 0.20, "%.1f points" % (100.0 * float(e["quartile_spread"]))) and ok
 		ok = _check("Crafted items ≤ 25% of expert Used: credits", float(e["crafted_share"]) <= 0.25, "%.1f%%" % (100.0 * float(e["crafted_share"]))) and ok
 		ok = _check("Expert median winning day 30–45", float(e["median_win_day"]) >= 30.0 and float(e["median_win_day"]) <= 45.0, "day %.1f (earliest %d)" % [float(e["median_win_day"]), int(e["earliest_win_day"])]) and ok
+	if P.has("crafter"):
+		var c: Dictionary = P["crafter"]
+		ok = _check("Crafted items ≤ 25% of Used: credits for an expert who crafts all it can", float(c["crafted_share"]) <= 0.25, "%.1f%% (%.1f made per run)" % [100.0 * float(c["crafted_share"]), float(c.get("made_per_run", 0.0))]) and ok
 	return ok
 
 
@@ -241,6 +252,10 @@ func _print() -> void:
 		print("          drama: rules/run=%.2f afflictions/run=%.2f maybe=%.1f%% stole=%.1f%% stranger=%.1f%%" % [
 			float(s.get("rules_per_run", 0.0)), float(s.get("afflictions_per_run", 0.0)), 100.0 * float(s.get("maybe_rate", 0.0)),
 			100.0 * float(s.get("stole_share", 0.0)), 100.0 * float(s.get("stranger_share", 0.0))])
+		print("          crafting: made/run=%.2f (in %.0f%% of runs) fails/run=%.2f taken_apart/run=%.2f chapters/run=%.2f pamphlets/run=%.2f thefts/run=%.2f alarms/run=%.2f filtered/run=%.1f crafted_share=%.1f%%" % [
+			float(s.get("made_per_run", 0.0)), 100.0 * float(s.get("crafted_runs", 0.0)), float(s.get("craft_fails_per_run", 0.0)), float(s.get("taken_apart_per_run", 0.0)),
+			float(s.get("chapters_per_run", 0.0)), float(s.get("pamphlets_per_run", 0.0)), float(s.get("thefts_per_run", 0.0)), float(s.get("alarms_per_run", 0.0)),
+			float(s.get("filtered_per_run", 0.0)), 100.0 * float(s.get("crafted_share", 0.0))])
 	for c_v in checks:
 		var c: Dictionary = c_v
 		print("  [%s] %s — %s" % ["PASS" if bool(c["ok"]) else "FAIL", str(c["check"]), str(c["detail"])])
@@ -266,7 +281,7 @@ static func _fmt_causes(d: Dictionary) -> String:
 ## in docs/balance/tuning_log.md and are included verbatim.
 func _write_report(path: String) -> void:
 	var P: Dictionary = summary["policies"]
-	var md: String = "# Balance report — shelter phase (M1)\n\n"
+	var md: String = "# Balance report — shelter phase (M3)\n\n"
 	md += "_Measured by `tests/sim/sim_harness.gd` (the game's own rules, headless) and summarised by `tests/sim/sim_report.gd`. Regenerate with `tools/run_sim.sh`._\n\n"
 	md += "**Setup.** %d runs per policy on %s difficulty, swept across %d cached OpenStreetMap home fixtures (no network), from city blocks to farmland. Distance quartile edges (walk to the nearest grocery or pharmacy): %s.\n\n" % [
 		int((P.values()[0] as Dictionary)["runs"]), str(summary["difficulty"]), int(summary["fixtures"]), ", ".join((summary["quartile_edges_m"] as Array).map(func(v: Variant) -> String: return "none within 6 km" if float(v) >= 99999.0 else "%.0f m" % float(v)))]
@@ -275,25 +290,25 @@ func _write_report(path: String) -> void:
 		var c: Dictionary = c_v
 		md += "| %s | %s | %s |\n" % [str(c["check"]), str(c["detail"]), "✅" if bool(c["ok"]) else "❌"]
 	md += "\n## Win rates and run length\n\n| Policy | Win rate | Median losing day | Median winning day | Earliest win | Median run (days) | Expeditions / run | Trip death rate |\n|---|---|---|---|---|---|---|---|\n"
-	for p in ["random", "naive", "expert"]:
+	for p in ["random", "naive", "expert", "crafter"]:
 		if not P.has(p):
 			continue
 		var s: Dictionary = P[p]
 		md += "| %s | %.1f%% | %.1f | %.1f | %d | %.1f | %.2f | %.1f%% |\n" % [p.capitalize(), 100.0 * float(s["win_rate"]), float(s["median_loss_day"]), float(s["median_win_day"]),
 			int(s["earliest_win_day"]), float(s["median_run_days"]), float(s["trips_mean"]), 100.0 * float(s["trip_death_rate"])]
 	md += "\n## Win rate by distance to the nearest store (quartiles)\n\n| Policy | Q1 (closest) | Q2 | Q3 | Q4 (farthest) | Spread |\n|---|---|---|---|---|---|\n"
-	for p in ["random", "naive", "expert"]:
+	for p in ["random", "naive", "expert", "crafter"]:
 		if not P.has(p):
 			continue
 		var s: Dictionary = P[p]
 		var qw: Array = s["quartile_win"]
 		md += "| %s | %.0f%% | %.0f%% | %.0f%% | %.0f%% | %.0f points |\n" % [p.capitalize(), 100.0 * float(qw[0]), 100.0 * float(qw[1]), 100.0 * float(qw[2]), 100.0 * float(qw[3]), 100.0 * float(s["quartile_spread"])]
 	md += "\n## Cause of death\n\n| Policy | Causes (share of all deaths) |\n|---|---|\n"
-	for p in ["random", "naive", "expert"]:
+	for p in ["random", "naive", "expert", "crafter"]:
 		if P.has(p):
 			md += "| %s | %s |\n" % [p.capitalize(), _fmt_causes((P[p] as Dictionary)["death_causes"])]
 	md += "\n## When people die (all deaths, by day)\n\n| Policy | " + " | ".join(_bins()) + " |\n|---|" + "---|".repeat(_bins().size()) + "\n"
-	for p in ["random", "naive", "expert"]:
+	for p in ["random", "naive", "expert", "crafter"]:
 		if not P.has(p):
 			continue
 		var dd: Dictionary = (P[p] as Dictionary)["death_days"]
@@ -302,13 +317,20 @@ func _write_report(path: String) -> void:
 			row.append(str(int(dd.get(b, 0))))
 		md += "| %s | %s |\n" % [p.capitalize(), " | ".join(row)]
 	md += "\n## Drama (M2)\n\n| Policy | House Rules passed / run | Afflictions / run | Gamble endings | Stole from neighbours | Met a stranger |\n|---|---|---|---|---|---|\n"
-	for p in ["random", "naive", "expert"]:
+	for p in ["random", "naive", "expert", "crafter"]:
 		if P.has(p):
 			var dp: Dictionary = P[p]
 			md += "| %s | %.2f | %.2f | %.1f%% | %.1f%% | %.1f%% |\n" % [p.capitalize(), float(dp.get("rules_per_run", 0.0)), float(dp.get("afflictions_per_run", 0.0)),
 				100.0 * float(dp.get("maybe_rate", 0.0)), 100.0 * float(dp.get("stole_share", 0.0)), 100.0 * float(dp.get("stranger_share", 0.0))]
+	md += "\n## Crafting and salvage (M3)\n\n| Policy | Makeshift items made / run | Runs that crafted | Failed crafts / run | Junk taken apart / run | Chapters learned / run | From pamphlets / run | Night thefts / run | Thieves caught by the alarm / run | Rations filtered / run | Crafted share of Used: credits |\n|---|---|---|---|---|---|---|---|---|---|---|\n"
+	for p in ["random", "naive", "expert", "crafter"]:
+		if P.has(p):
+			var cp: Dictionary = P[p]
+			md += "| %s | %.2f | %.0f%% | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.1f | %.1f%% |\n" % [p.capitalize(), float(cp.get("made_per_run", 0.0)), 100.0 * float(cp.get("crafted_runs", 0.0)),
+				float(cp.get("craft_fails_per_run", 0.0)), float(cp.get("taken_apart_per_run", 0.0)), float(cp.get("chapters_per_run", 0.0)), float(cp.get("pamphlets_per_run", 0.0)),
+				float(cp.get("thefts_per_run", 0.0)), float(cp.get("alarms_per_run", 0.0)), float(cp.get("filtered_per_run", 0.0)), 100.0 * float(cp.get("crafted_share", 0.0))]
 	md += "\n## Endings\n\n| Policy | Endings |\n|---|---|\n"
-	for p in ["random", "naive", "expert"]:
+	for p in ["random", "naive", "expert", "crafter"]:
 		if P.has(p):
 			md += "| %s | %s |\n" % [p.capitalize(), str((P[p] as Dictionary)["endings"]).replace("{", "").replace("}", "").replace("\"", "")]
 	var log_txt: String = FileAccess.get_file_as_string("res://docs/balance/tuning_log.md")

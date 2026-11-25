@@ -42,7 +42,7 @@
 			{"id": "job", "label": "Give them one small job", "cinematic": "shrug",
 				"effects": [{"do": "chance", "p": 0.5, "then": [{"do": "morale", "who": "weakest", "n": 2, "why": "folded the blankets"}], "else": [{"do": "morale", "who": "weakest", "n": -1, "why": "pressed too soon"}]}],
 				"outcome": "Fold the blankets. Just that. The blankets get folded, or they don't."},
-			{"id": "console", "label": "Leave the console beside them", "item": "console", "cinematic": "celebrate",
+			{"id": "console", "label": "Leave the console beside them", "item": "console", "alt": [{"item": "sock_puppets", "label": "Leave the sock puppets beside them"}], "cinematic": "celebrate",
 				"effects": [{"do": "use", "item": "console", "what": "a thumb found the power button"}, {"do": "morale", "who": "weakest", "n": 2, "why": "something to hold"}],
 				"outcome": "The console sits there an hour before a thumb finds the power button. Then the quiet beeping starts, and keeps going."}
 		]

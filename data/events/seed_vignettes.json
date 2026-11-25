@@ -39,14 +39,14 @@
 		"setup": "{subject} keeps climbing the ladder, holding a phone up to the sky.",
 		"conditions": {"min_day": 3, "needs_place": ["school"], "min_people": 2},
 		"options": [
-			{"id": "radio", "label": "Try the radio instead", "item": "radio", "cinematic": "radio",
+			{"id": "radio", "label": "Try the radio instead", "item": "radio", "alt": [{"item": "scrap_receiver", "label": "Try the scrap receiver"}], "cinematic": "radio",
 				"effects": [{"do": "use", "item": "radio", "what": "heard about a supply drop"}, {"do": "supply_drop", "category": ["school"], "items": {"water": 3, "food": 2}}],
 				"outcome": "A broadcast names a supply drop at {nearest_school}. Worth a trip."},
 			{"id": "keep", "label": "Let them keep trying", "cinematic": "hazard",
 				"effects": [{"do": "dose", "who": "subject", "msv": 30}],
 				"outcome": "One text arrives: \"Your order has shipped.\" {subject} took some dust for it."},
 			{"id": "take", "label": "Take the phone", "cinematic": "gloom",
-				"effects": [{"do": "morale", "who": "subject", "n": -2, "why": "phone taken"}],
+				"effects": [{"do": "junk", "item": "old_phone", "n": 1}, {"do": "morale", "who": "subject", "n": -2, "why": "phone taken"}],
 				"outcome": "{subject} sulks in the corner. The phone goes in a drawer."}
 		]
 	},
@@ -106,7 +106,7 @@
 		"setup": "A retriever scratches at the hatch. His smart collar is still pinging an owner who stopped checking.",
 		"conditions": {"min_day": 3, "no_pet": true},
 		"options": [
-			{"id": "spray", "label": "De-flea him and let him in", "item": "bug_spray", "cinematic": "pet",
+			{"id": "spray", "label": "De-flea him and let him in", "item": "bug_spray", "alt": [{"item": "soap_spray", "label": "Soap-spray him and let him in"}], "cinematic": "pet",
 				"effects": [{"do": "use", "item": "bug_spray", "what": "a clean dog"}, {"do": "pet", "kind": "dog"}, {"do": "morale", "who": "all", "n": 3}],
 				"outcome": "A clean dog. Everyone feels better than they have in days."},
 			{"id": "feed", "label": "Feed him and send him off", "item": "food", "cinematic": "give",
@@ -126,10 +126,10 @@
 		"conditions": {"min_day": 4},
 		"weight_mods": {"after_escalation": 1.5, "followed": 1.5},
 		"options": [
-			{"id": "signal", "label": "Signal him to keep moving", "item": "flashlight", "cinematic": "signal",
+			{"id": "signal", "label": "Signal him to keep moving", "item": "flashlight", "alt": [{"item": "phone_torch", "label": "Wave him on with the phone torch"}], "cinematic": "signal",
 				"effects": [{"do": "use", "item": "flashlight", "what": "waved a stranger on"}, {"do": "add", "item": "food", "n": 1}],
 				"outcome": "He flashes back \"SORRY\" and leaves a can by the hatch."},
-			{"id": "lock", "label": "Lock up and wait", "item": "padlock", "cinematic": "shrug",
+			{"id": "lock", "label": "Lock up and wait", "item": "padlock", "alt": [{"item": "door_barricade", "label": "Wedge the barricade and wait"}], "cinematic": "shrug",
 				"effects": [],
 				"outcome": "He tries the hatch twice and moves on. The lock holds."},
 			{"id": "speaker", "label": "Talk to him through the doorbell", "cinematic": "signal",
@@ -162,7 +162,7 @@
 		"conditions": {"min_day": 5, "min_people": 2},
 		"weight_mods": {"low_morale": 2.0},
 		"options": [
-			{"id": "tournament", "label": "Run a tournament", "item": "console", "cinematic": "celebrate",
+			{"id": "tournament", "label": "Run a tournament", "item": "console", "alt": [{"item": "sock_puppets", "label": "Put on a sock puppet show"}], "cinematic": "celebrate",
 				"effects": [{"do": "use", "item": "console", "what": "a tournament ended the argument"}, {"do": "morale", "who": "all", "n": 2}],
 				"outcome": "The finals are tense. Nobody remembers the smell."},
 			{"id": "meeting", "label": "Call a family meeting", "cinematic": "gloom",
@@ -194,7 +194,7 @@
 		"setup": "Near {place}, a staged show home has plastic fruit and a real pantry.",
 		"conditions": {"trip_place": ["neighbor_house"]},
 		"options": [
-			{"id": "pack", "label": "Pack the pantry", "item": "suitcase", "cinematic": "gain",
+			{"id": "pack", "label": "Pack the pantry", "item": "suitcase", "alt": [{"item": "bindle", "label": "Pack the pantry into the bindle"}], "cinematic": "gain",
 				"effects": [{"do": "use", "item": "suitcase", "what": "packed a whole pantry"}, {"do": "trip_loot", "item": "food", "n": 3}, {"do": "trip_loot", "item": "water", "n": 1}],
 				"outcome": "Three cans and a bottle. The plastic fruit stays."},
 			{"id": "pockets", "label": "Fill your pockets", "cinematic": "gain",

@@ -415,7 +415,8 @@ func _parse_house_layout(layout: Dictionary) -> void:
 					"category": cat,
 					"color": icol,
 					"collected": false,
-					"bob_phase": float(uid_counter) * 0.83
+					"bob_phase": float(uid_counter) * 0.83,
+					"needed": ShelterCraft.junk_matches_need(item_id, GameState.almanac.get("need_parts", {}) as Dictionary),
 				})
 				uid_counter += 1
 
@@ -2433,6 +2434,10 @@ func _draw_world_items_and_family(font: Font) -> void:
 		if _phase == Phase.SCOUT:
 			var shimmer: float = 0.45 + 0.45 * sin(_anim_time * 6.0 + float(it["bob_phase"]))
 			draw_arc(draw_p, 21.0, 0.0, TAU, 24, Color(COL_AMBER.r, COL_AMBER.g, COL_AMBER.b, shimmer), 2.0, true)
+
+		# Junk holding a part tagged with the Need toggle gets an amber ring (section 10).
+		if bool(it.get("needed", false)):
+			draw_arc(draw_p, 19.5, 0.0, TAU, 24, Color(COL_AMBER.r, COL_AMBER.g, COL_AMBER.b, 0.85), 2.4, true)
 
 		if is_hovered:
 			var hr_pulse: float = 23.0 + 2.5 * sin(_anim_time * 9.0)

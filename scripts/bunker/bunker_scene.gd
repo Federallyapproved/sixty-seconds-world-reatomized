@@ -5,7 +5,8 @@ extends Control
 ##   1. morning receipt (every change with a named cause),
 ##   2. today's dilemma card (basic options + item options; greyed "Needs: X"),
 ##   3. the ration row (Give/Skip food and water per person, with tomorrow's preview),
-##   4. assignments (Rest or an expedition to a real place, with the risk preview),
+##   4. assignments (Rest, an expedition to a real place with the risk preview, a day at the
+##      workbench, or a day with the manual),
 ##   5. End Day.
 ## Rules live in ShelterSim; this screen only shows the run and collects the plan.
 
@@ -45,6 +46,8 @@ var _end_btn: Button
 var _curtain: ColorRect
 var _curtain_lbl: Label
 var _planner: Control = null
+var _bench: Workbench = null
+var _job_menu: PanelContainer = null
 var _confirm: ConfirmationDialog = null
 
 var _morning: Dictionary = {}
@@ -165,6 +168,11 @@ func _build_hud() -> void:
 	row.add_child(sp)
 	_hud_status = _label("", 13, C_MUTED)
 	row.add_child(_hud_status)
+	var bench_btn := _button("Bench", C_RAISED, C_TEXT, Vector2(70, 28))
+	bench_btn.name = "BenchButton"
+	bench_btn.tooltip_text = "The workbench: parts, junk to take apart, recipes and the Need toggle"
+	bench_btn.pressed.connect(func() -> void: _open_bench("", "browse"))
+	row.add_child(bench_btn)
 	var map_btn := _button("Map", C_RAISED, C_TEXT, Vector2(64, 28))
 	map_btn.pressed.connect(func() -> void: _open_planner("", true))
 	row.add_child(map_btn)
@@ -291,6 +299,31 @@ func _refresh_hud() -> void:
 		_hud_supplies.add_child(ic)
 		if n > 1:
 			_hud_supplies.add_child(_label("×%d" % n, 11, C_MUTED))
+	# Makeshift items (taped icons), the part shelf and dirty water (section 10).
+	var made_any: bool = false
+	for iid in ShelterData.ids_in("makeshift"):
+		if s.count(iid) <= 0:
+			continue
+		if not made_any:
+			_hud_supplies.add_child(VSeparator.new())
+			made_any = true
+		var mic := _icon(iid, 22)
+		var uses: int = ShelterCraft.uses_left(s, iid)
+		if uses > 0:
+			mic.tooltip_text += " (%d use%s left)" % [uses, "" if uses == 1 else "s"]
+		_hud_supplies.add_child(mic)
+	var parts_n: int = ShelterCraft.parts_total(s)
+	var junk_n: int = 0
+	for iid in ShelterData.ids_in("junk"):
+		junk_n += s.count(iid)
+	if parts_n + junk_n > 0:
+		var pl := _label("parts %d/%d%s" % [parts_n, ShelterData.Bi("part_shelf_max", 12), (" · junk %d" % junk_n) if junk_n > 0 else ""], 11, Color("#d9c7a0"))
+		pl.tooltip_text = "The part shelf and junk waiting to be taken apart (Bench)"
+		_hud_supplies.add_child(pl)
+	if s.dirty_water > 0:
+		var dl := _label("dirty %d" % s.dirty_water, 11, Color("#8c7b5a"))
+		dl.tooltip_text = "Dirty water (rations): a Bottle Filter makes it drinkable"
+		_hud_supplies.add_child(dl)
 	var bits: Array[String] = []
 	if not s.fallout_announced:
 		bits.append("Fallout: %s" % ("heavy" if ShelterTrips.heavy_fallout(s) else "no all-clear yet"))
@@ -462,6 +495,7 @@ func _refresh_family() -> void:
 	var treat: Dictionary = _plan.get("treat", {})
 	var jobs: Dictionary = _plan.get("jobs", {})
 	var medkits_left: int = s.count("medkit") - treat.size()
+	var bandages_used: int = 0
 	for m_v in s.members:
 		var m: Dictionary = m_v
 		var mid: String = str(m["id"])
@@ -518,26 +552,43 @@ func _refresh_family() -> void:
 		pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(pl)
 		var unwell: bool = bool(m.get("sick", false)) or bool(m.get("injured", false))
+		var wound_only: bool = bool(m.get("injured", false)) and not bool(m.get("sick", false))
+		var use_bandage: bool = wound_only and s.count("rag_bandage") - bandages_used > 0 and (not treat.has(mid) or str(treat.get(mid, "")) != "medkit")
+		if treat.has(mid) and use_bandage:
+			bandages_used += 1
 		var tb := _button("Treat" if not treat.has(mid) else "✓ Treat", Color("#3a1f24") if treat.has(mid) else C_RAISED, Color("#ff6b6b"), Vector2(70, 30))
-		tb.icon = ItemDB.get_icon_texture("medkit")
+		tb.icon = ItemDB.get_icon_texture("rag_bandage" if use_bandage else "medkit")
 		tb.add_theme_constant_override("icon_max_width", 16)
-		tb.disabled = not unwell or (medkits_left <= 0 and not treat.has(mid))
-		tb.tooltip_text = ("Cure %s (uses 1 medkit)" % str(m["name"])) if unwell else "Not sick or injured"
+		tb.disabled = not unwell or (medkits_left <= 0 and not use_bandage and not treat.has(mid))
+		tb.tooltip_text = (("Close %s's wound with a rag bandage (saves the medkit)" % str(m["name"])) if use_bandage else ("Cure %s (uses 1 medkit)" % str(m["name"]))) if unwell else "Not sick or injured"
 		tb.pressed.connect(func() -> void: _toggle_treat(mid))
 		h.add_child(tb)
-		var why: String = ShelterTrips.can_go(s, m)
 		var job: Dictionary = jobs.get(mid, {})
 		var jb: Button
-		if str(job.get("job", "rest")) == "trip":
-			var p2: Dictionary = s.places[int(job["place"])]
-			jb = _button("Trip: %s ✕" % _short(ShelterTrips.place_label(p2), 12), Color("#13304a"), C_WATER, Vector2(132, 30))
-			jb.tooltip_text = "Cancel this trip"
-			jb.pressed.connect(func() -> void: _cancel_trip(mid))
-		else:
-			jb = _button("Rest · Trip…" if why == "" else "Rest · %s" % ShelterTrips.can_go_short(s, m), C_RAISED, C_TEXT, Vector2(132, 30))
-			jb.disabled = why != ""
-			jb.tooltip_text = why if why != "" else "Send %s to a real place nearby" % str(m["name"])
-			jb.pressed.connect(func() -> void: _open_planner(mid, false))
+		match str(job.get("job", "rest")):
+			"trip":
+				var p2: Dictionary = s.places[int(job["place"])]
+				jb = _button("Trip: %s ▾" % _short(ShelterTrips.place_label(p2), 12), Color("#13304a"), C_WATER, Vector2(132, 30))
+				jb.tooltip_text = "Leaving tonight. Click to change or cancel."
+			"craft":
+				var names: Array[String] = []
+				for r_v in job.get("recipes", []):
+					names.append(str(ShelterData.recipe(str((r_v as Dictionary).get("id", ""))).get("name", "")))
+				jb = _button("Bench: %s ▾" % _short(" + ".join(names), 13), Color("#2b2616"), Color("#d9c7a0"), Vector2(132, 30))
+				jb.tooltip_text = "At the workbench today: %s. Click to change or cancel." % ", ".join(names)
+			"study":
+				var c: Dictionary = ShelterData.chapter(str(job.get("chapter", "")))
+				jb = _button("Study: Ch.%d ▾" % int(c.get("order", 0)), Color("#13304a"), C_WATER, Vector2(132, 30))
+				jb.tooltip_text = "Studying the manual today: %s" % str(c.get("title", ""))
+			_:
+				var why: String = ShelterTrips.can_go(s, m)
+				jb = _button("Rest ▾" if why == "" else "Rest · %s ▾" % ShelterTrips.can_go_short(s, m), C_RAISED, C_TEXT, Vector2(132, 30))
+				jb.tooltip_text = "Choose %s's job today: rest, a trip, the workbench or the manual" % str(m["name"])
+		jb.name = "Job_" + mid
+		jb.disabled = ShelterCraft.can_work(s, m) != "" and ShelterTrips.can_go(s, m) != "" and str(job.get("job", "rest")) == "rest"
+		if jb.disabled:
+			jb.tooltip_text = ShelterTrips.can_go(s, m)
+		jb.pressed.connect(func() -> void: _open_job_menu(mid, jb))
 		h.add_child(jb)
 
 
@@ -601,11 +652,22 @@ func _refresh_footer() -> void:
 			w += 1
 	var bits: Array[String] = ["Today: %d food and %d water rations" % [mini(f, s.food()), mini(w, s.water())]]
 	var trips: int = 0
+	var bench: int = 0
+	var study: int = 0
 	for k in (_plan.get("jobs", {}) as Dictionary).keys():
-		if str((_plan["jobs"][k] as Dictionary).get("job", "")) == "trip":
-			trips += 1
+		match str((_plan["jobs"][k] as Dictionary).get("job", "")):
+			"trip":
+				trips += 1
+			"craft":
+				bench += 1
+			"study":
+				study += 1
 	if trips > 0:
 		bits.append("%d leaving tonight" % trips)
+	if bench > 0:
+		bits.append("%d at the bench" % bench)
+	if study > 0:
+		bits.append("%d studying" % study)
 	if not s.today_resolved and not s.today_event.is_empty():
 		bits.append("answer today's dilemma first")
 	_footer_lbl.text = " · ".join(bits)
@@ -615,7 +677,7 @@ func _refresh_footer() -> void:
 # ---------------------------------------------------------------- end of day
 
 func _on_end_day() -> void:
-	if _busy or s.is_over():
+	if _busy or s.is_over() or _bench != null or _job_menu != null:
 		return
 	if not s.today_resolved and not s.today_event.is_empty():
 		return
@@ -692,6 +754,84 @@ func _close_planner() -> void:
 	_planner = null
 
 
+# ---------------------------------------------------------------- jobs and the workbench
+
+## Rest, Trip…, Craft…, Study… — each with the reason it isn't possible today.
+func _open_job_menu(mid: String, anchor: Button) -> void:
+	_close_job_menu()
+	var m: Dictionary = s.member(mid)
+	var menu := PanelContainer.new()
+	menu.name = "JobMenu"
+	menu.add_theme_stylebox_override("panel", _box(C_BG, C_AMBER, 6, 6))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	menu.add_child(v)
+	var trip_why: String = ShelterTrips.can_go(s, m)
+	var work_why: String = ShelterCraft.can_work(s, m)
+	var study_why: String = ShelterCraft.can_study(s, m)
+	var entries: Array = [
+		["Rest", "", "Rest today (no job)", func() -> void: _set_rest(mid)],
+		["Trip…", trip_why, "Send %s to a real place nearby" % str(m.get("name", "")), func() -> void: _open_planner(mid, false)],
+		["Craft…", work_why, "A day at the workbench: two Quick recipes or one Day recipe", func() -> void: _open_bench(mid, "craft")],
+		["Study…", study_why, "A day with the manual: learn one chapter", func() -> void: _open_bench(mid, "study")],
+	]
+	for e in entries:
+		var label: String = str(e[0]) if str(e[1]) == "" else "%s  (%s)" % [str(e[0]).trim_suffix("…"), str(e[1])]
+		var b := _button(label, C_RAISED, C_TEXT, Vector2(240, 28))
+		b.name = "Job" + str(e[0]).trim_suffix("…")
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.disabled = str(e[1]) != ""
+		b.tooltip_text = str(e[1]) if str(e[1]) != "" else str(e[2])
+		var cb: Callable = e[3]
+		b.pressed.connect(func() -> void:
+			_close_job_menu()
+			cb.call())
+		v.add_child(b)
+	add_child(menu)
+	_job_menu = menu
+	var r: Rect2 = anchor.get_global_rect()
+	menu.position = Vector2(clampf(r.position.x + r.size.x - 248.0, 8.0, 1272.0 - 248.0), minf(r.position.y + r.size.y + 2.0, 720.0 - 140.0))
+
+
+func _close_job_menu() -> void:
+	if _job_menu != null:
+		_job_menu.queue_free()
+	_job_menu = null
+
+
+func _set_rest(mid: String) -> void:
+	(_plan["jobs"] as Dictionary).erase(mid)
+	SoundManager.play_sfx("button_click")
+	_refresh_family()
+	_refresh_footer()
+
+
+func _open_bench(mid: String, how: String) -> void:
+	if _bench != null:
+		_bench.queue_free()
+	var wb := Workbench.new()
+	var cur: Dictionary = (_plan.get("jobs", {}) as Dictionary).get(mid, {})
+	wb.setup(s, mid, how, cur if str(cur.get("job", "")) == "craft" else {})
+	wb.confirmed.connect(func(job: Dictionary) -> void:
+		(_plan["jobs"] as Dictionary)[mid] = job
+		_close_bench())
+	wb.cancelled.connect(_close_bench)
+	wb.changed.connect(func() -> void:
+		_refresh_hud()
+		GameState.inventory_changed.emit())
+	_bench = wb
+	add_child(wb)
+
+
+func _close_bench() -> void:
+	if _bench != null:
+		_bench.queue_free()
+	_bench = null
+	_refresh_hud()
+	_refresh_family()
+	_refresh_footer()
+
+
 func _reserved_gear(except_mid: String) -> Array:
 	var res: Array = []
 	for k in (_plan.get("jobs", {}) as Dictionary).keys():
@@ -703,7 +843,15 @@ func _reserved_gear(except_mid: String) -> Array:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _planner != null or _busy:
+	if _job_menu != null and event is InputEventMouseButton and event.pressed:
+		# A click outside the job menu closes it.
+		if not _job_menu.get_global_rect().has_point((event as InputEventMouseButton).position):
+			_close_job_menu()
+	if _job_menu != null and event is InputEventKey and event.pressed and (event as InputEventKey).keycode == KEY_ESCAPE:
+		_close_job_menu()
+		get_viewport().set_input_as_handled()
+		return
+	if _planner != null or _bench != null or _busy:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var k: int = (event as InputEventKey).keycode

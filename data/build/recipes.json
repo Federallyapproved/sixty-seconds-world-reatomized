@@ -1,3 +1,171 @@
 {
-
+	"bindle": {
+		"compare": "Makeshift suitcase: +2 carry for 2 trips (the suitcase gives +3 for good)",
+		"id": "bindle",
+		"makes": "bindle",
+		"name": "Bedsheet Bindle",
+		"parts": {
+			"binding": 1,
+			"cloth": 2
+		},
+		"purpose": "Carry more home from a trip.",
+		"time": "quick",
+		"tool": "",
+		"unlock": "known"
+	},
+	"bottle_filter": {
+		"compare": "Makeshift purifier: 3 jugs of dirty water become water",
+		"id": "bottle_filter",
+		"makes": "bottle_filter",
+		"name": "Bottle Filter",
+		"parts": {
+			"chemicals": 1,
+			"cloth": 1,
+			"plastic": 2
+		},
+		"purpose": "Makes dirty water drinkable.",
+		"time": "day",
+		"tool": "",
+		"unlock": "ch1"
+	},
+	"door_barricade": {
+		"compare": "Makeshift padlock: stops one raid 60% of the time, then breaks (the padlock stops 100%)",
+		"id": "door_barricade",
+		"makes": "door_barricade",
+		"name": "Door Barricade",
+		"parts": {
+			"binding": 1,
+			"metal": 3
+		},
+		"purpose": "Holds the hatch against one raid.",
+		"time": "day",
+		"tool": "axe",
+		"unlock": "ch2"
+	},
+	"patch_job": {
+		"compare": "Makeshift repair: 1 more use (a manual repair restores it fully)",
+		"id": "patch_job",
+		"makes": "patch",
+		"name": "Patch Job",
+		"parts": {
+			"binding": 1,
+			"match": 1
+		},
+		"purpose": "Gets a broken item working one more time.",
+		"time": "quick",
+		"tool": "",
+		"unlock": "known"
+	},
+	"phone_torch": {
+		"compare": "Makeshift flashlight: 2 uses in dark events; can't signal a rescue",
+		"id": "phone_torch",
+		"makes": "phone_torch",
+		"name": "Phone Torch",
+		"parts": {
+			"electronics": 2,
+			"plastic": 1
+		},
+		"purpose": "Light for dark moments.",
+		"time": "quick",
+		"tool": "",
+		"unlock": "ch3"
+	},
+	"pipe_club": {
+		"compare": "Makeshift axe: stops a raid 50% of the time; 50% chance to break each use",
+		"id": "pipe_club",
+		"makes": "pipe_club",
+		"name": "Pipe Club",
+		"parts": {
+			"binding": 1,
+			"metal": 2
+		},
+		"purpose": "Something to swing on raid nights.",
+		"time": "quick",
+		"tool": "axe",
+		"unlock": "ch2"
+	},
+	"rag_bandage": {
+		"compare": "Makeshift medkit: cures Injured only (the medkit cures both)",
+		"id": "rag_bandage",
+		"makes": "rag_bandage",
+		"name": "Rag Bandage",
+		"parts": {
+			"chemicals": 1,
+			"cloth": 2
+		},
+		"purpose": "Closes a wound without the medkit.",
+		"time": "quick",
+		"tool": "",
+		"unlock": "known"
+	},
+	"rag_respirator": {
+		"compare": "Makeshift gas mask: halves the sickness risk for 2 trips (the gas mask cuts it most)",
+		"id": "rag_respirator",
+		"makes": "rag_respirator",
+		"name": "Rag Respirator",
+		"parts": {
+			"binding": 1,
+			"cloth": 2,
+			"plastic": 1
+		},
+		"purpose": "Breathe less fallout dust on trips.",
+		"time": "quick",
+		"tool": "",
+		"unlock": "ch1"
+	},
+	"scrap_receiver": {
+		"compare": "Makeshift radio: hears broadcasts on half the days; can't transmit, so no rescue",
+		"id": "scrap_receiver",
+		"makes": "scrap_receiver",
+		"name": "Scrap Receiver",
+		"parts": {
+			"electronics": 3,
+			"metal": 1
+		},
+		"purpose": "Hear the news without the radio.",
+		"time": "day",
+		"tool": "flashlight",
+		"unlock": "ch3"
+	},
+	"soap_spray": {
+		"compare": "Makeshift bug spray: works 65% of the time, 1 use",
+		"id": "soap_spray",
+		"makes": "soap_spray",
+		"name": "Soap Spray",
+		"parts": {
+			"chemicals": 1,
+			"plastic": 1
+		},
+		"purpose": "Deal with pests without bug spray.",
+		"time": "quick",
+		"tool": "",
+		"unlock": "ch4"
+	},
+	"sock_puppets": {
+		"compare": "Makeshift console: +1 morale for everyone, once (cards and the console can be reused)",
+		"id": "sock_puppets",
+		"makes": "sock_puppets",
+		"name": "Sock Puppet Show",
+		"parts": {
+			"cloth": 2
+		},
+		"purpose": "Lifts everyone's spirits once.",
+		"time": "quick",
+		"tool": "",
+		"unlock": "ch4"
+	},
+	"tin_can_alarm": {
+		"compare": "No real equivalent: a silent theft becomes a choice; works twice",
+		"id": "tin_can_alarm",
+		"makes": "tin_can_alarm",
+		"name": "Tin-Can Alarm",
+		"parts": {
+			"binding": 1,
+			"metal": 2
+		},
+		"purpose": "Wakes everyone when a thief comes at night.",
+		"time": "quick",
+		"tool": "",
+		"unlock": "ch2"
+	}
 }
