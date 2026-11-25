@@ -1,0 +1,88 @@
+[
+	{
+		"id": "rain_on_the_vent",
+		"title": "Rain on the Vent",
+		"type": "dirty_water",
+		"mood": "neutral",
+		"weight": 1.2,
+		"conditions": {"min_day": 3},
+		"setup": "Rain on the hatch for the first time since. The gutter by the vent is overflowing, and it's mostly water.",
+		"options": [
+			{"id": "collect", "label": "Set every pot under the gutter", "effects": [{"do": "dirty_water", "n": 4}, {"do": "dose", "who": "actor", "msv": 10}], "outcome": "Four rations of grey water and a damp sleeve. Nobody drinks it until it's filtered."},
+			{"id": "leave", "label": "Let it run off", "effects": [], "outcome": "The rain runs down the street. Somebody downhill has a very full gutter."},
+			{"id": "filter", "label": "Filter it as it comes in", "item": "bottle_filter", "effects": [{"do": "use", "item": "bottle_filter", "what": "filtered the rain as it fell"}, {"do": "rations", "kind": "water", "n": 4}], "outcome": "It drips through the filter all evening. Four rations of water that taste faintly of bottle."}
+		]
+	},
+	{
+		"id": "toilet_tank",
+		"title": "The Toilet Tank",
+		"type": "dirty_water",
+		"mood": "good",
+		"weight": 1.0,
+		"conditions": {"min_day": 2},
+		"setup": "{name} remembers the toilet tank upstairs. Twelve litres, untouched since the blast, behind a door that still locks.",
+		"options": [
+			{"id": "fetch", "label": "Go up and drain it", "effects": [{"do": "dirty_water", "n": 8}, {"do": "dose", "who": "actor", "msv": 25}], "outcome": "Two buckets come down the ladder, and some of the street comes with them on {name}'s clothes."},
+			{"id": "later", "label": "Leave it for now", "effects": [], "outcome": "It will still be there. So will the dust on the stairs."},
+			{"id": "mask", "label": "Go up masked", "item": "gas_mask", "effects": [{"do": "use", "item": "gas_mask", "what": "kept the dust out on the stairs"}, {"do": "dirty_water", "n": 8}], "outcome": "Two buckets, no dust in anyone's lungs. The water needs filtering; the lungs don't."}
+		]
+	},
+	{
+		"id": "bucket_of_grey",
+		"title": "A Bucket of Grey",
+		"type": "dirty_water",
+		"mood": "bad",
+		"weight": 1.5,
+		"conditions": {"needs_dirty_water": 2},
+		"setup": "The dirty water has sat in the bucket for days. It is wet. That is the kindest thing anyone has said about it.",
+		"options": [
+			{"id": "drink", "label": "Drink it as it is", "effects": [{"do": "dirty_water", "n": -2}, {"do": "rations", "kind": "water", "n": 2}, {"do": "chance", "p": 0.4, "then": [{"do": "sick", "who": "random", "why": "drank unfiltered water", "root": "decision"}]}], "outcome": "Two rations of something like water. Stomachs will have opinions by morning."},
+			{"id": "wait", "label": "Wait for a way to filter it", "effects": [{"do": "morale", "who": "thirstiest", "n": -1, "why": "staring at the bucket"}], "outcome": "The bucket stays under the vent. Everyone pretends not to look at it."},
+			{"id": "boil", "label": "Pour it on the plants nobody has", "effects": [{"do": "dirty_water", "n": -2}], "outcome": "It goes down the drain. The bucket is clean, at least."}
+		]
+	},
+	{
+		"id": "sharp_edges",
+		"title": "Sharp Edges",
+		"type": "sickness",
+		"mood": "bad",
+		"weight": 1.2,
+		"conditions": {"needs_crafted": true, "min_day": 3},
+		"setup": "Taking things apart has its own hazards. {subject} found the sharpest part of a toaster with the palm of one hand.",
+		"options": [
+			{"id": "rinse", "label": "Rinse it and wrap it in a sock", "effects": [{"do": "chance", "p": 0.5, "then": [{"do": "injure", "who": "subject", "why": "a cut from the workbench", "root": "chance"}]}], "outcome": "The sock is not sterile. Nobody says so."},
+			{"id": "fine", "label": "Tell them it's fine", "effects": [{"do": "injure", "who": "subject", "why": "a cut from the workbench", "root": "decision"}, {"do": "morale", "who": "subject", "n": -1, "why": "told it was fine"}], "outcome": "{subject} is told it's fine. It is a cut, and it knows it."},
+			{"id": "bandage", "label": "Bind it with a rag bandage", "item": "rag_bandage", "effects": [{"do": "use", "item": "rag_bandage", "what": "closed {subject}'s cut"}], "outcome": "Boiled rag, tight wrap. The cut closes clean."},
+			{"id": "medkit", "label": "Use the medkit", "item": "medkit", "effects": [{"do": "use", "item": "medkit", "what": "a cut from the workbench"}], "outcome": "Proper gauze for a small cut. It feels like using the good plates."}
+		]
+	},
+	{
+		"id": "cans_rattled",
+		"title": "Cans in the Dark",
+		"type": "raid",
+		"mood": "bad",
+		"system": true,
+		"setup": "The cans on the ladder rattled at three in the morning. Someone is halfway down, holding very still.",
+		"options": [
+			{"id": "shout", "label": "Shout and switch on every light", "effects": [{"do": "chance", "p": 0.7, "then": [{"do": "say", "kind": "good", "text": "They went back up the ladder empty-handed."}], "else": [{"do": "steal", "n": 1}]}], "outcome": "Lights, noise and a lot of swearing on both sides of the hatch."},
+			{"id": "let", "label": "Let them take something and go", "effects": [{"do": "steal", "n": 1}], "outcome": "They take one thing and close the hatch quietly behind them. Almost polite."},
+			{"id": "club", "label": "Meet them on the ladder with the pipe", "item": "pipe_club", "effects": [{"do": "use", "item": "pipe_club", "what": "sent a thief back up the ladder"}, {"do": "chance", "p": 0.3, "then": [{"do": "injure", "who": "actor", "why": "a scuffle on the ladder", "root": "chance"}]}], "outcome": "One swing into the dark. The ladder empties fast."},
+			{"id": "rifle", "label": "Show them the rifle", "item": "rifle", "effects": [{"do": "use", "item": "rifle", "what": "a thief changed their mind"}], "outcome": "The thief looks at the rifle, then at the ladder, and picks the ladder."}
+		]
+	},
+	{
+		"id": "opening_night",
+		"title": "Opening Night",
+		"type": "family",
+		"mood": "good",
+		"weight": 1.0,
+		"conditions": {"needs_child": true, "min_day": 4},
+		"setup": "{subject} has made a stage out of a shoebox and wants a show tonight. Nobody has rehearsed anything.",
+		"options": [
+			{"id": "shadows", "label": "Improvise a shadow play", "effects": [{"do": "morale", "who": "subject", "n": 1, "why": "a shadow play"}, {"do": "tired", "who": "actor", "days": 1}], "outcome": "{name} does a convincing rabbit and an unconvincing dragon. The audience is generous."},
+			{"id": "not_tonight", "label": "Not tonight", "effects": [{"do": "morale", "who": "subject", "n": -1, "why": "the show was cancelled"}], "outcome": "The shoebox stage goes under the bunk for another night."},
+			{"id": "puppets", "label": "Bring out the sock puppets", "item": "sock_puppets", "effects": [{"do": "use", "item": "sock_puppets", "what": "a full show in a shoebox"}, {"do": "morale", "who": "all", "n": 1, "why": "the sock puppet show"}], "outcome": "Two socks, three acts and a standing ovation from the bunk beds."},
+			{"id": "cards", "label": "Card tricks instead", "item": "cards", "effects": [{"do": "use", "item": "cards", "what": "one card trick, done eleven times"}, {"do": "morale", "who": "subject", "n": 1, "why": "card tricks"}], "outcome": "The same trick eleven times. It gets the same gasp every time."}
+		]
+	}
+]

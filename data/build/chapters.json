@@ -1,0 +1,42 @@
+{
+	"ch1": {
+		"id": "ch1",
+		"order": 1,
+		"pamphlet": "a water-safety flyer",
+		"pamphlet_places": [
+			"pharmacy",
+			"grocery"
+		],
+		"title": "Water and Air"
+	},
+	"ch2": {
+		"id": "ch2",
+		"order": 2,
+		"pamphlet": "a home-security flyer",
+		"pamphlet_places": [
+			"hardware",
+			"civic"
+		],
+		"title": "Home Security"
+	},
+	"ch3": {
+		"id": "ch3",
+		"order": 3,
+		"pamphlet": "a repair-café leaflet",
+		"pamphlet_places": [
+			"school",
+			"electronics"
+		],
+		"title": "Radio and Light"
+	},
+	"ch4": {
+		"id": "ch4",
+		"order": 4,
+		"pamphlet": "a household-hints leaflet",
+		"pamphlet_places": [
+			"church",
+			"neighbor_house"
+		],
+		"title": "Morale and Pests"
+	}
+}

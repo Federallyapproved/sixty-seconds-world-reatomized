@@ -5,7 +5,9 @@ extends RefCounted
 ## never returning, sickness in heavy fallout, finite stock, being followed, breakage, and the
 ## risk preview shown before the player commits.
 
-const GEAR_IDS: Array[String] = ["gas_mask", "map", "rifle", "axe", "flashlight", "medkit", "suitcase"]
+const GEAR_IDS: Array[String] = ["gas_mask", "map", "rifle", "axe", "flashlight", "medkit", "suitcase", "bindle", "rag_respirator"]
+## Phone and electronics shops (classified as hardware) stock their own loot table.
+const ELECTRONICS_SUBKINDS: Array[String] = ["electronics", "mobile_phone", "computer", "hifi"]
 const MAX_GEAR: int = 3
 const SHUTTER_CATEGORIES: Array[String] = ["pharmacy", "hardware"]
 const ESSENTIAL: Array[String] = ["grocery", "pharmacy"]
@@ -23,7 +25,9 @@ static func make_place(poi: Dictionary, idx: int, rad_factor: float, stock_mult:
 		"last_seen_total": -1, "quiet": false, "occupied": false, "rumour": "",
 		"street": str(poi.get("street", "")), "bearing": str(poi.get("bearing_dir", poi.get("bearing", ""))),
 	}
+	p["loot_type"] = loot_type(p)
 	p["stock"] = generate_stock(p, stock_mult)
+	p["pamphlet"] = ShelterCraft.pamphlet_for(p)
 	p["initial_total"] = stock_total(p)
 	if cat == "neighbor_house" and not bool(p["fictional"]):
 		var key: String = str(p["osm_id"]) if int(p["osm_id"]) != 0 else "%.5f,%.5f" % [float(p["lat"]), float(p["lon"])]
@@ -32,6 +36,14 @@ static func make_place(poi: Dictionary, idx: int, rad_factor: float, stock_mult:
 			p["rumour"] = "Lights at night: someone still lives here"
 	p["last_seen_total"] = -1
 	return p
+
+
+## Which loot table a place uses: its category, or "electronics" for phone and electronics shops.
+static func loot_type(p: Dictionary) -> String:
+	var cat: String = str(p.get("category", ""))
+	if cat == "hardware" and str(p.get("subkind", "")) in ELECTRONICS_SUBKINDS:
+		return "electronics"
+	return cat
 
 
 static func _category(poi: Dictionary) -> String:
@@ -47,7 +59,7 @@ static func generate_stock(p: Dictionary, stock_mult: float) -> Dictionary:
 	var key: String = str(p["osm_id"]) if int(p["osm_id"]) != 0 else "%s@%.5f,%.5f" % [str(p["name"]), float(p["lat"]), float(p["lon"])]
 	r.seed = hash(key) ^ 0x5EED
 	var cat: String = str(p["category"])
-	var table: Dictionary = ShelterData.loot_for(cat)
+	var table: Dictionary = ShelterData.loot_for(str(p.get("loot_type", cat)))
 	var size_mult: float = 1.0
 	var area: float = float(p.get("area_sqm", 0.0))
 	if area > 0.0:
@@ -144,8 +156,12 @@ static func daily_risk(s: ShelterState, m: Dictionary, p: Dictionary, gear: Arra
 	var pd: float = ShelterData.B("trip_base_p_day", 0.025)
 	var why: Array[String] = []
 	if heavy_fallout(s) and not gear.has("gas_mask"):
-		pd *= ShelterData.B("trip_mult_no_mask_heavy", 2.0)
-		why.append("no mask in heavy fallout ×2")
+		if gear.has("rag_respirator"):
+			pd *= ShelterData.B("respirator_risk_mult", 1.5)
+			why.append("only a rag respirator in heavy fallout ×%.1f" % ShelterData.B("respirator_risk_mult", 1.5))
+		else:
+			pd *= ShelterData.B("trip_mult_no_mask_heavy", 2.0)
+			why.append("no mask in heavy fallout ×2")
 	if dose_b == "Lethal":
 		pd *= ShelterData.B("trip_mult_lethal_dose", 1.5)
 		why.append("lethal dose ×1.5")
@@ -238,7 +254,7 @@ static func preview(s: ShelterState, m: Dictionary, place_idx: int, gear: Array)
 	if db == "Lethal":
 		sick_p = ShelterData.B("trip_sick_lethal_mask", 0.6) if masked else 1.0
 	elif heavy_fallout(s):
-		sick_p = ShelterData.B("trip_sick_heavy_mask", 0.2) if masked else ShelterData.B("trip_sick_heavy_nomask", 0.7)
+		sick_p = heavy_sick_p(gear)
 	var carry: int = carry_for(m, gear)
 	var left: int = stock_total(p)
 	var stocked: String = "Never visited"
@@ -257,11 +273,45 @@ static func preview(s: ShelterState, m: Dictionary, place_idx: int, gear: Array)
 		"followed_p": followed_p, "tired": days >= ShelterData.Bi("trip_tired_min_days", 3),
 		"overdue_p": ShelterData.B("trip_overdue_p", 0.25), "fallout_known": s.fallout_announced,
 		"remaining_hint": left, "occupied": bool(p.get("occupied", false)), "quiet": bool(p.get("quiet", false)),
+		"pamphlet_hint": pamphlet_hint(s, p), "junk_hint": junk_hint(s, p),
 	}
 
 
+## Sick on return in heavy fallout: gas mask 20%, rag respirator 45%, nothing 70%.
+static func heavy_sick_p(gear: Array) -> float:
+	if gear.has("gas_mask"):
+		return ShelterData.B("trip_sick_heavy_mask", 0.2)
+	if gear.has("rag_respirator"):
+		return ShelterData.B("respirator_sick_heavy", 0.45)
+	return ShelterData.B("trip_sick_heavy_nomask", 0.7)
+
+
+## "Might have: a water-safety flyer (Manual Ch.1)" for place types that carry an unread chapter.
+static func pamphlet_hint(s: ShelterState, p: Dictionary) -> String:
+	var types: Array = [str(p.get("category", "")), str(p.get("loot_type", ""))]
+	for ch in ShelterCraft.chapter_ids():
+		var c: Dictionary = ShelterData.chapter(str(ch))
+		if s.chapters.has(str(ch)):
+			continue
+		for pt in c.get("pamphlet_places", []):
+			if str(pt) in types:
+				return "Might have %s (Manual Ch.%d)" % [str(c.get("pamphlet", "")), int(c.get("order", 0))]
+	return ""
+
+
+## Junk this place stocks that holds a part tagged with the Need toggle.
+static func junk_hint(s: ShelterState, p: Dictionary) -> Array:
+	var out: Array = []
+	var table: Dictionary = ShelterData.loot_for(str(p.get("loot_type", p.get("category", ""))))
+	for iid in table.keys():
+		if ShelterCraft.junk_matches_need(str(iid), s.need_parts):
+			out.append(str(iid))
+	out.sort()
+	return out
+
+
 static func loot_hint(p: Dictionary) -> Array:
-	var table: Dictionary = ShelterData.loot_for(str(p["category"]))
+	var table: Dictionary = ShelterData.loot_for(str(p.get("loot_type", p["category"])))
 	var ids: Array = table.keys()
 	ids.sort_custom(func(a: Variant, b: Variant) -> bool:
 		return int((table[a] as Dictionary)["max"]) > int((table[b] as Dictionary)["max"]))
@@ -291,6 +341,8 @@ static func carry_slots(gear: Array) -> int:
 	var c: int = ShelterData.Bi("carry_base", 2)
 	if gear.has("suitcase"):
 		c += int(ShelterData.item_effect("suitcase", "carry", 3.0))
+	if gear.has("bindle"):
+		c += int(ShelterData.item_effect("bindle", "carry", 2.0))
 	return c
 
 
@@ -451,13 +503,16 @@ static func _return(s: ShelterState, t: Dictionary, m: Dictionary) -> void:
 	if str(t["dose_band"]) == "Lethal":
 		sick_p = ShelterData.B("trip_sick_lethal_mask", 0.6) if gear.has("gas_mask") else 1.0
 	elif bool(t["heavy"]):
-		sick_p = ShelterData.B("trip_sick_heavy_mask", 0.2) if gear.has("gas_mask") else ShelterData.B("trip_sick_heavy_nomask", 0.7)
+		sick_p = heavy_sick_p(gear)
+	var respirator: bool = gear.has("rag_respirator") and not gear.has("gas_mask") and sick_p > 0.0
 	if sick_p > 0.0 and s.rng.randf() < sick_p:
 		ShelterSim.make_sick(s, m, "fallout dust on the trip to %s" % label, "decision")
 		if not gear.has("gas_mask"):
 			s.missed("gas_mask", "%s got sick" % name)
 	elif sick_p > 0.0 and gear.has("gas_mask"):
 		s.credit("gas_mask", "%s came back clean" % name)
+	elif respirator:
+		s.credit("rag_respirator", "%s came back clean through the rag" % name)
 	if bool(t["heavy"]) and not bool(m.get("sick", false)):
 		s.stats["heavy_clean"] = int(s.stats["heavy_clean"]) + 1
 	# Raiders on the road
@@ -530,9 +585,15 @@ static func _return(s: ShelterState, t: Dictionary, m: Dictionary) -> void:
 		else:
 			keep_caches.append(c)
 	s.caches = keep_caches
+	var base_carry: int = carry_for(m, []) + (int(ShelterData.item_effect("suitcase", "carry", 3.0)) if gear.has("suitcase") else 0)
 	if gear.has("suitcase") and _haul_slots(haul) > ShelterData.Bi("carry_base", 2):
-		lines_gear.append("Suitcase: carried %d more" % (_haul_slots(haul) - ShelterData.Bi("carry_base", 2)))
-		s.credit("suitcase", "carried %d more things home" % (_haul_slots(haul) - ShelterData.Bi("carry_base", 2)))
+		var extra_s: int = mini(_haul_slots(haul), base_carry) - ShelterData.Bi("carry_base", 2)
+		if extra_s > 0:
+			lines_gear.append("Suitcase: carried %d more" % extra_s)
+			s.credit("suitcase", "carried %d more things home" % extra_s)
+	if gear.has("bindle") and _haul_slots(haul) > base_carry:
+		lines_gear.append("Bindle: carried %d more" % (_haul_slots(haul) - base_carry))
+		s.credit("bindle", "carried %d more things home" % (_haul_slots(haul) - base_carry))
 	var got: Array[String] = []
 	for k in haul.keys():
 		var n: int = int(haul[k])
@@ -540,6 +601,8 @@ static func _return(s: ShelterState, t: Dictionary, m: Dictionary) -> void:
 			continue
 		s.add_units(str(k), n)
 		got.append(("%d× %s" % [n, ShelterData.item_name(str(k))]) if n > 1 else ShelterData.item_name(str(k)))
+	if not (occupied and not s.has_rule("occupied_fair_game") and not bool(t.get("took", false))):
+		ShelterCraft.found_pamphlet(s, p, m)
 	p["visits"] = int(p["visits"]) + 1
 	p["last_visit_day"] = s.day + 1
 	p["last_seen_total"] = stock_total(p)
@@ -556,6 +619,21 @@ static func _return(s: ShelterState, t: Dictionary, m: Dictionary) -> void:
 	# Gear comes home, unless it broke or was lost
 	for g_v in gear:
 		var g: String = str(g_v)
+		# Makeshift gear wears out trip by trip; patched gear comes home broken once the patch is spent.
+		if ShelterCraft.is_makeshift(g):
+			var left: int = ShelterCraft.uses_left(s, g) - 1
+			if ShelterCraft.max_uses(g) > 0 and left <= 0:
+				s.uses.erase(g)
+				s.say("break", "The %s came apart on the way home. %s used up." % [ShelterData.item_name(g).to_lower(), ShelterData.item_name(g)], [g])
+				continue
+			if ShelterCraft.max_uses(g) > 0:
+				s.uses[g] = left
+			s.add(g, 1)
+			continue
+		if s.patch_spent.has(g):
+			s.patch_spent.erase(g)
+			s.broken[g] = s.broken_count(g) + 1
+			continue
 		if s.rng.randf() < ShelterData.B("trip_item_break_p", 0.10):
 			if str(ShelterData.item(g).get("repair", "none")) != "none" and s.rng.randf() < 0.5:
 				s.broken[g] = s.broken_count(g) + 1
@@ -638,6 +716,9 @@ static func loot_priorities(s: ShelterState) -> Array:
 		pri.append_array(["water", "food"])
 	else:
 		pri.append_array(["food", "water"])
+	for jid in ShelterCraft.needed_junk(s.need_parts):
+		if not pri.has(jid):
+			pri.append(jid)
 	for iid in ["medkit", "gas_mask", "radio", "map", "flashlight", "padlock", "rifle", "ammo", "axe", "manual", "suitcase", "bug_spray", "cards", "console"]:
 		if not pri.has(iid) and not s.owns(iid):
 			pri.append(iid)

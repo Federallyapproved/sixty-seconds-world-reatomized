@@ -99,6 +99,8 @@ static func record_run(d: Dictionary, s: ShelterState, ctx: Dictionary = {}) -> 
 		var a: String = str((m_v as Dictionary).get("affliction", ""))
 		if a != "":
 			(d["afflictions"] as Dictionary)[a] = true
+	# The Need toggle's tags carry over to the next run's grab.
+	d["need_parts"] = s.need_parts.duplicate()
 	if s.ending_kind == "win" and str(ctx.get("address_key", "")) != "":
 		(d["addresses_won"] as Dictionary)[str(ctx["address_key"])] = true
 
@@ -114,13 +116,26 @@ static func item_page(d: Dictionary, item_id: String) -> Dictionary:
 		"almanac": str(it.get("almanac", "")) if known else "",
 		"slots": int(it.get("slots", 1)),
 		"effects": (page.get("effects", []) as Array).duplicate(), "options": (page.get("options", []) as Array).duplicate(),
+		"recipe": _recipe_line(item_id) if known else "",
 	}
+
+
+## "Made from 3 Metal, 1 Binding with the axe (a whole day) · Manual Ch.2 / home-security flyer"
+static func _recipe_line(item_id: String) -> String:
+	for rid in ShelterData.recipes().keys():
+		var r: Dictionary = ShelterData.recipe(str(rid))
+		if str(r.get("makes", "")) != item_id:
+			continue
+		var tool: String = str(r.get("tool", ""))
+		return "Made from %s%s (%s) · %s" % [ShelterCraft.parts_text(r.get("parts", {})), (" with the " + ShelterData.item_name(tool).to_lower()) if tool != "" else "",
+			"a whole day" if str(r.get("time", "")) == "day" else "quick", ShelterCraft.unlock_label(str(rid))]
+	return ""
 
 
 ## Counts for the Almanac header ("Items 9/16 · Events 41/101 · Endings 3/10 ...").
 static func progress(d: Dictionary) -> Dictionary:
 	return {
-		"items": [(d["items"] as Dictionary).size(), ShelterData.core_ids().size()],
+		"items": [(d["items"] as Dictionary).size(), ShelterData.items().size()],
 		"events": [(d["events"] as Dictionary).size(), ShelterData.events().size()],
 		"endings": [(d["endings"] as Dictionary).size(), ShelterSim.ENDINGS.size()],
 		"rules": [(d["rules"] as Dictionary).size(), ShelterData.house_rules().size()],

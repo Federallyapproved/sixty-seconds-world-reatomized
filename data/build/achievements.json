@@ -1,4 +1,11 @@
 {
+	"arts_and_crafts": {
+		"condition": "makeshift_win:5",
+		"description": "Be rescued after using 5 makeshift items.",
+		"id": "arts_and_crafts",
+		"name": "Arts and Crafts",
+		"unlocks": ""
+	},
 	"bedtime_story": {
 		"condition": "win_difficulty:story",
 		"description": "Be rescued on Story.",
@@ -160,6 +167,13 @@
 		"name": "Map Reader",
 		"unlocks": ""
 	},
+	"night_school": {
+		"condition": "chapters:4",
+		"description": "Learn all four chapters of the manual in one run.",
+		"id": "night_school",
+		"name": "Night School",
+		"unlocks": ""
+	},
 	"not_today": {
 		"condition": "takeover_stopped",
 		"description": "Drive the gang off when they come for the shelter.",
@@ -200,6 +214,13 @@
 		"description": "Stop raids until the gang gives up.",
 		"id": "shake_them_off",
 		"name": "Shake Them Off",
+		"unlocks": ""
+	},
+	"small_print": {
+		"condition": "pamphlet_learned:1",
+		"description": "Learn a chapter of the manual from a pamphlet found on a trip.",
+		"id": "small_print",
+		"name": "Read the Small Print",
 		"unlocks": ""
 	},
 	"town_meeting": {

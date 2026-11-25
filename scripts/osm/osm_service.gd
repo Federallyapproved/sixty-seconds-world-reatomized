@@ -83,8 +83,10 @@ const CIVIC_AMENITIES: Array = [
 const CIVIC_EMERGENCIES: Array = [
 	"ambulance_station", "disaster_response"
 ]
+## Phone and electronics shops count as hardware stores; their stock is the "electronics" loot table
+## (ShelterTrips.loot_type), the shops that supply Electronics for the workbench (M3).
 const HARDWARE_SHOPS: Array = [
-	"hardware", "doityourself", "outdoor", "sports", "electronics",
+	"hardware", "doityourself", "outdoor", "sports", "electronics", "mobile_phone", "computer",
 	"locksmith", "tools", "garden_centre", "trade", "builders_merchant"
 ]
 const HARDWARE_AMENITIES: Array = []
@@ -1294,7 +1296,7 @@ static func _latlon_to_local_m(poly_pts: Array[Vector2]) -> Array[Vector2]:
 static func build_overpass_query(lat: float, lon: float, radius_m: int) -> String:
 	var a: String = "(around:%d,%.6f,%.6f)" % [radius_m, lat, lon]
 	var q: String = "[out:json][timeout:25];("
-	q += "nwr%s[shop~\"^(supermarket|convenience|grocery|general|greengrocer|bakery|butcher|hardware|doityourself|trade|car_repair|car_parts|tyres|chemist|medical_supply|outdoor)$\"];" % a
+	q += "nwr%s[shop~\"^(supermarket|convenience|grocery|general|greengrocer|bakery|butcher|hardware|doityourself|trade|car_repair|car_parts|tyres|chemist|medical_supply|outdoor|electronics|mobile_phone|computer)$\"];" % a
 	q += "nwr%s[amenity~\"^(pharmacy|hospital|clinic|doctors|fire_station|police|fuel|place_of_worship|school|library|community_centre|townhall)$\"];" % a
 	q += "way%s[highway~\"^(motorway|trunk|primary|secondary|tertiary)$\"];" % a
 	q += ");out geom tags qt;"

@@ -61,9 +61,12 @@ func _run() -> void:
 		var total_family: int = 0
 		var total_value: float = 0.0
 		var scav_total: float = float(scene.get("_scavenge_total"))
+		var core_total: float = 0.0
 		for it in scene.get("_world_items"):
 			total_items += 1
 			total_value += _item_value(str(it.get("item_id", "")))
+			if not _is_junk(str(it.get("item_id", ""))):
+				core_total += _item_value(str(it.get("item_id", "")))
 		total_family = (scene.get("_world_family") as Array).size()
 		var house_bounds: Rect2 = scene.get("_house_bounds")
 		var room_count: int = (scene.get("_rooms") as Array).size()
@@ -82,10 +85,13 @@ func _run() -> void:
 		secured_value += float(gs.get("water_quarters")) / 4.0 * _item_value("water")
 		secured_items += int(gs.get("soup_quarters")) / 4 + int(gs.get("water_quarters")) / 4
 		var bi: Dictionary = gs.get("bunker_items")
+		var junk_secured: float = 0.0
 		for k in bi.keys():
 			var c: int = int(bi[k].get("count", 0))
 			secured_items += c
 			secured_value += float(c) * _item_value(str(k))
+			if _is_junk(str(k)):
+				junk_secured += float(c) * _item_value(str(k))
 		for k2 in ["medkit", "bug_spray"]:
 			var cnt: int = int(gs.get(k2 + "_count"))
 			secured_items += cnt
@@ -113,6 +119,9 @@ func _run() -> void:
 			"value_total": total_value,
 			"value_secured": secured_value,
 			"value_pct": (secured_value / total_value * 100.0) if total_value > 0.0 else 0.0,
+			# M3: the same share counting only core items (junk adds clutter and value to the house).
+			"core_value_pct": ((secured_value - junk_secured) / core_total * 100.0) if core_total > 0.0 else 0.0,
+			"junk_secured": junk_secured,
 			"family_total": total_family,
 			"family_saved": fam_saved,
 			"leader_escaped": bool(stats.get("leader_escaped", false)),
@@ -125,10 +134,12 @@ func _run() -> void:
 		await process_frame
 
 	var pct_sum: float = 0.0
+	var core_sum: float = 0.0
 	var all_family: int = 0
 	var full_clear: int = 0
 	for r in _results:
 		pct_sum += float(r["value_pct"])
+		core_sum += float(r.get("core_value_pct", 0.0))
 		if int(r["family_saved"]) >= int(r["family_total"]):
 			all_family += 1
 		if int(r["family_saved"]) >= int(r["family_total"]) and float(r["value_pct"]) >= 99.0:
@@ -137,6 +148,7 @@ func _run() -> void:
 		"runs": _results.size(),
 		"hard": hard,
 		"mean_value_pct": pct_sum / maxf(1.0, float(_results.size())),
+		"mean_core_value_pct": core_sum / maxf(1.0, float(_results.size())),
 		"runs_all_family_saved": all_family,
 		"runs_everything_secured": full_clear,
 	}
@@ -146,6 +158,10 @@ func _run() -> void:
 		f.store_string(JSON.stringify({"summary": summary, "runs": _results}, "  "))
 		f.close()
 	quit(0)
+
+
+func _is_junk(item_id: String) -> bool:
+	return str(ShelterData.item(item_id).get("category", "")) == "junk"
 
 
 func _item_value(item_id: String) -> float:

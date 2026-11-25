@@ -10,7 +10,9 @@ extends RefCounted
 ##     ShelterSim.end_day(s, plan)                   # rations, medkits, jobs -> the night
 ##
 ## A plan is {"rations": {member_id: {"food": bool, "water": bool}}, "treat": {member_id: true},
-##            "jobs": {member_id: {"job": "rest"|"trip", "place": int, "gear": [item_id]}}}.
+##            "jobs": {member_id: {"job": "rest"|"trip", "place": int, "gear": [item_id]}
+##                              | {"job": "craft", "recipes": [{"id": recipe_id, "target": item_id?}]}
+##                              | {"job": "study", "chapter": chapter_id}}}.
 ## The game UI and the balance harness both drive exactly these calls.
 
 const ENDINGS: Dictionary = {
@@ -43,11 +45,13 @@ static func new_run(opts: Dictionary) -> ShelterState:
 	for m_v in s.members:
 		init_member(m_v as Dictionary)
 	s.known_items = (opts.get("known_items", {}) as Dictionary).duplicate()
+	s.need_parts = (opts.get("need_parts", {}) as Dictionary).duplicate()
 	s.hide_unknown = bool(opts.get("hide_unknown", false))
 	s.next_meeting_day = ShelterData.Bi("rule_meeting_first_day", 4)
 	var haul: Dictionary = opts.get("haul", {})
 	for k in haul.keys():
 		s.add_units(str(k), int(haul[k]))
+	var boxed: Array[String] = _shelter_box(s)
 	var stock_mult: float = ShelterData.B("story_stock_mult", 1.5) if s.difficulty == "story" else 1.0
 	var pois: Array = opts.get("places", [])
 	var factors: Array = opts.get("rad_factors", [])
@@ -68,11 +72,30 @@ static func new_run(opts: Dictionary) -> ShelterState:
 		finish(s, "loss_all_dead")
 	else:
 		s.say("info", "Day 1. %s sealed the hatch. Food: %d rations. Water: %d rations." % [join_names(names), s.food(), s.water()])
+		if not boxed.is_empty():
+			s.say("info", "The box marked CABLES, MISC holds %s. The workbench can use them." % join_names(boxed), [])
 		if not s.has_adult(s.home()):
 			finish(s, "loss_no_adult")
 	for m_v in s.members:
 		sync_visuals(m_v as Dictionary, s.day)
 	return s
+
+
+## The shelter's own box of odds and ends (loot_weights.csv "shelter_box"): a little junk for the bench.
+static func _shelter_box(s: ShelterState) -> Array[String]:
+	var got: Array[String] = []
+	var table: Dictionary = ShelterData.loot_for("shelter_box") if ShelterData.loot().has("shelter_box") else {}
+	var keys: Array = table.keys()
+	keys.sort()
+	for k in keys:
+		var row: Dictionary = table[k]
+		if s.rng.randf() >= float(row.get("chance", 1.0)):
+			continue
+		var n: int = s.rng.randi_range(int(row.get("min", 1)), int(row.get("max", 1)))
+		if n > 0:
+			s.add(str(k), n)
+			got.append(ShelterCraft.a_name(str(k), n))
+	return got
 
 
 static func init_member(m: Dictionary) -> void:
@@ -223,6 +246,7 @@ static func end_day(s: ShelterState, plan: Dictionary) -> Dictionary:
 	_morale_tick(s)
 	_pets_tick(s)
 	_raid_clock(s)
+	ShelterCraft.night(s)
 	ShelterTrips.tick(s)
 	ShelterTrips.drain(s)
 	_close_day(s)
@@ -248,12 +272,21 @@ static func _close_day(s: ShelterState) -> void:
 
 static func _apply_treatment(s: ShelterState, treat: Dictionary) -> void:
 	for mid in treat.keys():
-		if not bool(treat[mid]):
+		# true (whatever cures them), or "medkit" / "rag_bandage" to choose.
+		if (treat[mid] is bool and not bool(treat[mid])) or str(treat[mid]) == "":
 			continue
 		var m: Dictionary = s.member(str(mid))
 		if m.is_empty() or str(m.get("loc", "")) != "shelter" or not bool(m.get("alive", false)):
 			continue
 		if not (bool(m.get("sick", false)) or bool(m.get("injured", false))):
+			continue
+		var how: String = str(treat[mid]) if treat[mid] is String else ""
+		if bool(m.get("injured", false)) and not bool(m.get("sick", false)) and s.has("rag_bandage") and how != "medkit":
+			ShelterCraft.bandage(s, m)
+			continue
+		if how == "rag_bandage":
+			# Chosen on purpose: the bandage or nothing (it never spends the medkit).
+			ShelterCraft.bandage(s, m)
 			continue
 		if not s.has("medkit"):
 			continue
@@ -305,6 +338,30 @@ static func _apply_rations(s: ShelterState, rations: Dictionary) -> void:
 
 static func _apply_jobs(s: ShelterState, jobs: Dictionary) -> void:
 	var launched: int = 0
+	var benched: Dictionary = {}
+	var jkeys: Array = jobs.keys()
+	jkeys.sort()
+	for mid in jkeys:
+		var jb: Dictionary = jobs[mid]
+		var who: Dictionary = s.member(str(mid))
+		if who.is_empty() or str(who.get("loc", "")) != "shelter" or not bool(who.get("alive", false)):
+			continue
+		match str(jb.get("job", "rest")):
+			"craft":
+				benched[str(mid)] = true
+				var n_made: int = 0
+				for r_v in jb.get("recipes", []):
+					if n_made >= ShelterData.Bi("quick_per_day", 2):
+						break
+					var rid: String = str((r_v as Dictionary).get("id", "")) if r_v is Dictionary else str(r_v)
+					var tgt: String = str((r_v as Dictionary).get("target", "")) if r_v is Dictionary else ""
+					ShelterCraft.craft(s, who, rid, tgt)
+					n_made += 1
+					if str(ShelterData.recipe(rid).get("time", "quick")) == "day":
+						break
+			"study":
+				benched[str(mid)] = true
+				ShelterCraft.study(s, who, str(jb.get("chapter", "")))
 	for mid in jobs.keys():
 		var j: Dictionary = jobs[mid]
 		if str(j.get("job", "rest")) != "trip":
@@ -323,7 +380,7 @@ static func _apply_jobs(s: ShelterState, jobs: Dictionary) -> void:
 			launched += 1
 	for m_v in s.home():
 		var m: Dictionary = m_v
-		if ShelterState.affliction(m) != "reckless" or s.home().size() <= 1 or ShelterTrips.can_go(s, m) != "":
+		if ShelterState.affliction(m) != "reckless" or s.home().size() <= 1 or ShelterTrips.can_go(s, m) != "" or benched.has(str(m["id"])):
 			continue
 		var far2: int = ShelterTrips.farthest_place(s)
 		if far2 >= 0 and ShelterTrips.launch(s, m, far2, []) == "":
@@ -538,6 +595,7 @@ static func _defender_home(s: ShelterState) -> bool:
 
 static func _raid(s: ShelterState) -> void:
 	s.stats["raids"] = int(s.stats["raids"]) + 1
+	s.flags["raided"] = s.day
 	var interval: int = ShelterData.Bi("hard_raid_interval_days", 2) if s.difficulty == "hard" else ShelterData.Bi("raid_interval_days", 3)
 	s.next_raid_day = s.day + 1 + interval
 	var stopped: bool = false
@@ -546,9 +604,13 @@ static func _raid(s: ShelterState) -> void:
 		stopped = true
 		s.say("used", "Used: Padlock → held the hatch while everyone was out", ["padlock"])
 		s.stats["padlock_stops"] = int(s.stats["padlock_stops"]) + 1
+	elif ShelterCraft.barricade_holds(s):
+		stopped = true
 	elif adult and s.has("rifle") and s.has("ammo"):
 		s.remove("ammo", 1)
 		s.credit("rifle", "raid stopped (−1 ammo)")
+		stopped = true
+	elif adult and s.has("pipe_club") and ShelterCraft.club_stops(s):
 		stopped = true
 	elif adult and s.has("rifle"):
 		stopped = true
@@ -619,6 +681,10 @@ static func _fallout_news(s: ShelterState) -> void:
 		s.fallout_known_day = s.day
 		s.credit("radio", "the all-clear: fallout is light enough to travel")
 		s.stats["radio_all_clear"] = true
+	elif s.has("scrap_receiver") and s.rng.randf() < ShelterData.B("receiver_listen_p", 0.5):
+		s.fallout_announced = true
+		s.fallout_known_day = s.day
+		s.credit("scrap_receiver", "heard the all-clear through the hiss")
 	elif s.day >= s.fallout_clear_day + 4:
 		s.fallout_announced = true
 		s.fallout_known_day = s.day

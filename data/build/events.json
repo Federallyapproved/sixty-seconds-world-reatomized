@@ -642,6 +642,13 @@
 		"omen": "Headaches all round this morning. The air in the shelter feels thick.",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "rag_respirator",
+						"label": "Clear the vent in the rag respirator",
+						"p": 0.6
+					}
+				],
 				"cinematic": "hazard",
 				"effects": [
 					{
@@ -803,6 +810,13 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "rag_respirator",
+						"label": "Cover the vent in the rag respirator",
+						"p": 0.6
+					}
+				],
 				"cinematic": "hazard",
 				"effects": [
 					{
@@ -955,6 +969,72 @@
 		"type": "family",
 		"weight": 2
 	},
+	"bucket_of_grey": {
+		"conditions": {
+			"needs_dirty_water": 2
+		},
+		"file": "crafting.json",
+		"id": "bucket_of_grey",
+		"mood": "bad",
+		"options": [
+			{
+				"effects": [
+					{
+						"do": "dirty_water",
+						"n": -2
+					},
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": 2
+					},
+					{
+						"do": "chance",
+						"p": 0.4,
+						"then": [
+							{
+								"do": "sick",
+								"root": "decision",
+								"who": "random",
+								"why": "drank unfiltered water"
+							}
+						]
+					}
+				],
+				"id": "drink",
+				"label": "Drink it as it is",
+				"outcome": "Two rations of something like water. Stomachs will have opinions by morning."
+			},
+			{
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "thirstiest",
+						"why": "staring at the bucket"
+					}
+				],
+				"id": "wait",
+				"label": "Wait for a way to filter it",
+				"outcome": "The bucket stays under the vent. Everyone pretends not to look at it."
+			},
+			{
+				"effects": [
+					{
+						"do": "dirty_water",
+						"n": -2
+					}
+				],
+				"id": "boil",
+				"label": "Pour it on the plants nobody has",
+				"outcome": "It goes down the drain. The bucket is clean, at least."
+			}
+		],
+		"setup": "The dirty water has sat in the bucket for days. It is wet. That is the kindest thing anyone has said about it.",
+		"title": "A Bucket of Grey",
+		"type": "dirty_water",
+		"weight": 1.5
+	},
 	"bunker_tour": {
 		"conditions": {
 			"min_day": 5
@@ -1031,6 +1111,12 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "sock_puppets",
+						"label": "Put on a sock puppet show"
+					}
+				],
 				"cinematic": "celebrate",
 				"effects": [
 					{
@@ -1083,6 +1169,90 @@
 		"weight_mods": {
 			"low_morale": 2
 		}
+	},
+	"cans_rattled": {
+		"file": "crafting.json",
+		"id": "cans_rattled",
+		"mood": "bad",
+		"options": [
+			{
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"do": "steal",
+								"n": 1
+							}
+						],
+						"p": 0.7,
+						"then": [
+							{
+								"do": "say",
+								"kind": "good",
+								"text": "They went back up the ladder empty-handed."
+							}
+						]
+					}
+				],
+				"id": "shout",
+				"label": "Shout and switch on every light",
+				"outcome": "Lights, noise and a lot of swearing on both sides of the hatch."
+			},
+			{
+				"effects": [
+					{
+						"do": "steal",
+						"n": 1
+					}
+				],
+				"id": "let",
+				"label": "Let them take something and go",
+				"outcome": "They take one thing and close the hatch quietly behind them. Almost polite."
+			},
+			{
+				"effects": [
+					{
+						"do": "use",
+						"item": "pipe_club",
+						"what": "sent a thief back up the ladder"
+					},
+					{
+						"do": "chance",
+						"p": 0.3,
+						"then": [
+							{
+								"do": "injure",
+								"root": "chance",
+								"who": "actor",
+								"why": "a scuffle on the ladder"
+							}
+						]
+					}
+				],
+				"id": "club",
+				"item": "pipe_club",
+				"label": "Meet them on the ladder with the pipe",
+				"outcome": "One swing into the dark. The ladder empties fast."
+			},
+			{
+				"effects": [
+					{
+						"do": "use",
+						"item": "rifle",
+						"what": "a thief changed their mind"
+					}
+				],
+				"id": "rifle",
+				"item": "rifle",
+				"label": "Show them the rifle",
+				"outcome": "The thief looks at the rifle, then at the ladder, and picks the ladder."
+			}
+		],
+		"setup": "The cans on the ladder rattled at three in the morning. Someone is halfway down, holding very still.",
+		"system": true,
+		"title": "Cans in the Dark",
+		"type": "raid"
 	},
 	"convoy_1_contact": {
 		"chain": "convoy",
@@ -1922,6 +2092,13 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "rag_respirator",
+						"label": "Go up in the rag respirator",
+						"p": 0.6
+					}
+				],
 				"cinematic": "hazard",
 				"effects": [
 					{
@@ -2088,6 +2265,12 @@
 				"outcome": "Somebody starts packing. The stores are a third emptier than yesterday."
 			},
 			{
+				"alt": [
+					{
+						"item": "scrap_receiver",
+						"label": "Listen on the scrap receiver"
+					}
+				],
 				"cinematic": "radio",
 				"effects": [
 					{
@@ -2360,6 +2543,12 @@
 				"outcome": "Fold the blankets. Just that. The blankets get folded, or they don't."
 			},
 			{
+				"alt": [
+					{
+						"item": "sock_puppets",
+						"label": "Leave the sock puppets beside them"
+					}
+				],
 				"cinematic": "celebrate",
 				"effects": [
 					{
@@ -2513,6 +2702,11 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "soap_spray"
+					}
+				],
 				"cinematic": "repair",
 				"effects": [
 					{
@@ -2672,6 +2866,12 @@
 		"mood": "good",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "soap_spray",
+						"label": "Soap-spray him and let him in"
+					}
+				],
 				"cinematic": "pet",
 				"effects": [
 					{
@@ -3412,6 +3612,12 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "phone_torch",
+						"label": "Work by phone light"
+					}
+				],
 				"cinematic": "signal",
 				"effects": [
 					{
@@ -3699,6 +3905,12 @@
 		"mood": "good",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "bindle",
+						"label": "Pack the pantry into the bindle"
+					}
+				],
 				"cinematic": "gain",
 				"effects": [
 					{
@@ -3763,6 +3975,12 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "phone_torch",
+						"label": "Wave him on with the phone torch"
+					}
+				],
 				"cinematic": "signal",
 				"effects": [
 					{
@@ -3782,6 +4000,12 @@
 				"outcome": "He flashes back \"SORRY\" and leaves a can by the hatch."
 			},
 			{
+				"alt": [
+					{
+						"item": "door_barricade",
+						"label": "Wedge the barricade and wait"
+					}
+				],
 				"cinematic": "shrug",
 				"effects": [],
 				"id": "lock",
@@ -4916,6 +5140,12 @@
 		"mood": "neutral",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "sock_puppets",
+						"label": "Put on a sock puppet show"
+					}
+				],
 				"cinematic": "celebrate",
 				"effects": [
 					{
@@ -5218,6 +5448,12 @@
 		"mood": "neutral",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "scrap_receiver",
+						"label": "Try the scrap receiver"
+					}
+				],
 				"cinematic": "radio",
 				"effects": [
 					{
@@ -5257,6 +5493,11 @@
 			{
 				"cinematic": "gloom",
 				"effects": [
+					{
+						"do": "junk",
+						"item": "old_phone",
+						"n": 1
+					},
 					{
 						"do": "morale",
 						"n": -2,
@@ -5353,6 +5594,90 @@
 		"setup": "{subject} is running a fever, and the whole family has been drinking from the same cup since day two.",
 		"title": "One Cup",
 		"type": "sickness",
+		"weight": 1
+	},
+	"opening_night": {
+		"conditions": {
+			"min_day": 4,
+			"needs_child": true
+		},
+		"file": "crafting.json",
+		"id": "opening_night",
+		"mood": "good",
+		"options": [
+			{
+				"effects": [
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "subject",
+						"why": "a shadow play"
+					},
+					{
+						"days": 1,
+						"do": "tired",
+						"who": "actor"
+					}
+				],
+				"id": "shadows",
+				"label": "Improvise a shadow play",
+				"outcome": "{name} does a convincing rabbit and an unconvincing dragon. The audience is generous."
+			},
+			{
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "subject",
+						"why": "the show was cancelled"
+					}
+				],
+				"id": "not_tonight",
+				"label": "Not tonight",
+				"outcome": "The shoebox stage goes under the bunk for another night."
+			},
+			{
+				"effects": [
+					{
+						"do": "use",
+						"item": "sock_puppets",
+						"what": "a full show in a shoebox"
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "all",
+						"why": "the sock puppet show"
+					}
+				],
+				"id": "puppets",
+				"item": "sock_puppets",
+				"label": "Bring out the sock puppets",
+				"outcome": "Two socks, three acts and a standing ovation from the bunk beds."
+			},
+			{
+				"effects": [
+					{
+						"do": "use",
+						"item": "cards",
+						"what": "one card trick, done eleven times"
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "subject",
+						"why": "card tricks"
+					}
+				],
+				"id": "cards",
+				"item": "cards",
+				"label": "Card tricks instead",
+				"outcome": "The same trick eleven times. It gets the same gasp every time."
+			}
+		],
+		"setup": "{subject} has made a stage out of a shoebox and wants a show tonight. Nobody has rehearsed anything.",
+		"title": "Opening Night",
+		"type": "family",
 		"weight": 1
 	},
 	"out_for_delivery": {
@@ -5904,6 +6229,60 @@
 		"title": "Readiness Drill",
 		"type": "chain_followup"
 	},
+	"rain_on_the_vent": {
+		"conditions": {
+			"min_day": 3
+		},
+		"file": "crafting.json",
+		"id": "rain_on_the_vent",
+		"mood": "neutral",
+		"options": [
+			{
+				"effects": [
+					{
+						"do": "dirty_water",
+						"n": 4
+					},
+					{
+						"do": "dose",
+						"msv": 10,
+						"who": "actor"
+					}
+				],
+				"id": "collect",
+				"label": "Set every pot under the gutter",
+				"outcome": "Four rations of grey water and a damp sleeve. Nobody drinks it until it's filtered."
+			},
+			{
+				"effects": [],
+				"id": "leave",
+				"label": "Let it run off",
+				"outcome": "The rain runs down the street. Somebody downhill has a very full gutter."
+			},
+			{
+				"effects": [
+					{
+						"do": "use",
+						"item": "bottle_filter",
+						"what": "filtered the rain as it fell"
+					},
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": 4
+					}
+				],
+				"id": "filter",
+				"item": "bottle_filter",
+				"label": "Filter it as it comes in",
+				"outcome": "It drips through the filter all evening. Four rations of water that taste faintly of bottle."
+			}
+		],
+		"setup": "Rain on the hatch for the first time since. The gutter by the vent is overflowing, and it's mostly water.",
+		"title": "Rain on the Vent",
+		"type": "dirty_water",
+		"weight": 1.2
+	},
 	"scouts": {
 		"conditions": {
 			"needs_followed": true
@@ -5913,6 +6292,12 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "pipe_club",
+						"label": "Bang the pipe on the hatch"
+					}
+				],
 				"cinematic": "combat",
 				"effects": [
 					{
@@ -5944,6 +6329,12 @@
 				"outcome": "The notebooks go away fast."
 			},
 			{
+				"alt": [
+					{
+						"item": "tin_can_alarm",
+						"label": "Hang the tin cans where they can see them"
+					}
+				],
 				"cinematic": "repair",
 				"effects": [
 					{
@@ -6034,6 +6425,12 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "soap_spray",
+						"label": "Soap-spray the corners"
+					}
+				],
 				"cinematic": "repair",
 				"effects": [
 					{
@@ -6090,6 +6487,85 @@
 		"title": "Second Wave",
 		"type": "pests",
 		"weight": 0.8
+	},
+	"sharp_edges": {
+		"conditions": {
+			"min_day": 3,
+			"needs_crafted": true
+		},
+		"file": "crafting.json",
+		"id": "sharp_edges",
+		"mood": "bad",
+		"options": [
+			{
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "injure",
+								"root": "chance",
+								"who": "subject",
+								"why": "a cut from the workbench"
+							}
+						]
+					}
+				],
+				"id": "rinse",
+				"label": "Rinse it and wrap it in a sock",
+				"outcome": "The sock is not sterile. Nobody says so."
+			},
+			{
+				"effects": [
+					{
+						"do": "injure",
+						"root": "decision",
+						"who": "subject",
+						"why": "a cut from the workbench"
+					},
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "subject",
+						"why": "told it was fine"
+					}
+				],
+				"id": "fine",
+				"label": "Tell them it's fine",
+				"outcome": "{subject} is told it's fine. It is a cut, and it knows it."
+			},
+			{
+				"effects": [
+					{
+						"do": "use",
+						"item": "rag_bandage",
+						"what": "closed {subject}'s cut"
+					}
+				],
+				"id": "bandage",
+				"item": "rag_bandage",
+				"label": "Bind it with a rag bandage",
+				"outcome": "Boiled rag, tight wrap. The cut closes clean."
+			},
+			{
+				"effects": [
+					{
+						"do": "use",
+						"item": "medkit",
+						"what": "a cut from the workbench"
+					}
+				],
+				"id": "medkit",
+				"item": "medkit",
+				"label": "Use the medkit",
+				"outcome": "Proper gauze for a small cut. It feels like using the good plates."
+			}
+		],
+		"setup": "Taking things apart has its own hazards. {subject} found the sharpest part of a toaster with the palm of one hand.",
+		"title": "Sharp Edges",
+		"type": "sickness",
+		"weight": 1.2
 	},
 	"signature_required": {
 		"conditions": {
@@ -6161,6 +6637,13 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "rag_respirator",
+						"label": "Watch the vent in the rag respirator",
+						"p": 0.7
+					}
+				],
 				"cinematic": "hazard",
 				"effects": [
 					{
@@ -6915,6 +7398,12 @@
 				"outcome": "Ammunition is the local currency. Two bottles, no change given."
 			},
 			{
+				"alt": [
+					{
+						"item": "bindle",
+						"label": "Haul a load home in the bindle"
+					}
+				],
 				"cinematic": "gain",
 				"effects": [
 					{
@@ -7585,6 +8074,12 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "door_barricade",
+						"label": "Wedge the barricade under the hatch"
+					}
+				],
 				"cinematic": "repair",
 				"effects": [
 					{
@@ -7732,6 +8227,59 @@
 		"setup": "A teenager is sitting by the hatch, very still. They ask, politely, for water.",
 		"title": "Thirsty",
 		"type": "stranger",
+		"weight": 1
+	},
+	"toilet_tank": {
+		"conditions": {
+			"min_day": 2
+		},
+		"file": "crafting.json",
+		"id": "toilet_tank",
+		"mood": "good",
+		"options": [
+			{
+				"effects": [
+					{
+						"do": "dirty_water",
+						"n": 8
+					},
+					{
+						"do": "dose",
+						"msv": 25,
+						"who": "actor"
+					}
+				],
+				"id": "fetch",
+				"label": "Go up and drain it",
+				"outcome": "Two buckets come down the ladder, and some of the street comes with them on {name}'s clothes."
+			},
+			{
+				"effects": [],
+				"id": "later",
+				"label": "Leave it for now",
+				"outcome": "It will still be there. So will the dust on the stairs."
+			},
+			{
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "kept the dust out on the stairs"
+					},
+					{
+						"do": "dirty_water",
+						"n": 8
+					}
+				],
+				"id": "mask",
+				"item": "gas_mask",
+				"label": "Go up masked",
+				"outcome": "Two buckets, no dust in anyone's lungs. The water needs filtering; the lungs don't."
+			}
+		],
+		"setup": "{name} remembers the toilet tank upstairs. Twelve litres, untouched since the blast, behind a door that still locks.",
+		"title": "The Toilet Tank",
+		"type": "dirty_water",
 		"weight": 1
 	},
 	"tracked_in": {
@@ -7893,6 +8441,12 @@
 		"mood": "bad",
 		"options": [
 			{
+				"alt": [
+					{
+						"item": "soap_spray",
+						"label": "Soap-spray the shelf"
+					}
+				],
 				"cinematic": "repair",
 				"effects": [
 					{

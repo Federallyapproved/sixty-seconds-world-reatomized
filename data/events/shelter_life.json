@@ -81,7 +81,13 @@
 						"what": "the food shelf is clear"
 					}
 				],
-				"outcome": "The shelf is clear. The smell lingers longer than the bugs did."
+				"outcome": "The shelf is clear. The smell lingers longer than the bugs did.",
+				"alt": [
+					{
+						"item": "soap_spray",
+						"label": "Soap-spray the shelf"
+					}
+				]
 			},
 			{
 				"id": "swat",
@@ -171,7 +177,13 @@
 						"what": "the ants are gone"
 					}
 				],
-				"outcome": "The corners are quiet again. The can is empty."
+				"outcome": "The corners are quiet again. The can is empty.",
+				"alt": [
+					{
+						"item": "soap_spray",
+						"label": "Soap-spray the corners"
+					}
+				]
 			},
 			{
 				"id": "pick",
@@ -333,7 +345,14 @@
 						"msv": 15
 					}
 				],
-				"outcome": "Ten minutes up the ladder. The cover is taped and the dust stops."
+				"outcome": "Ten minutes up the ladder. The cover is taped and the dust stops.",
+				"alt": [
+					{
+						"item": "rag_respirator",
+						"p": 0.6,
+						"label": "Go up in the rag respirator"
+					}
+				]
 			},
 			{
 				"id": "tape",
@@ -392,7 +411,13 @@
 						"what": "lit the shelter"
 					}
 				],
-				"outcome": "Two batteries of courage, rationed carefully."
+				"outcome": "Two batteries of courage, rationed carefully.",
+				"alt": [
+					{
+						"item": "phone_torch",
+						"label": "Work by phone light"
+					}
+				]
 			},
 			{
 				"id": "dark",
@@ -465,7 +490,14 @@
 						"msv": 20
 					}
 				],
-				"outcome": "Ash had packed the vent solid. Fresh air, and a lot of coughing."
+				"outcome": "Ash had packed the vent solid. Fresh air, and a lot of coughing.",
+				"alt": [
+					{
+						"item": "rag_respirator",
+						"p": 0.6,
+						"label": "Clear the vent in the rag respirator"
+					}
+				]
 			},
 			{
 				"id": "open",
@@ -544,7 +576,14 @@
 						"days": 1
 					}
 				],
-				"outcome": "{name} keeps the vent clear until dawn and sleeps through lunch."
+				"outcome": "{name} keeps the vent clear until dawn and sleeps through lunch.",
+				"alt": [
+					{
+						"item": "rag_respirator",
+						"p": 0.7,
+						"label": "Watch the vent in the rag respirator"
+					}
+				]
 			},
 			{
 				"id": "seal",
@@ -790,7 +829,13 @@
 						"n": 2
 					}
 				],
-				"outcome": "Level four, then level five, then snoring."
+				"outcome": "Level four, then level five, then snoring.",
+				"alt": [
+					{
+						"item": "sock_puppets",
+						"label": "Put on a sock puppet show"
+					}
+				]
 			},
 			{
 				"id": "cards",
@@ -1081,7 +1126,14 @@
 						"set": "storm"
 					}
 				],
-				"outcome": "The vent is covered. Outside is dangerous again for a couple of days."
+				"outcome": "The vent is covered. Outside is dangerous again for a couple of days.",
+				"alt": [
+					{
+						"item": "rag_respirator",
+						"p": 0.6,
+						"label": "Cover the vent in the rag respirator"
+					}
+				]
 			},
 			{
 				"id": "tape",
@@ -1191,7 +1243,13 @@
 						}
 					}
 				],
-				"outcome": "A volunteer reads out a list. One address still has a back room nobody found."
+				"outcome": "A volunteer reads out a list. One address still has a back room nobody found.",
+				"alt": [
+					{
+						"item": "scrap_receiver",
+						"label": "Listen on the scrap receiver"
+					}
+				]
 			},
 			{
 				"id": "ration",

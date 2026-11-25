@@ -1,0 +1,5 @@
+id,order,title,pamphlet,pamphlet_places
+ch1,1,Water and Air,a water-safety flyer,pharmacy|grocery
+ch2,2,Home Security,a home-security flyer,hardware|civic
+ch3,3,Radio and Light,a repair-café leaflet,school|electronics
+ch4,4,Morale and Pests,a household-hints leaflet,church|neighbor_house

@@ -19,6 +19,8 @@ const CONDITIONS: Array[String] = [
 	"padlock_stops", "cures", "map_trips", "heavy_clean", "gang_shaken", "repairs", "occupied_left_alone",
 	"credit_items", "ending", "ending_kind", "win_far_store", "win_no_guilt", "win_all_alive",
 	"win_rules_declined", "win_difficulty", "win_never_thirsty", "win_never_hungry", "trips_all_back",
+	# M3: crafting and salvage
+	"makeshift_win", "chapters", "pamphlet_learned",
 ]
 
 
@@ -122,6 +124,12 @@ static func met(cond: String, s: ShelterState, ctx: Dictionary, meta: Dictionary
 			return win and not bool(_stat(s, "hungry_ever"))
 		"trips_all_back":
 			return s.is_over() and int(_stat(s, "trips")) >= int(arg) and int(_stat(s, "trip_deaths")) == 0
+		"makeshift_win":
+			return win and int(_stat(s, "makeshift_used")) >= int(arg)
+		"chapters":
+			return s.chapters.size() >= int(arg)
+		"pamphlet_learned":
+			return int(_stat(s, "pamphlet_learned")) >= int(arg)
 	push_warning("Achievements: unknown condition '%s'" % cond)
 	return false
 

@@ -70,3 +70,59 @@ neighbor_house,suitcase,1,1,0.25,0,
 neighbor_house,rifle,1,1,0.06,0,
 neighbor_house,ammo,1,1,0.12,0,
 neighbor_house,gas_mask,1,1,0.08,0,
+home,toaster,1,1,0.7,0,House grab junk
+home,pots_pans,1,1,0.7,0,House grab junk
+home,old_phone,1,2,0.6,0,House grab junk
+home,smart_speaker,1,1,0.5,0,House grab junk
+home,bedsheet,1,2,0.8,0,House grab junk
+home,umbrella,1,1,0.6,0,House grab junk
+home,bottles,1,1,0.6,0,House grab junk
+home,cleaning_spray,1,1,0.7,0,House grab junk
+home,sanitizer,1,1,0.6,0,House grab junk
+home,duct_tape,1,1,0.6,0,House grab junk
+home,extension_cord,1,1,0.6,0,House grab junk
+hardware,duct_tape,1,3,1.0,0,Junk: binding
+hardware,extension_cord,1,2,1.0,0,Junk: electronics and binding
+hardware,pots_pans,0,2,1.0,0,Junk: metal
+hardware,umbrella,0,1,0.6,0,Junk: metal and cloth
+electronics,old_phone,1,3,1.0,0,Phone and electronics shops
+electronics,smart_speaker,1,2,1.0,0,Phone and electronics shops
+electronics,extension_cord,1,2,1.0,0,Phone and electronics shops
+electronics,flashlight,0,1,0.6,0,Phone and electronics shops
+electronics,radio,0,1,0.3,0,Phone and electronics shops
+electronics,console,0,1,0.5,0,Phone and electronics shops
+electronics,water,0,2,1.0,0,Phone and electronics shops
+pharmacy,sanitizer,1,3,1.0,0,Junk: chemicals
+pharmacy,cleaning_spray,0,2,1.0,0,Junk: chemicals and plastic
+pharmacy,bedsheet,0,2,0.8,0,Junk: cloth (dressings and sheets)
+grocery,bottles,1,3,1.0,0,Junk: plastic
+grocery,cleaning_spray,1,2,1.0,0,Junk: chemicals and plastic
+grocery,sanitizer,0,1,0.6,0,Junk: chemicals
+auto,bottles,0,2,1.0,0,Junk: plastic
+auto,duct_tape,0,1,0.7,0,Junk: binding
+auto,cleaning_spray,0,1,0.6,0,Junk: chemicals
+school,old_phone,0,1,0.6,0,Junk: lost property
+school,extension_cord,0,1,0.6,0,Junk
+school,bottles,0,1,0.6,0,Junk
+church,bedsheet,1,2,1.0,0,Junk: the clothing drive
+church,umbrella,0,1,0.6,0,Junk: lost property
+church,pots_pans,0,1,0.6,0,Junk: the soup kitchen
+civic,extension_cord,0,1,0.6,0,Junk
+civic,duct_tape,0,1,0.8,0,Junk
+restaurant,pots_pans,1,2,1.0,0,Junk: metal
+restaurant,cleaning_spray,0,1,0.6,0,Junk
+neighbor_house,toaster,1,1,0.25,0,Junk
+neighbor_house,pots_pans,1,1,0.3,0,Junk
+neighbor_house,old_phone,1,1,0.3,0,Junk
+neighbor_house,smart_speaker,1,1,0.2,0,Junk
+neighbor_house,bedsheet,1,1,0.4,0,Junk
+neighbor_house,umbrella,1,1,0.25,0,Junk
+neighbor_house,bottles,1,1,0.35,0,Junk
+neighbor_house,cleaning_spray,1,1,0.3,0,Junk
+neighbor_house,sanitizer,1,1,0.3,0,Junk
+neighbor_house,duct_tape,1,1,0.25,0,Junk
+neighbor_house,extension_cord,1,1,0.25,0,Junk
+shelter_box,extension_cord,1,1,1.0,0,"The box marked CABLES, MISC in the shelter"
+shelter_box,duct_tape,1,1,1.0,0,"The box marked CABLES, MISC in the shelter"
+shelter_box,bedsheet,1,1,0.8,0,"The box marked CABLES, MISC in the shelter"
+shelter_box,umbrella,1,1,0.3,0,"The box marked CABLES, MISC in the shelter"

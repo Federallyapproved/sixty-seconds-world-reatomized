@@ -1,1 +1,13 @@
-id,name,parts,tool,time,makes,effect_line,unlock
+id,name,parts,tool,time,makes,purpose,compare,unlock
+rag_bandage,Rag Bandage,cloth:2;chemicals:1,,quick,rag_bandage,Closes a wound without the medkit.,Makeshift medkit: cures Injured only (the medkit cures both),known
+bindle,Bedsheet Bindle,cloth:2;binding:1,,quick,bindle,Carry more home from a trip.,Makeshift suitcase: +2 carry for 2 trips (the suitcase gives +3 for good),known
+patch_job,Patch Job,binding:1;match:1,,quick,patch,Gets a broken item working one more time.,Makeshift repair: 1 more use (a manual repair restores it fully),known
+bottle_filter,Bottle Filter,plastic:2;cloth:1;chemicals:1,,day,bottle_filter,Makes dirty water drinkable.,Makeshift purifier: 3 jugs of dirty water become water,ch1
+rag_respirator,Rag Respirator,cloth:2;plastic:1;binding:1,,quick,rag_respirator,Breathe less fallout dust on trips.,Makeshift gas mask: halves the sickness risk for 2 trips (the gas mask cuts it most),ch1
+door_barricade,Door Barricade,metal:3;binding:1,axe,day,door_barricade,Holds the hatch against one raid.,"Makeshift padlock: stops one raid 60% of the time, then breaks (the padlock stops 100%)",ch2
+tin_can_alarm,Tin-Can Alarm,metal:2;binding:1,,quick,tin_can_alarm,Wakes everyone when a thief comes at night.,No real equivalent: a silent theft becomes a choice; works twice,ch2
+pipe_club,Pipe Club,metal:2;binding:1,axe,quick,pipe_club,Something to swing on raid nights.,Makeshift axe: stops a raid 50% of the time; 50% chance to break each use,ch2
+phone_torch,Phone Torch,electronics:2;plastic:1,,quick,phone_torch,Light for dark moments.,Makeshift flashlight: 2 uses in dark events; can't signal a rescue,ch3
+scrap_receiver,Scrap Receiver,electronics:3;metal:1,flashlight,day,scrap_receiver,Hear the news without the radio.,"Makeshift radio: hears broadcasts on half the days; can't transmit, so no rescue",ch3
+soap_spray,Soap Spray,chemicals:1;plastic:1,,quick,soap_spray,Deal with pests without bug spray.,"Makeshift bug spray: works 65% of the time, 1 use",ch4
+sock_puppets,Sock Puppet Show,cloth:2,,quick,sock_puppets,Lifts everyone's spirits once.,"Makeshift console: +1 morale for everyone, once (cards and the console can be reused)",ch4

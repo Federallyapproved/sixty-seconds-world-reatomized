@@ -4,6 +4,8 @@ extends SceneTree
 ## number keys answer the day's dilemma, SPACE finishes the outcome animation, mouse clicks toggle
 ## the ration row and plan an expedition in the trip planner (risk preview, gear), ENTER ends the
 ## day. Screenshots every day and writes a JSON report of what it verified.
+## M3: the job button opens a menu (Rest, Trip, Craft, Study); the test takes junk apart at the
+## Bench, puts a survivor at the workbench and another on the manual, all with the mouse.
 ## Needs a display for screenshots (run in a normal no-focus window via override.cfg).
 ##   godot --path . --rendering-driver opengl3 -s res://tests/pass2/play_shelter.gd -- --out=<dir> [--seed=7] [--days=12]
 ## (The pre-M1 version drove the old notebook tabs and the garage; both were replaced by the
@@ -86,6 +88,34 @@ func _buttons(n: Node, prefix: String, out: Array) -> void:
 		_buttons(c, prefix, out)
 
 
+func _named(n: Node, prefix: String, out: Array) -> void:
+	if n is Button and (n as Button).is_visible_in_tree() and str(n.name).begins_with(prefix):
+		out.append(n)
+	for c in n.get_children():
+		_named(c, prefix, out)
+
+
+func _by_name(prefix: String) -> Array:
+	var out: Array = []
+	_named(root, prefix, out)
+	return out
+
+
+## Opens a survivor's job menu with the mouse and clicks one entry (JobTrip, JobCraft, JobStudy).
+func _job(mid: String, entry: String) -> bool:
+	var jb: Array = _by_name("Job_" + mid)
+	if jb.is_empty() or (jb[0] as Button).disabled:
+		return false
+	await _click(jb[0])
+	await _frames(4)
+	var it: Array = _by_name(entry)
+	if it.is_empty() or (it[0] as Button).disabled:
+		return false
+	await _click(it[0])
+	await _frames(12)
+	return true
+
+
 func _find(prefix: String) -> Array:
 	var out: Array = []
 	_buttons(_bk, prefix, out)
@@ -126,7 +156,8 @@ func _run() -> void:
 	for m in _gs.get("family_members"):
 		m["in_bunker"] = true
 		m["alive"] = true
-	for pair in [["food", 4], ["water", 5], ["medkit", 1], ["gas_mask", 1], ["radio", 1], ["rifle", 1], ["ammo", 1], ["map", 1], ["flashlight", 1], ["suitcase", 1]]:
+	for pair in [["food", 4], ["water", 5], ["medkit", 1], ["gas_mask", 1], ["radio", 1], ["rifle", 1], ["ammo", 1], ["map", 1], ["flashlight", 1], ["suitcase", 1],
+			["manual", 1], ["bedsheet", 1], ["sanitizer", 1], ["toaster", 1]]:
 		_gs.call("add_scavenged_item", pair[0], pair[1])
 	var alm: Dictionary = _gs.get("almanac")
 	for iid in ShelterData.core_ids():
@@ -150,6 +181,9 @@ func _run() -> void:
 	var saw_console_option: bool = false
 	var saw_toast: bool = false
 	var aff_member: Dictionary = {}
+	var bench_done: bool = false
+	var crafter: String = ""
+	var studier: String = ""
 	for d in range(days):
 		if s.is_over():
 			break
@@ -218,14 +252,69 @@ func _run() -> void:
 					_buttons(rows2[idx], "", fb)
 					if not fb.is_empty():
 						await _click(fb[0])
+		# M3, day 1: take junk apart at the Bench, then a day at the workbench and a day with the manual.
+		if not bench_done and s.day == 1:
+			bench_done = true
+			var parts_before: int = ShelterCraft.parts_total(s)
+			await _click(_by_name("BenchButton")[0])
+			await _frames(12)
+			var ta: Array = _by_name("TakeApart_toaster")
+			if not ta.is_empty():
+				await _click(ta[0])
+				await _frames(8)
+			await _snap("p15_bench")
+			_check("bench_takes_junk_apart_with_a_click", ShelterCraft.parts_total(s) == parts_before + 3 and not s.has("toaster"), "parts %d -> %d" % [parts_before, ShelterCraft.parts_total(s)])
+			await _click(_by_name("Back")[0])
+			await _frames(8)
+			for m_v in s.home():
+				var m: Dictionary = m_v
+				if not bool(m.get("is_leader", false)) and not ShelterState.is_child(m) and crafter == "":
+					crafter = str(m["id"])
+				elif bool(m.get("is_leader", false)):
+					studier = str(m["id"])
+			var opened_c: bool = false
+			if crafter != "":
+				opened_c = await _job(crafter, "JobCraft")
+			if opened_c:
+				var make: Array = _by_name("Make_rag_bandage")
+				if not make.is_empty() and not (make[0] as Button).disabled:
+					await _click(make[0])
+					await _frames(6)
+				await _snap("p16_workbench")
+				var conf: Array = _by_name("Confirm")
+				if not conf.is_empty() and not (conf[0] as Button).disabled:
+					await _click(conf[0])
+					await _frames(10)
+			var cj: Dictionary = ((_bk.get("_plan") as Dictionary)["jobs"] as Dictionary).get(crafter, {})
+			_check("workbench_job_set_with_the_mouse", str(cj.get("job", "")) == "craft", str(cj))
+			var opened_s: bool = false
+			if studier != "":
+				opened_s = await _job(studier, "JobStudy")
+			if opened_s:
+				var st: Array = _by_name("Study_ch1")
+				if not st.is_empty():
+					await _click(st[0])
+					await _frames(10)
+			var sj: Dictionary = ((_bk.get("_plan") as Dictionary)["jobs"] as Dictionary).get(studier, {})
+			_check("study_job_set_with_the_mouse", str(sj.get("job", "")) == "study", str(sj))
+			await _snap("p17_jobs")
+		if s.day == 2 and crafter != "" and not bool(_report.get("bench_checked", false)):
+			_report["bench_checked"] = true
+			var made_txt: String = ""
+			for l_v in (_bk.get("_morning") as Dictionary).get("morning", []):
+				made_txt += str((l_v as Dictionary).get("text", "")) + " | "
+			_check("crafted_overnight_with_a_receipt", made_txt.find("made a rag bandage") != -1 or made_txt.find("fell apart on the bench") != -1, made_txt.substr(0, 240))
+			_check("chapter_learned_overnight", s.chapters.has("ch1"), str(s.chapters))
 		# Day 2 onwards: plan an expedition through the planner with the mouse.
 		if not planned_trip and s.day >= 2:
-			var trip_btns: Array = _find("Rest · Trip")
-			for tb in trip_btns:
-				if (tb as Button).disabled:
+			var trip_btns: Array = []
+			for m_v in s.home():
+				if ShelterTrips.can_go(s, m_v as Dictionary) == "":
+					trip_btns.append(str((m_v as Dictionary)["id"]))
+			for tmid in trip_btns:
+				var opened_t: bool = await _job(str(tmid), "JobTrip")
+				if not opened_t:
 					continue
-				await _click(tb)
-				await _frames(15)
 				var tp: Node = _bk.get("_planner")
 				if tp == null:
 					break

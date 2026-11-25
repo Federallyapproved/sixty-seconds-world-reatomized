@@ -10,7 +10,8 @@ extends RefCounted
 ## * a missing icon; an item's slot count outside 1-3;
 ## * a core item gating fewer than 3 events; an event without a no-item option, or an item-gated
 ##   event whose no-item options all cost nothing; a fatal outcome without a warning kind;
-## * a recipe part that no junk in at least 2 place types can supply;
+## * a recipe part that no junk in at least 2 place types can supply; a recipe, part, manual
+##   chapter or makeshift stand-in ("alt") that points nowhere, or an alt on a rescue step;
 ## * a narration line without its .ogg (allowed while the row is marked pending);
 ## * banned words (the 1950s list and brand names) in any table or event text;
 ## * a third-party asset with a license outside the allowed list, or a file under assets/ with no
@@ -42,8 +43,10 @@ func _run(write: bool) -> void:
 	var items: Dictionary = _load_items()
 	var loot: Dictionary = _load_loot(items)
 	var balance: Dictionary = _load_balance()
-	var parts: Dictionary = _load_simple_table("parts.csv", "id")
-	var recipes: Dictionary = _load_recipes(items, parts)
+	var parts: Dictionary = _load_parts()
+	var chapters: Dictionary = _load_chapters()
+	var recipes: Dictionary = _load_recipes(items, parts, chapters)
+	_check_makeshift(items, recipes)
 	var narration: Dictionary = _load_narration()
 	var rules: Dictionary = _load_simple_table("house_rules.csv", "id")
 	var achievements: Dictionary = _load_simple_table("achievements.csv", "id")
@@ -55,13 +58,14 @@ func _run(write: bool) -> void:
 	var events: Dictionary = _load_events(items)
 	_check_item_coverage(items, events)
 	_check_recipe_parts(items, loot, recipes)
+	_check_alts(events, items)
 	_check_banned_text(items, events, narration, rules, achievements, afflictions)
 	_check_strangers(events)
 	_check_later_triggers(events, narration)
 	_check_assets(items, manifest)
 	var gate_counts: Dictionary = out.get("item_gate_counts", {})
 	out = {
-		"items": items, "loot": loot, "balance": balance, "parts": parts, "recipes": recipes,
+		"items": items, "loot": loot, "balance": balance, "parts": parts, "recipes": recipes, "chapters": chapters,
 		"narration": narration, "house_rules": rules, "achievements": achievements, "afflictions": afflictions,
 		"events": events, "assets": manifest, "item_gate_counts": gate_counts,
 	}
@@ -194,7 +198,36 @@ func _load_simple_table(file: String, key: String) -> Dictionary:
 	return t
 
 
-func _load_recipes(items: Dictionary, parts: Dictionary) -> Dictionary:
+func _load_parts() -> Dictionary:
+	var parts: Dictionary = _load_simple_table("parts.csv", "id")
+	var shapes: Dictionary = {}
+	for pid in parts.keys():
+		var r: Dictionary = parts[pid]
+		var shape: String = str(r.get("icon_shape", ""))
+		if not (shape in DataSchema.PART_SHAPES):
+			_err("parts.csv: '%s' has unknown shape '%s'" % [pid, shape])
+		if shapes.has(shape):
+			_err("parts.csv: '%s' and '%s' share the shape '%s' (each part needs its own, for colour-blind players)" % [pid, str(shapes[shape]), shape])
+		shapes[shape] = pid
+		if not Color.html_is_valid(str(r.get("color", ""))):
+			_err("parts.csv: '%s' has an invalid colour" % pid)
+		parts[pid] = {"id": str(pid), "name": str(r.get("name", pid)), "shape": shape, "color": str(r.get("color", "#e8eaed"))}
+	return parts
+
+
+func _load_chapters() -> Dictionary:
+	var ch: Dictionary = _load_simple_table("manual_chapters.csv", "id")
+	for cid in ch.keys():
+		var r: Dictionary = ch[cid]
+		for k in ["order", "title", "pamphlet", "pamphlet_places"]:
+			if str(r.get(k, "")) == "":
+				_err("manual_chapters.csv: '%s' has no %s" % [cid, k])
+		ch[cid] = {"id": str(cid), "order": int(str(r.get("order", "0"))), "title": str(r.get("title", "")),
+			"pamphlet": str(r.get("pamphlet", "")), "pamphlet_places": str(r.get("pamphlet_places", "")).split("|", false)}
+	return ch
+
+
+func _load_recipes(items: Dictionary, parts: Dictionary, chapters: Dictionary) -> Dictionary:
 	var recipes: Dictionary = {}
 	for r_v in read_csv(DATA_DIR + "/recipes.csv"):
 		var r: Dictionary = r_v
@@ -204,18 +237,64 @@ func _load_recipes(items: Dictionary, parts: Dictionary) -> Dictionary:
 		if recipes.has(rid):
 			_err("recipes.csv: duplicate id '%s'" % rid)
 		var needs: Dictionary = parse_kv(str(r.get("parts", "")), ":")
+		if needs.is_empty():
+			_err("recipes.csv: '%s' needs no parts" % rid)
 		for p in needs.keys():
-			if not parts.has(str(p)):
+			# "match" is the part the broken item scraps into (the Patch Job).
+			if not parts.has(str(p)) and str(p) != "match":
 				_err("recipes.csv: '%s' needs unknown part '%s'" % [rid, str(p)])
 		var tool: String = str(r.get("tool", ""))
 		if tool != "" and tool != "-" and not items.has(tool):
 			_err("recipes.csv: '%s' needs unknown tool '%s'" % [rid, tool])
 		var makes: String = str(r.get("makes", ""))
-		if not items.has(makes):
+		if makes == "patch":
+			if not needs.has("match"):
+				_err("recipes.csv: '%s' patches an item but needs no matching part" % rid)
+		elif not items.has(makes):
 			_err("recipes.csv: '%s' makes unknown item '%s'" % [rid, makes])
-		recipes[rid] = {"id": rid, "name": str(r.get("name", rid)), "parts": needs, "tool": tool, "time": str(r.get("time", "quick")),
-			"makes": makes, "effect_line": str(r.get("effect_line", "")), "unlock": str(r.get("unlock", "known"))}
+		elif str((items[makes] as Dictionary).get("category", "")) != "makeshift":
+			_err("recipes.csv: '%s' makes '%s', which is not marked makeshift" % [rid, makes])
+		var time: String = str(r.get("time", "quick"))
+		if not (time in DataSchema.RECIPE_TIMES):
+			_err("recipes.csv: '%s' has unknown time '%s' (quick or day)" % [rid, time])
+		var unlock: String = str(r.get("unlock", "known"))
+		if unlock != "known" and not chapters.has(unlock):
+			_err("recipes.csv: '%s' is unlocked by unknown chapter '%s'" % [rid, unlock])
+		for k in ["name", "purpose", "compare"]:
+			if str(r.get(k, "")) == "":
+				_err("recipes.csv: '%s' has no %s" % [rid, k])
+		recipes[rid] = {"id": rid, "name": str(r.get("name", rid)), "parts": needs, "tool": "" if tool == "-" else tool, "time": time,
+			"makes": makes, "purpose": str(r.get("purpose", "")), "compare": str(r.get("compare", "")), "unlock": unlock}
 	return recipes
+
+
+## Junk scraps into known parts; every makeshift item is made by a recipe and declares only
+## effects the rules know; a stand-in names a core item.
+func _check_makeshift(items: Dictionary, recipes: Dictionary) -> void:
+	var made: Dictionary = {}
+	for rid in recipes.keys():
+		made[str((recipes[rid] as Dictionary)["makes"])] = true
+	var parts: Array = ["cloth", "metal", "electronics", "plastic", "binding", "chemicals"]
+	for iid in items.keys():
+		var it: Dictionary = items[iid]
+		var cat: String = str(it.get("category", ""))
+		for part in (it.get("scrap", {}) as Dictionary).keys():
+			if not (str(part) in parts):
+				_err("items.csv: '%s' scraps into unknown part '%s'" % [iid, str(part)])
+		if cat == "junk" and (it.get("scrap", {}) as Dictionary).is_empty():
+			_err("items.csv: junk '%s' breaks into nothing" % iid)
+		if cat != "makeshift":
+			continue
+		if not made.has(iid):
+			_err("items.csv: makeshift '%s' has no recipe" % iid)
+		var eff: Dictionary = it.get("effects", {})
+		for k in eff.keys():
+			if not (str(k) in DataSchema.MAKESHIFT_EFFECTS):
+				_err("items.csv: makeshift '%s' has unknown effect '%s'" % [iid, str(k)])
+		if eff.has("stands_in"):
+			var real: String = str(eff["stands_in"])
+			if not items.has(real) or str((items[real] as Dictionary).get("category", "")) != "core":
+				_err("items.csv: makeshift '%s' stands in for '%s', which is not a core item" % [iid, real])
 
 
 func _load_narration() -> Dictionary:
@@ -314,6 +393,8 @@ func _check_event(ev: Dictionary, events: Dictionary, items: Dictionary) -> void
 	for ck in cond.keys():
 		if not (str(ck) in DataSchema.CONDITION_KEYS):
 			_err("event '%s' has unknown condition '%s'" % [eid, str(ck)])
+	if cond.has("needs_dirty_water") and not str(cond["needs_dirty_water"]).is_valid_int():
+		_err("event '%s' needs_dirty_water must be a whole number of rations" % eid)
 	for ck in ["needs_owned", "needs_missing", "needs_broken"]:
 		if cond.has(ck) and not items.has(str(cond[ck])):
 			_err("event '%s' condition %s names unknown item '%s'" % [eid, ck, str(cond[ck])])
@@ -375,8 +456,9 @@ func _check_effects(eid: String, oid: String, effs: Array, events: Dictionary, i
 			_err("event '%s' option '%s' has unknown effect '%s'" % [eid, oid, op])
 			continue
 		if e.has("item") and str(e["item"]) != "any" and not items.has(str(e["item"])):
-			if op != "junk":
-				_err("event '%s' option '%s' effect %s names unknown item '%s'" % [eid, oid, op, str(e["item"])])
+			_err("event '%s' option '%s' effect %s names unknown item '%s'" % [eid, oid, op, str(e["item"])])
+		if op == "junk" and str((items.get(str(e.get("item", "")), {}) as Dictionary).get("category", "")) != "junk":
+			_err("event '%s' option '%s' 'junk' names '%s', which is not junk" % [eid, oid, str(e.get("item", ""))])
 		if e.has("who") and not (str(e["who"]) in DataSchema.WHO):
 			_err("event '%s' option '%s' effect %s has unknown target '%s'" % [eid, oid, op, str(e["who"])])
 		match op:
@@ -396,7 +478,7 @@ func _check_effects(eid: String, oid: String, effs: Array, events: Dictionary, i
 					_err("event '%s' option '%s' 'rule' names no rule" % [eid, oid])
 			"lose", "steal", "sick", "injure", "dose", "break", "break_fragile", "tired", "refuse_trip", "guilt", "pet_leaves", "followed":
 				res["cost"] = true
-			"rations", "morale":
+			"rations", "morale", "dirty_water":
 				if float(e.get("n", 0)) < 0.0:
 					res["cost"] = true
 			"schedule":
@@ -527,23 +609,63 @@ func _check_tokens(eid: String, text: String) -> void:
 			_err("event '%s' uses unknown placeholder %s" % [eid, m.get_string()])
 
 
-## Every core item must gate at least 3 events; every makeshift item at least 1.
+## Every core item must gate at least 3 events; every makeshift item at least 1 (as an option's
+## item, or as the makeshift stand-in an option accepts: its "alt" list).
 func _check_item_coverage(items: Dictionary, events: Dictionary) -> void:
 	var gates: Dictionary = {}
 	for eid in events.keys():
 		var ev: Dictionary = events[eid]
 		var seen: Dictionary = {}
 		for o_v in ev.get("options", []):
-			var it: String = str((o_v as Dictionary).get("item", ""))
-			if it != "" and not seen.has(it):
-				seen[it] = true
-				gates[it] = int(gates.get(it, 0)) + 1
+			var ids: Array = [str((o_v as Dictionary).get("item", ""))]
+			for a_v in (o_v as Dictionary).get("alt", []):
+				ids.append(str((a_v as Dictionary).get("item", "")) if a_v is Dictionary else str(a_v))
+			for it_v in ids:
+				var it: String = str(it_v)
+				if it != "" and not seen.has(it):
+					seen[it] = true
+					gates[it] = int(gates.get(it, 0)) + 1
 	out["item_gate_counts"] = gates
 	for iid in items.keys():
 		var cat: String = str((items[iid] as Dictionary).get("category", ""))
 		var need: int = 3 if cat == "core" else (1 if cat == "makeshift" else 0)
 		if int(gates.get(iid, 0)) < need:
 			_err("item '%s' (%s) gates %d events (needs %d)" % [iid, cat, int(gates.get(iid, 0)), need])
+
+
+## Makeshift stand-ins ("alt" on an item option): the option names a core item, the stand-in is a
+## makeshift item, and rescue steps never accept one (makeshift items can't meet rescue or ending
+## conditions, section 10). An option that hands the real item over can't take a stand-in either.
+func _check_alts(events: Dictionary, items: Dictionary) -> void:
+	for eid in events.keys():
+		var ev: Dictionary = events[eid]
+		for o_v in ev.get("options", []):
+			var o: Dictionary = o_v
+			var alts: Array = o.get("alt", [])
+			if alts.is_empty():
+				continue
+			var oid: String = str(o.get("id", ""))
+			if str(o.get("item", "")) == "":
+				_err("event '%s' option '%s' lists a makeshift stand-in but needs no item" % [eid, oid])
+			if ev.has("chain") or str(ev.get("type", "")) == "rescue":
+				_err("event '%s' is a rescue step; option '%s' can't accept a makeshift stand-in" % [eid, oid])
+			for e_v in _flat_effects(o.get("effects", [])):
+				var e: Dictionary = e_v
+				if str(e.get("do", "")) in ["chain", "end_run", "give"]:
+					_err("event '%s' option '%s' %s, so it can't accept a makeshift stand-in" % [eid, oid, str(e.get("do", ""))])
+			for a_v in alts:
+				if not (a_v is Dictionary):
+					_err("event '%s' option '%s' alt entries must be objects" % [eid, oid])
+					continue
+				var a: Dictionary = a_v
+				var ai: String = str(a.get("item", ""))
+				if str((items.get(ai, {}) as Dictionary).get("category", "")) != "makeshift":
+					_err("event '%s' option '%s' alt '%s' is not a makeshift item" % [eid, oid, ai])
+				var pv: float = float(a.get("p", 1.0))
+				if pv <= 0.0 or pv > 1.0:
+					_err("event '%s' option '%s' alt '%s' has p %.2f (0-1)" % [eid, oid, ai, pv])
+				if a.has("fail"):
+					_check_effects(eid, oid, a.get("fail", []), events, items)
 
 
 ## Each recipe part must come from junk found in at least 2 place types.
@@ -560,6 +682,8 @@ func _check_recipe_parts(items: Dictionary, loot: Dictionary, recipes: Dictionar
 				(sources[part] as Dictionary)[pt] = true
 	for rid in recipes.keys():
 		for part in ((recipes[rid] as Dictionary)["parts"] as Dictionary).keys():
+			if str(part) == "match":
+				continue
 			var n: int = (sources.get(part, {}) as Dictionary).size()
 			if n < 2:
 				_err("recipe '%s': part '%s' comes from junk in %d place types (needs 2)" % [rid, str(part), n])
@@ -652,7 +776,7 @@ static func _word_count(s: String) -> int:
 
 func _write_all() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(BUILD_DIR))
-	for k in ["items", "loot", "balance", "parts", "recipes", "narration", "house_rules", "achievements", "afflictions", "events"]:
+	for k in ["items", "loot", "balance", "parts", "recipes", "chapters", "narration", "house_rules", "achievements", "afflictions", "events"]:
 		_write_json(BUILD_DIR + "/" + k + ".json", out[k])
 	_write_credits()
 

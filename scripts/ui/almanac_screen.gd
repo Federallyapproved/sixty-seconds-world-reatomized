@@ -2,10 +2,12 @@ class_name AlmanacScreen
 extends Control
 
 ## The Survival Almanac (section 8): every core item as a card, greyed out until discovered;
-## clicking one opens its page with the effects seen so far and the item options unlocked.
+## clicking one opens its page with the effects seen so far and the item options unlocked. Junk
+## and makeshift items (M3) have their own tabs; a makeshift page also shows its recipe.
 ## Below the items: endings, House Rules, strangers and kinds of place found over all runs.
 
 var _page: RichTextLabel = null
+var _grid: GridContainer = null
 var _transitioning: bool = false
 
 
@@ -37,17 +39,34 @@ func _ready() -> void:
 	sub.add_theme_color_override("font_color", ThemeHelper.COLOR_TEXT_MUTED)
 	add_child(sub)
 
-	var grid := GridContainer.new()
-	grid.name = "ItemGrid"
-	grid.columns = 4
-	grid.position = Vector2(48.0, 100.0)
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
-	add_child(grid)
-	var ids: Array = ShelterData.core_ids()
-	ids.sort()
-	for iid in ids:
-		grid.add_child(_item_button(d, str(iid)))
+	# Core items, junk and makeshift items (M3) each have their own tab.
+	var tabs := HBoxContainer.new()
+	tabs.name = "Tabs"
+	tabs.position = Vector2(48.0, 94.0)
+	tabs.add_theme_constant_override("separation", 8)
+	add_child(tabs)
+	for cat in ["core", "junk", "makeshift"]:
+		var tb := Button.new()
+		tb.name = "Tab_" + cat
+		var seen: int = 0
+		for iid in ShelterData.ids_in(cat):
+			if Almanac.is_known(d, iid):
+				seen += 1
+		tb.text = "%s %d/%d" % [{"core": "Items", "junk": "Junk", "makeshift": "Makeshift"}[cat], seen, ShelterData.ids_in(cat).size()]
+		tb.toggle_mode = true
+		tb.button_pressed = cat == "core"
+		tb.custom_minimum_size = Vector2(140.0, 32.0)
+		var c: String = cat
+		tb.pressed.connect(func() -> void: _fill_grid(c))
+		tabs.add_child(tb)
+	_grid = GridContainer.new()
+	_grid.name = "ItemGrid"
+	_grid.columns = 4
+	_grid.position = Vector2(48.0, 136.0)
+	_grid.add_theme_constant_override("h_separation", 8)
+	_grid.add_theme_constant_override("v_separation", 8)
+	add_child(_grid)
+	_fill_grid("core")
 
 	var page_card := ThemeHelper.make_card_panel(ThemeHelper.COLOR_PANEL, ThemeHelper.COLOR_BORDER)
 	page_card.position = Vector2(660.0, 100.0)
@@ -76,6 +95,17 @@ func _ready() -> void:
 	back.position = Vector2(48.0, 644.0)
 	back.pressed.connect(_on_back)
 	add_child(back)
+
+
+func _fill_grid(cat: String) -> void:
+	for c in _grid.get_children():
+		c.queue_free()
+	var tabs: Node = get_node_or_null("Tabs")
+	if tabs != null:
+		for tb in tabs.get_children():
+			(tb as Button).button_pressed = str(tb.name) == "Tab_" + cat
+	for iid in ShelterData.ids_in(cat):
+		_grid.add_child(_item_button(GameState.almanac, str(iid)))
 
 
 func _item_button(d: Dictionary, iid: String) -> Button:
@@ -108,6 +138,8 @@ func _show_item(iid: String) -> void:
 	var t: String = "[b]%s[/b]  [color=%s][%d slot%s][/color]\n%s\n" % [str(pg["name"]), muted, int(pg["slots"]), "" if int(pg["slots"]) == 1 else "s", str(pg["purpose"])]
 	if str(pg["almanac"]) != "":
 		t += "[color=%s]%s[/color]\n" % [muted, str(pg["almanac"])]
+	if str(pg.get("recipe", "")) != "":
+		t += "[color=%s]%s[/color]\n" % [amber, str(pg["recipe"])]
 	t += "\n[color=%s]Seen doing:[/color]\n" % amber
 	if (pg["effects"] as Array).is_empty():
 		t += "  nothing yet\n"

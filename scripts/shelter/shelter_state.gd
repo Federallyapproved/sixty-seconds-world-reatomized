@@ -76,6 +76,15 @@ var later: Array = []                 # [{day, kind, text, quiet_place}]: things
 var lines_used: Dictionary = {}       # narration line ids already used this run (no line plays twice)
 var start_count: int = 0              # people who made it into the shelter
 
+# Crafting and salvage (M3, section 10)
+var parts: Dictionary = {}            # part_id -> count on the part shelf (12 at most)
+var chapters: Dictionary = {}         # manual chapter id -> "manual" | "pamphlet" (learned for the run)
+var uses: Dictionary = {}             # makeshift item_id -> uses left on the one in use
+var patched: Dictionary = {}          # item_id -> true: working on a Patch Job (one more use)
+var patch_spent: Dictionary = {}      # item_id -> true: the patch gave out while the item was away
+var dirty_water: int = 0              # rations of dirty water (a Bottle Filter makes them water)
+var need_parts: Dictionary = {}       # part_id -> true: tagged with the Need toggle (loot it first)
+
 # Measurements for the balance harness and the end-of-run screens
 var stats: Dictionary = {}
 
@@ -93,6 +102,10 @@ func _init() -> void:
 		"thirsty_ever": false, "hungry_ever": false, "pharmacy_medkit": false, "stranger": "", "stranger_helped": false,
 		"pets_adopted": [], "seen_items": {}, "credit_lines": {}, "item_option_labels": {},
 		"stole": 0, "harmed": false, "occupied_left_alone": 0,
+		# M3: crafting and salvage
+		"crafted": {}, "craft_fails": 0, "taken_apart": 0, "parts_lost": 0, "studied": 0, "pamphlets": 0,
+		"pamphlet_learned": 0, "makeshift_used": 0, "filtered": 0, "thefts": 0, "alarms": 0, "patches": 0,
+		"dirty_collected": 0,
 	}
 
 
@@ -196,6 +209,7 @@ func break_one(item_id: String) -> bool:
 	if remove(item_id, 1) == 1:
 		broken[item_id] = broken_count(item_id) + 1
 		wear.erase(item_id)
+		patched.erase(item_id)
 		return true
 	return false
 
@@ -254,8 +268,11 @@ func credit(item_id: String, what: String) -> void:
 	var c: Dictionary = stats["credits"]
 	c[item_id] = int(c.get(item_id, 0)) + 1
 	stats["credits_total"] = int(stats["credits_total"]) + 1
-	if str(ShelterData.item(item_id).get("category", "")) == "makeshift":
+	# Crafted items, and gear running on a Patch Job, count toward the crafted-credit share (section 6).
+	var makeshift: bool = str(ShelterData.item(item_id).get("category", "")) == "makeshift" or patched.has(item_id)
+	if makeshift:
 		stats["credits_makeshift"] = int(stats["credits_makeshift"]) + 1
+		stats["makeshift_used"] = int(stats["makeshift_used"]) + 1
 	# The Almanac lists what each item has been seen doing.
 	var cl: Dictionary = stats["credit_lines"]
 	if not cl.has(item_id):
@@ -263,7 +280,15 @@ func credit(item_id: String, what: String) -> void:
 	var seen_lines: Array = cl[item_id]
 	if not seen_lines.has(what) and seen_lines.size() < 12:
 		seen_lines.append(what)
-	say("used", "Used: %s → %s" % [ShelterData.item_name(item_id), what], [item_id])
+	say("used", "Used: %s → %s" % [ShelterData.item_name(item_id) + (" (patched)" if patched.has(item_id) else ""), what], [item_id])
+	# A Patch Job is good for one more use: the item breaks again now (or when it comes home).
+	if patched.has(item_id):
+		patched.erase(item_id)
+		if has(item_id):
+			break_one(item_id)
+		else:
+			patch_spent[item_id] = true
+		say("break", "The patch gave out: the %s is broken again." % ShelterData.item_name(item_id).to_lower(), [item_id])
 
 
 ## "No gas mask → Dolores got sick": what was missing when it counted.

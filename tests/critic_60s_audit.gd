@@ -91,7 +91,9 @@ func _audit_1_item_db_and_carry_slots(gs: Node) -> void:
 	var expected_2_slot: Array[String] = ["axe", "rifle", "medkit"]
 
 	var all_ids: Array = ItemDBRef.call("get_all_item_ids")
-	_check(all_ids.size() == 16, "ItemDB has exactly the 16 core items", "got %d" % all_ids.size())
+	# M3: junk and makeshift items are separate categories (section 5); the core set is still 16.
+	var core_ids: Array = all_ids.filter(func(i: Variant) -> bool: return str((ItemDBRef.call("get_item_info", str(i)) as Dictionary).get("category", "")) == "core")
+	_check(core_ids.size() == 16, "ItemDB has exactly the 16 core items (junk and makeshift are separate categories)", "got %d" % core_ids.size())
 	var sc_info: Dictionary = ItemDBRef.call("get_item_info", "suitcase")
 	_check(int(sc_info.get("slots", -1)) == 3 and int((HouseGenRef.get("ITEM_META").get("suitcase", {}) as Dictionary).get("slots", -1)) == 3, "3-slot item 'suitcase' has slots=3 in ItemDB & HouseGenerator")
 
@@ -144,7 +146,9 @@ func _audit_1_item_db_and_carry_slots(gs: Node) -> void:
 				var p_arr: PackedVector2Array = HouseGenRef.call("find_path", nav, h_pos, ipos)
 				if not w_ok or p_arr.size() < 2:
 					unreachable_found += 1
-				if iid != "food" and iid != "water" and iid != "ammo":
+				# M3: junk (old phones, bedsheets) can turn up twice; core durables stay unique.
+				var cat_i: String = str((ItemDBRef.call("get_item_info", iid) as Dictionary).get("category", ""))
+				if iid != "food" and iid != "water" and iid != "ammo" and cat_i == "core":
 					if seen_durables.has(iid):
 						duplicate_durables += 1
 					seen_durables[iid] = true
@@ -157,7 +161,7 @@ func _audit_1_item_db_and_carry_slots(gs: Node) -> void:
 					unreachable_found += 1
 
 	_check(unreachable_found == 0, "All spawned items & family across 15 OSM houses are BFS-reachable from hatch", "unreachable=%d" % unreachable_found)
-	_check(duplicate_durables == 0, "No duplicate unique durable items spawned in a single house", "duplicates=%d" % duplicate_durables)
+	_check(duplicate_durables == 0, "No duplicate unique durable (core) items spawned in a single house", "duplicates=%d" % duplicate_durables)
 
 	# Live ScavengeScene pickup & deposit test for EVERY family role (adult 3, elder 3, teen 2, child 2) and all 4 2-slot items!
 	var leader: Dictionary = gs.call("make_family_member", "ldr", "Ted", "adult", 42, true, "handy", 1, 1, "#4a2e1b", "#2f5d8a", true, 1, "#c84b31", 0)

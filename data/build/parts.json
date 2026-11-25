@@ -1,3 +1,38 @@
 {
-
+	"binding": {
+		"color": "#e69f00",
+		"id": "binding",
+		"name": "Binding",
+		"shape": "triangle"
+	},
+	"chemicals": {
+		"color": "#2fbf8f",
+		"id": "chemicals",
+		"name": "Chemicals",
+		"shape": "drop"
+	},
+	"cloth": {
+		"color": "#cc79a7",
+		"id": "cloth",
+		"name": "Cloth",
+		"shape": "square"
+	},
+	"electronics": {
+		"color": "#f0e442",
+		"id": "electronics",
+		"name": "Electronics",
+		"shape": "diamond"
+	},
+	"metal": {
+		"color": "#a7b4c2",
+		"id": "metal",
+		"name": "Metal",
+		"shape": "hexagon"
+	},
+	"plastic": {
+		"color": "#56b4e9",
+		"id": "plastic",
+		"name": "Plastic",
+		"shape": "circle"
+	}
 }

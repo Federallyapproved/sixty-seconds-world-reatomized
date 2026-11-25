@@ -13,7 +13,7 @@
 | Where | Keys |
 |---|---|
 | Grab | **WASD / arrows** move · **SPACE** grab (timed) · at the hatch **SPACE** drops your load down · elsewhere **SPACE** drops the selected item · **Q** or **1–7** select a carried slot · **F** climb down · **TAB** end the look-around early · mouse click walks & grabs · the item in reach (or under the mouse) shows its name, slot count and what it is for |
-| Shelter | one screen per day: **1–4** or click answers the dilemma · click **Give / Skip** for each person's food and water · **Treat** spends a medkit · **Rest · Trip…** opens the trip planner (map, list, risk preview, gear) · **ENTER** or **END DAY** ends the day · **SPACE** skips an animation |
+| Shelter | one screen per day: **1–4** or click answers the dilemma · click **Give / Skip** for each person's food and water · **Treat** spends a medkit (or a rag bandage on a wound) · each person's **job** button: **Rest**, **Trip…** (the trip planner: map, list, risk preview, gear), **Craft…** (the workbench) or **Study…** (the manual) · **Bench** (top right) takes junk apart and shows the recipes · **ENTER** or **END DAY** ends the day · **SPACE** skips an animation · **ESC** closes the bench |
 | Difficulty | **Story**: 20 s look-around, 60 s grab, generous stock, exact odds · **Normal**: 10 s look-around, 60 s grab · **Hard**: 3 s look-around, 30 s grab, faster stock drain, smarter raiders (pick it on the strike screen, or `--difficulty=story|normal|hard`) |
 
 ---
@@ -55,8 +55,14 @@
    - **Drama:** at morale 0 people turn Selfish, Paranoid, Reckless or Withdrawn (always with a warning the day before); every 4 days a House meeting can pass one more House Rule ("Finders eat first", "Kids eat last"…), each with a real bonus and a morale cost; some neighbours are still home, and what you take from them stays with you; one rare stranger per run.
    - **Three rescues** heard on the hand-crank radio after the fallout clears — **the convoy**, **the neighbourhood** (opened at a real church or school) and **the airlift** — each a chain of item requests. Nothing lands before day 25. Two gamble endings let the family leave on a hope. (The car escape is switched off: `GameState.FEATURE_CAR_ESCAPE = false`.)
 
-6. **The Survival Almanac and achievements (`scripts/meta/`)**
-   - The Almanac fills in as you play: each item's page lists what it was seen doing and the options it opened; items you have never found stay greyed out, and their options stay hidden until you do.
+6. **Crafting and salvage (`scripts/shelter/shelter_craft.gd`, `scripts/bunker/workbench.gd`, `data/recipes.csv`)**
+   - **Junk** (a toaster, pots and pans, an old phone, a bag of bottles, duct tape…) turns up in the house, in stores and in neighbours' homes, takes carry slots, and comes apart at the **Bench** into six **parts** (Cloth, Metal, Electronics, Plastic, Binding, Chemicals; each with its own shape). The part shelf holds 12.
+   - A survivor can spend the day at the bench (two **Quick** recipes or one **Day** recipe) instead of going out. Twelve recipes make **Makeshift** things that are weaker than the real ones and wear out: a rag bandage closes a wound but does nothing for a fever, a door barricade holds one raid 60% of the time, a phone torch can't signal a rescue, a scrap receiver hears the all-clear but can't answer anyone. Crafting fails 20% of the time, 5% with the manual on the shelf.
+   - Most recipes are in the manual's four chapters: a day of **Study** learns one, or a **pamphlet** brought home from a pharmacy, a hardware store or a school does it without the manual. The **Need** toggle tags the parts a recipe is short of: that junk is looted first and ringed in the house and in the trip planner.
+   - New night-time pressure and supply: thieves who take a little in silence (a **tin-can alarm** turns that into a choice), and **dirty water** from rain and the toilet tank that only a **bottle filter** makes drinkable.
+
+7. **The Survival Almanac and achievements (`scripts/meta/`)**
+   - The Almanac fills in as you play: each item's page lists what it was seen doing and the options it opened; items you have never found stay greyed out, and their options stay hidden until you do. Junk and makeshift items have their own tabs; a makeshift page shows its recipe.
    - 30+ achievements that each ask for a decision (none for hiding in the shelter), with an unlock toast. The end-of-run report shows the MVP items, what was missing when it counted, and how each death happened, with the turning point marked.
 
 ---
@@ -71,11 +77,13 @@ The v3 rules live in data, run headless and are measured. Day-to-day commands (G
 | Data pipeline suite | `godot --headless --path . -s res://tests/pass2/run.gd -- --suite=../m1/data_pipeline_suite` |
 | Shelter rules suite | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/m1/shelter_rules_suite.gd` |
 | Drama and achievements suites (M2) | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/m2/drama_suite.gd` · `--script=res://tests/m2/achievements_suite.gd` |
+| Crafting and salvage suite (M3) | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/m3/craft_suite.gd` |
+| M3 screenshots (needs a display) | `godot --path . --rendering-driver opengl3 -s res://tests/m3/capture_m3.gd -- --out=<dir>` |
 | Systems gauntlet, QA, 60-second and OSM audits | `godot --headless --path . -s res://tests/pass2/run.gd -- --suite=systems_gauntlet` · `godot --headless --fixed-fps 30 --path . -s res://tests/critic_qa_audit.gd` · `-s res://tests/critic_60s_audit.gd` · `-s res://tests/critic_osm_audit.gd` |
 | Keyboard-and-mouse playthrough of the shelter (needs a display) | `godot --path . --rendering-driver opengl3 -s res://tests/pass2/play_shelter.gd -- --out=<dir>` |
-| Balance harness: 10,000 runs per policy, writes `docs/BALANCE_REPORT.md` | `GODOT=godot tools/run_sim.sh 10000 8 normal` |
+| Balance harness: 10,000 runs per policy (random, naive, expert, and the "crafter" stress test), writes `docs/BALANCE_REPORT.md` | `GODOT=godot tools/run_sim.sh 10000 8 normal` |
 | One simulated run, day by day | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/sim/sim_trace.gd --policy=expert --seed=5` |
 
-Adding an item, event or loot table is a data change: see [`docs/ADDING_CONTENT.md`](docs/ADDING_CONTENT.md). Milestone reports: [`docs/M1_REPORT.md`](docs/M1_REPORT.md) · balance: [`docs/BALANCE_REPORT.md`](docs/BALANCE_REPORT.md).
+Adding an item, event or loot table is a data change: see [`docs/ADDING_CONTENT.md`](docs/ADDING_CONTENT.md). Milestone reports: [`docs/M1_REPORT.md`](docs/M1_REPORT.md) · [`docs/M2_REPORT.md`](docs/M2_REPORT.md) · [`docs/M3_REPORT.md`](docs/M3_REPORT.md) · balance: [`docs/BALANCE_REPORT.md`](docs/BALANCE_REPORT.md).
 
 Test windows are opened without taking focus: keep a local `override.cfg` (git-ignored) with `[display]` / `window/size/no_focus=true`.

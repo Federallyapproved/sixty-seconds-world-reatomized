@@ -108,3 +108,23 @@ affliction_warn_morale,1,Morale at which a survivor warns of an affliction
 affliction_clear_morale,3,Morale at which an affliction lifts
 guilt_morale_cap,6,Morale cap for a survivor carrying Guilt
 occupied_share,0.30,Share of neighbours' houses that are still lived in
+craft_fail_p,0.20,Crafting failure chance without the manual in the shelter (section 10)
+craft_fail_manual_p,0.05,Crafting failure chance while the manual is in the shelter
+craft_fail_unwell_add,0.15,Extra failure chance for an injured or sick crafter
+craft_fail_handy_add,-0.03,A Handy crafter fails a little less
+part_shelf_max,12,Parts the shelf can hold
+quick_per_day,2,Quick recipes one crafter can make in a day
+filter_jug_rations,4,Rations of dirty water one use of the Bottle Filter cleans
+rain_night_p,0.12,Chance a night's rain fills the bucket under the vent
+rain_dirty_rations,2,Dirty water rations a rainy night leaves in the bucket
+thief_min_day,6,First day a night thief can come
+thief_night_p,0.03,Chance a thief slips in at night
+thief_followed_mult,1.5,Night thieves while the shelter is Noticed
+thief_rations,2,Rations a silent thief takes (food first; water if there is no food; else one small thing)
+barricade_stop_p,0.6,Door Barricade: chance to stop a raid (then it breaks)
+pipe_club_stop_p,0.5,Pipe Club: chance to stop a raid
+pipe_club_break_p,0.5,Pipe Club: chance to break on each use
+receiver_listen_p,0.5,Scrap Receiver: chance to hear a broadcast on a day
+respirator_sick_heavy,0.45,Sick on return in heavy fallout with only a Rag Respirator
+respirator_risk_mult,1.5,Trip risk in heavy fallout with only a Rag Respirator (no mask: 2.0)
+pamphlet_chance,0.5,Chance a place of the right type holds its pamphlet

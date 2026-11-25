@@ -102,6 +102,9 @@ static func get_item_info(item_id: String) -> Dictionary:
 static func tooltip_line(item_id: String) -> String:
 	var info: Dictionary = get_item_info(item_id)
 	var purpose: String = str(info.get("purpose", ""))
+	# Junk says what it breaks into: "Toaster [2] → 2 Metal, 1 Electronics" (section 8).
+	if str(info.get("category", "")) == "junk":
+		return "%s [%d] → %s" % [str(info["name"]), int(info["slots"]), ShelterCraft.parts_text(ShelterCraft.scrap_yield(_normalize_id(item_id)))]
 	if purpose == "":
 		return "%s [%d]" % [str(info["name"]), int(info["slots"])]
 	return "%s [%d] — %s" % [str(info["name"]), int(info["slots"]), purpose.substr(0, 1).to_lower() + purpose.substr(1)]

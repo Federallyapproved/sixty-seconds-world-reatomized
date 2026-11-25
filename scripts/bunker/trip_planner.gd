@@ -199,6 +199,8 @@ func _build_gear() -> void:
 		b.icon = ItemDB.get_icon_texture(g)
 		b.add_theme_constant_override("icon_max_width", 16)
 		b.tooltip_text = ItemDB.tooltip_line(g)
+		if ShelterCraft.uses_left(s, g) > 0:
+			b.tooltip_text += " (%d use%s left)" % [ShelterCraft.uses_left(s, g), "" if ShelterCraft.uses_left(s, g) == 1 else "s"]
 		if reserved.has(g) and s.count(g) <= 1:
 			b.disabled = true
 			b.tooltip_text = "Already packed for someone else"
@@ -278,6 +280,24 @@ func _refresh_preview() -> void:
 		loot_row.add_child(t)
 	loot_row.add_child(_label("  ·  carry %d slots" % int(pv["carry"]), 13, C_MUTED))
 	_preview.add_child(loot_row)
+	# The Need toggle (section 10): junk here that holds a tagged part, looted first.
+	var jh: Array = pv.get("junk_hint", [])
+	if not jh.is_empty():
+		var need_row := HBoxContainer.new()
+		need_row.add_theme_constant_override("separation", 4)
+		need_row.add_child(_label("Need: ", 13, C_AMBER))
+		for jid in jh:
+			var jt := TextureRect.new()
+			jt.texture = ItemDB.get_icon_texture(str(jid))
+			jt.custom_minimum_size = Vector2(20, 20)
+			jt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			jt.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			jt.tooltip_text = ItemDB.tooltip_line(str(jid))
+			need_row.add_child(jt)
+		need_row.add_child(_label(" " + ", ".join(jh.map(func(j: Variant) -> String: return ShelterData.item_name(str(j)).to_lower())), 12, C_AMBER))
+		_preview.add_child(need_row)
+	if str(pv.get("pamphlet_hint", "")) != "":
+		_preview.add_child(_label(str(pv["pamphlet_hint"]), 12, C_MUTED, true))
 	_preview.add_child(_label("Last stocked: %s" % str(pv["stocked"]), 13, C_MUTED))
 	var rumour: String = str(pv["rumour"])
 	if ShelterTrips.raiders_active(s):

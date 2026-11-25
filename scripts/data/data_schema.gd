@@ -59,6 +59,9 @@ const EFFECT_OPS: Array[String] = [
 	"rule",         # {rule}: adopt a House Rule (the House meeting builds these)
 	"rule_declined",# the House meeting adopts nothing
 	"end_run",      # {ending}: a "maybe" ending the family chooses (a gamble, not a death)
+	# M3
+	"dirty_water",  # {n}: rations of dirty water (rain, the toilet tank); a Bottle Filter makes them water
+	"parts",        # {n, part?}: parts for the part shelf (a random part when none is named)
 ]
 
 const WHO: Array[String] = ["actor", "explorer", "random", "all", "weakest", "sickest", "thirstiest", "child", "adult", "subject"]
@@ -70,6 +73,17 @@ const CONDITION_KEYS: Array[String] = [
 	"needs_broken", "needs_chain_active", "after_escalation",
 	# M2
 	"trip_occupied", "needs_rule", "not_rule", "needs_affliction", "needs_guilt", "needs_pet_any",
+	# M3
+	"needs_dirty_water", "needs_crafted",
+]
+
+## Crafting (section 10): the six parts, each with its own shape for colour-blind players.
+const PART_SHAPES: Array[String] = ["square", "hexagon", "diamond", "circle", "triangle", "drop"]
+const RECIPE_TIMES: Array[String] = ["quick", "day"]
+## Effects a makeshift item may declare in items.csv (see ShelterCraft).
+const MAKESHIFT_EFFECTS: Array[String] = [
+	"uses", "stands_in", "gear", "defence", "cure_injured", "carry", "filter", "raid_stop", "break_p",
+	"alarm", "listen_p", "success", "morale_all",
 ]
 
 ## Afflictions at morale 0 (section 7); each has a row in data/afflictions.csv.
