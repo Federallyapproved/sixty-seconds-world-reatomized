@@ -1,0 +1,146 @@
+[
+	{
+		"id": "hatch_duty", "title": "Hatch Duty", "type": "family", "mood": "bad", "weight": 2.0,
+		"setup": "One of the family has slept sitting against the hatch for three nights, listening. Nobody else has slept much either.",
+		"conditions": {"needs_affliction": "paranoid"},
+		"options": [
+			{"id": "shifts", "label": "Take the hatch in shifts with them", "cinematic": "shrug",
+				"effects": [{"do": "morale", "who": "weakest", "n": 2, "why": "not alone on watch"}, {"do": "tired", "who": "all", "days": 1}],
+				"outcome": "Two hours on, two hours off, all night. Nobody hears anything. That seems to help."},
+			{"id": "talk", "label": "Talk it through until morning", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "weakest", "n": 1, "why": "someone listened"}, {"do": "tired", "who": "actor", "days": 1}, {"do": "morale", "who": "actor", "n": -1, "why": "a long night"}],
+				"outcome": "{name} sits up and hears every reason the hatch isn't safe. By morning there are fewer of them."},
+			{"id": "leave", "label": "Let them keep watch alone", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "The watch goes on. The whole shelter sleeps with one ear on the hatch."}
+		]
+	},
+	{
+		"id": "the_ledger", "title": "The Ledger", "type": "family", "mood": "bad", "weight": 2.0,
+		"setup": "One of the family has started a written list of who ate what, and reads it aloud at dinner.",
+		"conditions": {"needs_affliction": "selfish", "min_people": 2},
+		"options": [
+			{"id": "shelf", "label": "Put them in charge of the shelf", "cinematic": "shrug",
+				"effects": [{"do": "morale", "who": "weakest", "n": 2, "why": "trusted with the shelf"}, {"do": "morale", "who": "all", "n": -1}],
+				"outcome": "The ledger becomes the official inventory. Portions get very precise. Nobody else enjoys it, but the reading aloud stops."},
+			{"id": "dinner", "label": "Have it out at dinner", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}, {"do": "chance", "p": 0.5, "then": [{"do": "morale", "who": "weakest", "n": 2, "why": "cleared the air"}]}],
+				"outcome": "It's loud, then it's quiet, then somebody passes the {food_label}. That might be the end of it."},
+			{"id": "cards", "label": "Play cards for first pick of the cans", "item": "cards", "cinematic": "celebrate",
+				"effects": [{"do": "use", "item": "cards", "what": "settled who picks the cans"}, {"do": "morale", "who": "weakest", "n": 2, "why": "a fair game"}, {"do": "morale", "who": "all", "n": 1}],
+				"outcome": "The cards settle it: the winner picks first all week. The ledger gets turned over and used as a scorecard."}
+		]
+	},
+	{
+		"id": "facing_the_wall", "title": "Facing the Wall", "type": "family", "mood": "bad", "weight": 2.0,
+		"setup": "One of the family hasn't spoken since yesterday. They're sitting facing the wall, very still.",
+		"conditions": {"needs_affliction": "withdrawn", "min_people": 2},
+		"options": [
+			{"id": "sit", "label": "Sit with them, saying nothing", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "weakest", "n": 1, "why": "company"}, {"do": "tired", "who": "actor", "days": 1}],
+				"outcome": "{name} sits beside them all afternoon. Neither says a word. Near dusk, a hand reaches over and stays there."},
+			{"id": "job", "label": "Give them one small job", "cinematic": "shrug",
+				"effects": [{"do": "chance", "p": 0.5, "then": [{"do": "morale", "who": "weakest", "n": 2, "why": "folded the blankets"}], "else": [{"do": "morale", "who": "weakest", "n": -1, "why": "pressed too soon"}]}],
+				"outcome": "Fold the blankets. Just that. The blankets get folded, or they don't."},
+			{"id": "console", "label": "Leave the console beside them", "item": "console", "cinematic": "celebrate",
+				"effects": [{"do": "use", "item": "console", "what": "a thumb found the power button"}, {"do": "morale", "who": "weakest", "n": 2, "why": "something to hold"}],
+				"outcome": "The console sits there an hour before a thumb finds the power button. Then the quiet beeping starts, and keeps going."}
+		]
+	},
+	{
+		"id": "boots_on", "title": "Boots On", "type": "family", "mood": "bad", "weight": 2.0,
+		"setup": "One of the family is lacing their boots at dawn, with a bag packed for the farthest place on the map.",
+		"conditions": {"needs_affliction": "reckless", "min_people": 2},
+		"options": [
+			{"id": "corner", "label": "Walk with them to the corner and back", "cinematic": "hazard",
+				"effects": [{"do": "morale", "who": "weakest", "n": 2, "why": "got some air"}, {"do": "dose", "who": "weakest", "msv": 15}, {"do": "dose", "who": "actor", "msv": 15}],
+				"outcome": "Two people, one block, a lot of dust. They come back down the ladder breathing hard and a little steadier."},
+			{"id": "hide", "label": "Hide the boots", "cinematic": "gloom",
+				"effects": [{"do": "refuse_trip", "who": "weakest", "days": 1}, {"do": "morale", "who": "weakest", "n": -1, "why": "boots hidden"}, {"do": "morale", "who": "all", "n": -1}],
+				"outcome": "The boots go behind the water heater. Nobody leaves today. Nobody is speaking to whoever hid them, either."},
+			{"id": "map", "label": "Plan a nearer trip together on the map", "item": "map", "cinematic": "signal",
+				"effects": [{"do": "use", "item": "map", "what": "planned a nearer trip together"}, {"do": "morale", "who": "weakest", "n": 2, "why": "a plan that makes sense"}],
+				"outcome": "The map comes out and two fingers argue across it. They settle on somewhere closer, with a pencil line home."}
+		]
+	},
+	{
+		"id": "notice_on_the_post", "title": "No Questions Asked", "type": "moral", "mood": "bad", "weight": 2.0,
+		"setup": "A notice on the lamp post, in neat capitals: things went missing from houses on this street. No questions if they come back.",
+		"conditions": {"needs_guilt": true, "min_day": 5},
+		"options": [
+			{"id": "can", "label": "Leave a can under the notice", "cinematic": "give",
+				"effects": [{"do": "lose", "item": "food", "n": 1}, {"do": "morale", "who": "all", "n": 1}],
+				"outcome": "One can of {food_label}, set down under the notice after dark. It isn't what was taken. It's what there is."},
+			{"id": "walk", "label": "Walk past it", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}, {"do": "later", "in": 3, "text": "The notice on the lamp post is gone. Nobody in the shelter asks who took it down."}],
+				"outcome": "Everyone reads it. Nobody mentions it. That takes a surprising amount of effort."},
+			{"id": "medkit", "label": "Leave a medkit under the notice", "item": "medkit", "cinematic": "give",
+				"effects": [{"do": "give", "item": "medkit", "what": "left under the notice on the lamp post"}, {"do": "morale", "who": "all", "n": 2}],
+				"outcome": "The medkit goes under the notice after dark. By morning it's gone. A day later, so is the notice."}
+		]
+	},
+	{
+		"id": "the_long_way_home", "title": "The Long Way Home", "type": "trip", "mood": "bad", "weight": 2.0,
+		"setup": "{name}'s route home passes a house the family would rather not think about. There's a light in one window now.",
+		"conditions": {"needs_guilt": true, "trip_place": ["neighbor_house", "grocery", "pharmacy", "hardware", "auto", "church", "school", "civic", "restaurant", "park"]},
+		"options": [
+			{"id": "around", "label": "Take the long way round", "cinematic": "hazard",
+				"effects": [{"do": "tired", "who": "explorer", "days": 1}, {"do": "dose", "who": "explorer", "msv": 15}],
+				"outcome": "Three extra blocks through the dust, so as not to see the window. {name} gets home late and says the street was blocked."},
+			{"id": "past", "label": "Walk past, head down", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "explorer", "n": -2, "why": "the light in the window"}],
+				"outcome": "{name} walks past without looking. It's a short street. It takes a long time."},
+			{"id": "step", "label": "Leave a can on their step", "cinematic": "give",
+				"effects": [{"do": "lose", "item": "food", "n": 1}, {"do": "morale", "who": "explorer", "n": 1, "why": "left something on the step"}],
+				"outcome": "{name} sets a can on the step, knocks once, and is round the corner before the door opens. It doesn't fix anything."}
+		]
+	},
+	{
+		"id": "midnight_snack", "title": "Midnight Snack", "type": "house_rule", "mood": "neutral", "weight": 2.0,
+		"setup": "{subject} is at the food shelf at 3 a.m. with a spoon and an open can. The rules wall says kids eat last.",
+		"conditions": {"needs_rule": "kids_eat_last", "needs_child": true},
+		"options": [
+			{"id": "keep", "label": "Let them finish it", "cinematic": "shrug",
+				"effects": [{"do": "rations", "kind": "food", "n": -2}, {"do": "morale", "who": "subject", "n": 1}],
+				"outcome": "Nobody saw anything. Two rations of {food_label} are missing from the count, and the rules wall looks less sure of itself."},
+			{"id": "back", "label": "Put the lid back on, gently", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "subject", "n": -2, "why": "sent back to bed"}, {"do": "morale", "who": "actor", "n": -1, "why": "enforced the rule"}],
+				"outcome": "{name} puts the can back and walks {subject} to bed. Rules are rules. Neither of them sleeps."},
+			{"id": "share", "label": "Split your own ration with them", "cinematic": "give",
+				"effects": [{"do": "rations", "kind": "food", "n": -1}, {"do": "morale", "who": "subject", "n": 1}, {"do": "morale", "who": "actor", "n": 1}, {"do": "tired", "who": "actor", "days": 1}],
+				"outcome": "{name} sits on the floor and splits the can, spoon for spoon. Technically, the kid ate last."}
+		]
+	},
+	{
+		"id": "knock_under_the_rule", "title": "A Knock Anyway", "type": "house_rule", "mood": "bad", "weight": 2.0,
+		"setup": "An old man is at the hatch asking for water for his wife. The rules wall says nobody opens the hatch.",
+		"conditions": {"needs_rule": "nobody_opens_hatch", "min_day": 4},
+		"options": [
+			{"id": "open", "label": "Open the hatch and give him a bottle", "hatch": true, "cinematic": "give",
+				"effects": [{"do": "lose", "item": "water", "n": 1}, {"do": "morale", "who": "all", "n": 2}],
+				"outcome": "The hatch opens for the first time in days. He takes the bottle in both hands."},
+			{"id": "vent", "label": "Pass water out through the vent", "cinematic": "give",
+				"effects": [{"do": "rations", "kind": "water", "n": -2}, {"do": "morale", "who": "all", "n": 1}],
+				"outcome": "Two rations go out through the vent in a bag on a string. The rule holds. He says thank you to the vent."},
+			{"id": "rule", "label": "Keep to the rule", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -2}],
+				"outcome": "He knocks for a while, then stops. The rules wall gets looked at a lot that evening."}
+		]
+	},
+	{
+		"id": "what_counts_as_work", "title": "What Counts as Work", "type": "house_rule", "mood": "neutral", "weight": 2.0,
+		"setup": "{subject} says sitting up all night watching the vent counts as work. The rules wall doesn't define work.",
+		"conditions": {"needs_rule": "work_or_dont_eat", "min_people": 2},
+		"options": [
+			{"id": "counts", "label": "It counts", "cinematic": "shrug",
+				"effects": [{"do": "rations", "kind": "food", "n": -1}, {"do": "morale", "who": "subject", "n": 1}, {"do": "morale", "who": "actor", "n": -1, "why": "bent the rule"}],
+				"outcome": "{subject} eats. By evening, three other people have taken up vent-watching."},
+			{"id": "doesnt", "label": "It doesn't count", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "subject", "n": -2, "why": "went without"}, {"do": "refuse_trip", "who": "subject", "days": 1}],
+				"outcome": "{subject} goes without and refuses tomorrow's trip on principle. The vent goes unwatched."},
+			{"id": "define", "label": "Write a definition on the wall", "cinematic": "shrug",
+				"effects": [{"do": "tired", "who": "actor", "days": 1}, {"do": "morale", "who": "all", "n": -1}],
+				"outcome": "The definition runs to three sub-clauses and a footnote. Everyone has a job now, mostly arguing about the footnote."}
+		]
+	}
+]

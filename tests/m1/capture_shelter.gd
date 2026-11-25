@@ -63,8 +63,12 @@ func _run() -> void:
 	var s: ShelterState = gs.get("shelter")
 	# Play a few days with sensible choices so the receipt and the card show real content.
 	for d in range(4):
+		# A morning can open with a cinematic (someone coming home); continue past it like a player.
 		while bool(bs.get("_busy")):
-			await _frames(2)
+			var cin0: Node = bs.get("_cinematic")
+			if cin0 != null and cin0.has_method("_on_continue"):
+				cin0.call("_on_continue")
+			await _frames(5)
 		if not s.today_resolved and not s.today_event.is_empty():
 			if d == 1:
 				await _snap("m1_20_dilemma_day%d" % s.day)

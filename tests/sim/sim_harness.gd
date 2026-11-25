@@ -112,4 +112,6 @@ static func run_one(fx: Dictionary, policy: String, seed_v: int, diff: String) -
 		"cr": int(s.stats["credits_total"]), "cm": int(s.stats["credits_makeshift"]), "ev": int(s.stats["events"]),
 		"io": int(s.stats["item_options_used"]), "raids": int(s.stats["raids"]), "fol": int(s.stats["followed_count"]),
 		"alive": s.living().size(), "clear": s.fallout_clear_day,
+		"rules": s.rules.size(), "aff": int(s.stats["afflictions"]), "maybe": s.ending_kind == "maybe",
+		"guilt": int(s.stats["stole"]) > 0, "stranger": str(s.stats["stranger"]) != "",
 	}

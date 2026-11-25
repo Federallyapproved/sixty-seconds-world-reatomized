@@ -563,7 +563,9 @@ func _audit_2_pois_and_expeditions(gs: Node) -> void:
 		var sh: ShelterState = gs.get("shelter")
 		var idx: int = -1
 		for p_v in sh.places:
-			if str((p_v as Dictionary)["category"]) == cat_want:
+			# M2: some neighbours are still home, and their things stay theirs unless the explorer
+			# chooses otherwise (tests/m2/drama_suite.gd); the loot check uses an empty house.
+			if str((p_v as Dictionary)["category"]) == cat_want and not bool((p_v as Dictionary).get("occupied", false)):
 				idx = int((p_v as Dictionary)["idx"])
 				break
 		if idx < 0:

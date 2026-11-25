@@ -83,9 +83,14 @@ static func _event_for(cid: String, step: int, retry: bool) -> String:
 ## after the all-clear.
 static func tick(s: ShelterState) -> void:
 	var nb: Dictionary = s.chains.get("neighbourhood", {})
-	if nb.is_empty() or str(nb["state"]) != "idle":
+	if nb.is_empty():
 		return
-	if s.harmed_innocents:
+	# Harming innocents locks the neighbourhood rescue (section 7), even one already under way.
+	if s.harmed_innocents and str(nb["state"]) == "active":
+		nb["state"] = "failed"
+		s.say("lost", "Word of what happened at the neighbour's house reached the neighbourhood shelter. Their radio has gone quiet for this family.")
+		return
+	if str(nb["state"]) != "idle" or s.harmed_innocents:
 		return
 	for p_v in s.places:
 		var p: Dictionary = p_v

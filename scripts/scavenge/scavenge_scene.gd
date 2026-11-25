@@ -123,6 +123,7 @@ var _scout_total: float = 10.0
 var _scout_time_left: float = 10.0
 var _scavenge_total: float = 60.0
 var _scavenge_time_left: float = 60.0
+var _last_down_left: float = -1.0   # timer when the most recent family member got down (achievements)
 var _outro_elapsed: float = 0.0
 var _outro_transitioned: bool = false
 var _leader_caught_outside: bool = false
@@ -795,6 +796,11 @@ func _process_outro_phase(dt: float) -> void:
 			GameState.ending_description = "The youngest made it down the hatch, but no adult or teenager got in to seal it and keep the shelter running."
 			GameState.request_screen(GameState.SCREEN_SUMMARY)
 		else:
+			var everyone: bool = true
+			for fm_v in GameState.family_members:
+				if not bool((fm_v as Dictionary).get("in_bunker", false)):
+					everyone = false
+			GameState.grab_all_down_left = _last_down_left if everyone else -1.0
 			GameState.request_screen(GameState.SCREEN_BUNKER)
 
 
@@ -1272,6 +1278,7 @@ func _deposit_carried_into_hatch(keep_suitcase: bool = false) -> void:
 			m["in_bunker"] = true
 			m["alive"] = true
 			m["status_note"] = "Made it down into the shelter."
+			_last_down_left = _scavenge_time_left
 			_family_deposited_count += 1
 			dropped_family_batch += 1
 			_falling_chute_fx.append({
@@ -1349,6 +1356,7 @@ func _dive_into_bunker() -> void:
 	_leader_member["in_bunker"] = true
 	_leader_member["alive"] = true
 	_leader_member["status_note"] = "Made it through the hatch in time."
+	_last_down_left = _scavenge_time_left
 	_leader_caught_outside = false
 	_shake_strength = 6.5
 	SoundManager.play_sfx("hatch_slam")
@@ -1366,6 +1374,7 @@ func _resolve_timer_expired() -> void:
 		_leader_member["in_bunker"] = true
 		_leader_member["alive"] = true
 		_leader_member["status_note"] = "Got through the hatch as the blast hit."
+		_last_down_left = 0.0
 		_leader_caught_outside = false
 		_shake_strength = 12.0
 		SoundManager.play_sfx("hatch_slam")
@@ -3055,6 +3064,7 @@ class _ScavengeHUD extends Control:
 		if str(t.get("kind", "")) == "item":
 			icon_id = str(t.get("item_id", ""))
 			line = ItemDB.tooltip_line(icon_id)
+			GameState.almanac_seen(icon_id)
 		else:
 			line = "%s [%d] — family: get them to the hatch" % [str(t.get("name", "Family")), slots]
 		var hint: String = ""

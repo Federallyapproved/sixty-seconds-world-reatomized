@@ -2,19 +2,26 @@ class_name SummaryScreen
 extends Control
 
 ## End-of-run report (1280x720), laid out like an emergency-management case summary:
-## outcome badge, ending_title, ending_description, days survived, the chosen OSM house
-## and its footprint, the strike's distance and numbers, the family's final portraits via
-## CharacterArtist.draw_portrait, and PLAY AGAIN / BACK TO TITLE.
+## outcome badge, ending_title, ending_description, days survived, the run report (MVP items,
+## what was missing when it counted, the death recap with its turning point, the House Rules
+## passed, achievements unlocked), the chosen OSM house and the strike (behind a toggle), the
+## family's final portraits via CharacterArtist.draw_portrait, and PLAY AGAIN / BACK TO TITLE.
 
 var _anim_time: float = 0.0
 var _stamp_canvas: Control = null
 var _transitioning: bool = false
+var _report_nodes: Array = []
+var _place_nodes: Array = []
+var _toggle_btn: Button = null
+var _fresh_achievements: Array = []
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if theme == null:
 		theme = ThemeHelper.get_game_theme()
 
+	# The run is over: fold it into the Almanac and unlock what it earned (toasts show them).
+	_fresh_achievements = GameState.finish_run_meta()
 	_build_report_ui()
 
 	if GameState.victory:
@@ -30,6 +37,7 @@ func _process(delta: float) -> void:
 
 func _build_report_ui() -> void:
 	var is_victory: bool = GameState.victory
+	var is_maybe: bool = GameState.ending_kind == "maybe"
 
 	var end_title: String = GameState.ending_title.strip_edges()
 	if end_title.is_empty():
@@ -49,7 +57,7 @@ func _build_report_ui() -> void:
 	# Left: Days Survived Badge Card
 	var days_card := ThemeHelper.make_card_panel(
 		ThemeHelper.COLOR_PANEL_RAISED,
-		ThemeHelper.COLOR_OK_GREEN if is_victory else ThemeHelper.COLOR_ALERT_RED
+		ThemeHelper.COLOR_OK_GREEN if is_victory else (ThemeHelper.COLOR_ALERT_AMBER if is_maybe else ThemeHelper.COLOR_ALERT_RED)
 	)
 	days_card.position = Vector2(68.0, 50.0)
 	days_card.size = Vector2(184.0, 128.0)
@@ -102,7 +110,7 @@ func _build_report_ui() -> void:
 	title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title_lbl.max_lines_visible = 2
 	title_lbl.add_theme_font_size_override("font_size", 22)
-	title_lbl.add_theme_color_override("font_color", ThemeHelper.COLOR_OK_GREEN if is_victory else ThemeHelper.COLOR_ALERT_RED)
+	title_lbl.add_theme_color_override("font_color", ThemeHelper.COLOR_OK_GREEN if is_victory else (ThemeHelper.COLOR_ALERT_AMBER if is_maybe else ThemeHelper.COLOR_ALERT_RED))
 	title_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	narrative_box.add_child(title_lbl)
 
@@ -120,15 +128,25 @@ func _build_report_ui() -> void:
 	# Right: outcome badge
 	_stamp_canvas = _OutcomeStampCanvas.new()
 	_stamp_canvas.set("victory", is_victory)
+	_stamp_canvas.set("maybe", is_maybe)
 	_stamp_canvas.set("days_count", maxi(1, GameState.day))
 	_stamp_canvas.position = Vector2(936.0, 48.0)
 	_stamp_canvas.size = Vector2(274.0, 130.0)
 	_stamp_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_stamp_canvas)
 
-	# --- 2. MIDDLE INTELLIGENCE ROW (y = 190..350, 562px each with 16px gap) ---
+	# --- 2. MIDDLE ROW (y = 190..350): the run report, or the house and the strike ---
+	var before: int = get_child_count()
 	_build_osm_house_card(Rect2(68.0, 190.0, 562.0, 160.0))
 	_build_nuke_telemetry_card(Rect2(646.0, 190.0, 562.0, 160.0))
+	for i in range(before, get_child_count()):
+		_place_nodes.append(get_child(i))
+	var has_report: bool = GameState.shelter != null
+	if has_report:
+		_report_nodes.append(_build_items_card(Rect2(68.0, 190.0, 562.0, 160.0)))
+		_report_nodes.append(_build_recap_card(Rect2(646.0, 190.0, 562.0, 160.0)))
+		for n in _place_nodes:
+			(n as CanvasItem).visible = false
 
 	# --- 3. FAMILY FINAL PORTRAITS ROSTER (y = 364..600) ---
 	_build_family_roster(Rect2(68.0, 364.0, 1140.0, 236.0))
@@ -151,6 +169,109 @@ func _build_report_ui() -> void:
 	btn_title.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	btn_title.pressed.connect(_on_return_to_title_pressed)
 	btn_bar.add_child(btn_title)
+
+	if has_report:
+		_toggle_btn = Button.new()
+		_toggle_btn.text = "THE HOUSE & THE STRIKE"
+		_toggle_btn.custom_minimum_size = Vector2(270.0, 46.0)
+		_toggle_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		_toggle_btn.pressed.connect(_on_toggle_report)
+		btn_bar.add_child(_toggle_btn)
+
+
+func _on_toggle_report() -> void:
+	SoundManager.play_sfx("button_click")
+	var show_report: bool = not (_report_nodes[0] as CanvasItem).visible
+	for n in _report_nodes:
+		(n as CanvasItem).visible = show_report
+	for n in _place_nodes:
+		(n as CanvasItem).visible = not show_report
+	_toggle_btn.text = "THE HOUSE & THE STRIKE" if show_report else "RUN REPORT"
+
+
+static func _rt_label(font_size: int) -> RichTextLabel:
+	var r := RichTextLabel.new()
+	r.bbcode_enabled = true
+	r.fit_content = false
+	r.scroll_active = false
+	r.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	r.add_theme_font_size_override("normal_font_size", font_size)
+	r.add_theme_font_size_override("bold_font_size", font_size)
+	r.add_theme_color_override("default_color", ThemeHelper.COLOR_TEXT)
+	return r
+
+
+static func _hex(c: Color) -> String:
+	return "#" + c.to_html(false)
+
+
+## MVP items, what was missing when it counted, the House Rules passed, and new achievements.
+func _build_items_card(rect: Rect2) -> Control:
+	var s: ShelterState = GameState.shelter
+	var card := ThemeHelper.make_card_panel(ThemeHelper.COLOR_PANEL, ThemeHelper.COLOR_BORDER)
+	card.position = rect.position
+	card.size = rect.size
+	add_child(card)
+	var r := _rt_label(13)
+	r.name = "ItemsReport"
+	card.add_child(r)
+	var amber: String = _hex(ThemeHelper.COLOR_ALERT_AMBER)
+	var muted: String = _hex(ThemeHelper.COLOR_TEXT_MUTED)
+	var green: String = _hex(ThemeHelper.COLOR_OK_GREEN)
+	var red: String = _hex(ThemeHelper.COLOR_ALERT_RED)
+	var mv: Dictionary = ShelterSim.mvp_items(s)
+	var t: String = "[color=%s]MVP ITEMS[/color]\n" % muted
+	if (mv["mvp"] as Array).is_empty():
+		t += "No item got a receipt this run.\n"
+	for e_v in mv["mvp"]:
+		var e: Dictionary = e_v
+		t += "[color=%s]%s[/color] ×%d  [color=%s]%s[/color]\n" % [green, ShelterData.item_name(str(e["item"])), int(e["count"]), muted, str(e.get("example", ""))]
+	var miss: Array = []
+	for e_v in mv["missing"]:
+		miss.append("%s ×%d" % [ShelterData.item_name(str((e_v as Dictionary)["item"])), int((e_v as Dictionary)["count"])])
+	t += "[color=%s]Missing when it counted:[/color] %s\n" % [red, "nothing" if miss.is_empty() else ", ".join(miss)]
+	var info: Dictionary = ShelterSim.ending_info(s)
+	if str(info.get("rules_text", "")) != "":
+		t += "[color=%s]%s[/color]\n" % [amber, str(info["rules_text"])]
+	if not GameState.run_new_achievements.is_empty():
+		var names: Array = []
+		for a in GameState.run_new_achievements:
+			names.append(str((ShelterData.achievements().get(str(a), {}) as Dictionary).get("name", a)))
+		var shown: String = ", ".join(names.slice(0, 3))
+		if names.size() > 3:
+			shown += " and %d more" % (names.size() - 3)
+		t += "[color=%s]Unlocked:[/color] %s" % [amber, shown]
+	r.text = t
+	return card
+
+
+## Each death as its chain of causes; the turning point is highlighted (section 8).
+func _build_recap_card(rect: Rect2) -> Control:
+	var s: ShelterState = GameState.shelter
+	var card := ThemeHelper.make_card_panel(ThemeHelper.COLOR_PANEL, ThemeHelper.COLOR_BORDER)
+	card.position = rect.position
+	card.size = rect.size
+	add_child(card)
+	var r := _rt_label(12)
+	r.name = "DeathRecap"
+	card.add_child(r)
+	var muted: String = _hex(ThemeHelper.COLOR_TEXT_MUTED)
+	var amber: String = _hex(ThemeHelper.COLOR_ALERT_AMBER)
+	var recap: Array = ShelterSim.death_recap(s)
+	var t: String = "[color=%s]HOW IT HAPPENED[/color]\n" % muted
+	if recap.is_empty():
+		t += "Nobody died. Everyone who reached the shelter was still there at the end." if s.living().size() > 0 else "Nobody reached the shelter."
+	for d_v in recap.slice(0, 3):
+		var d: Dictionary = d_v
+		var steps: Array = []
+		for i in range((d["steps"] as Array).size()):
+			var step: String = str(d["steps"][i])
+			steps.append(("[color=%s][b]%s[/b][/color]" % [amber, step]) if i == int(d["turning"]) else step)
+		t += "[b]%s[/b]: %s\n" % [str(d["name"]), " → ".join(steps)]
+	if recap.size() > 3:
+		t += "[color=%s]…and %d more.[/color]" % [muted, recap.size() - 3]
+	r.text = t
+	return card
 
 static func _format_building_type(raw_type: String) -> String:
 	var key: String = raw_type.strip_edges().to_lower()
@@ -489,6 +610,7 @@ func _draw() -> void:
 
 class _OutcomeStampCanvas extends Control:
 	var victory: bool = false
+	var maybe: bool = false
 	var days_count: int = 1
 	var anim_t: float = 1.0
 
@@ -497,9 +619,9 @@ class _OutcomeStampCanvas extends Control:
 		var center: Vector2 = size * 0.5
 		var pop_scale: float = lerpf(1.08, 1.0, clampf(anim_t / 0.22, 0.0, 1.0))
 
-		var accent: Color = ThemeHelper.COLOR_OK_GREEN if victory else ThemeHelper.COLOR_ALERT_RED
+		var accent: Color = ThemeHelper.COLOR_OK_GREEN if victory else (ThemeHelper.COLOR_ALERT_AMBER if maybe else ThemeHelper.COLOR_ALERT_RED)
 		var fill_tint: Color = Color(accent.r, accent.g, accent.b, 0.12)
-		var main_txt: String = "SURVIVED" if victory else "DID NOT SURVIVE"
+		var main_txt: String = "SURVIVED" if victory else ("NOBODY KNOWS" if maybe else "DID NOT SURVIVE")
 		var sub_txt: String = ("OUT ON DAY %d" % days_count) if victory else ("DAY %d" % days_count)
 
 		draw_set_transform(center, 0.0, Vector2(pop_scale, pop_scale))

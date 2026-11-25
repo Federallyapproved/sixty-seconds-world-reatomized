@@ -1,3 +1,233 @@
 {
-
+	"bedtime_story": {
+		"condition": "win_difficulty:story",
+		"description": "Be rescued on Story.",
+		"id": "bedtime_story",
+		"name": "Bedtime Story",
+		"unlocks": ""
+	},
+	"boiled_frog": {
+		"condition": "rules_all",
+		"description": "Pass every House Rule in one run.",
+		"id": "boiled_frog",
+		"name": "Boiled Frog",
+		"unlocks": ""
+	},
+	"both_ways_out": {
+		"condition": "maybe_endings:2",
+		"description": "Take both gamble endings (over all your runs).",
+		"id": "both_ways_out",
+		"name": "Both Ways Out",
+		"unlocks": ""
+	},
+	"by_the_book": {
+		"condition": "win_difficulty:normal",
+		"description": "Be rescued on Normal.",
+		"id": "by_the_book",
+		"name": "By the Book",
+		"unlocks": ""
+	},
+	"clean_hands": {
+		"condition": "win_no_guilt",
+		"description": "Be rescued with nobody in the family carrying Guilt.",
+		"id": "clean_hands",
+		"name": "Clean Hands",
+		"unlocks": ""
+	},
+	"clean_lungs": {
+		"condition": "heavy_clean:3",
+		"description": "Come back from 3 trips in heavy fallout without getting sick, in one run.",
+		"id": "clean_lungs",
+		"name": "Clean Lungs",
+		"unlocks": ""
+	},
+	"constitutional": {
+		"condition": "win_rules_declined:2",
+		"description": "Be rescued after voting down every House Rule (2 meetings or more).",
+		"id": "constitutional",
+		"name": "Constitutional",
+		"unlocks": ""
+	},
+	"cuckoo_house": {
+		"condition": "afflicted_all",
+		"description": "Have everyone at home afflicted at once.",
+		"id": "cuckoo_house",
+		"name": "Cuckoo House",
+		"unlocks": ""
+	},
+	"dish_rota": {
+		"condition": "ending:rescue_neighbourhood",
+		"description": "Be taken in by the neighbourhood shelter.",
+		"id": "dish_rota",
+		"name": "Dish Rota",
+		"unlocks": ""
+	},
+	"dont_look_down": {
+		"condition": "ending:rescue_airlift",
+		"description": "Be airlifted out.",
+		"id": "dont_look_down",
+		"name": "Don't Look Down",
+		"unlocks": ""
+	},
+	"door_jewellery": {
+		"condition": "padlock_stops:3",
+		"description": "Stop 3 raids with padlocks in one run.",
+		"id": "door_jewellery",
+		"name": "Door Jewellery",
+		"unlocks": ""
+	},
+	"everyone_home": {
+		"condition": "trips_all_back:4",
+		"description": "Make 4 or more trips in one run and lose nobody on the road.",
+		"id": "everyone_home",
+		"name": "Everyone Home",
+		"unlocks": ""
+	},
+	"field_medic": {
+		"condition": "cures:3",
+		"description": "Cure 3 people with medkits in one run.",
+		"id": "field_medic",
+		"name": "Field Medic",
+		"unlocks": ""
+	},
+	"five_seconds_flat": {
+		"condition": "grab_all_down_left:5",
+		"description": "Get the whole family down the hatch with 5 seconds or less to spare.",
+		"id": "five_seconds_flat",
+		"name": "Five Seconds Flat",
+		"unlocks": ""
+	},
+	"full_house": {
+		"condition": "win_all_alive",
+		"description": "Be rescued with everyone who reached the shelter still alive.",
+		"id": "full_house",
+		"name": "Full House",
+		"unlocks": ""
+	},
+	"good_neighbour": {
+		"condition": "occupied_left_alone:1",
+		"description": "Leave a family in an occupied home in peace.",
+		"id": "good_neighbour",
+		"name": "Good Neighbour",
+		"unlocks": ""
+	},
+	"hard_bargain": {
+		"condition": "win_difficulty:hard",
+		"description": "Be rescued on Hard.",
+		"id": "hard_bargain",
+		"name": "Hard Bargain",
+		"unlocks": ""
+	},
+	"hometown_hero": {
+		"condition": "addresses_won:3",
+		"description": "Be rescued from 3 different real addresses.",
+		"id": "hometown_hero",
+		"name": "Hometown Hero",
+		"unlocks": ""
+	},
+	"item_whisperer": {
+		"condition": "item_options:10",
+		"description": "Use 10 item options in one run.",
+		"id": "item_whisperer",
+		"name": "Item Whisperer",
+		"unlocks": ""
+	},
+	"leap_of_faith": {
+		"condition": "ending_kind:maybe",
+		"description": "Take a gamble ending.",
+		"id": "leap_of_faith",
+		"name": "Leap of Faith",
+		"unlocks": ""
+	},
+	"local_tourist": {
+		"condition": "place_types:6",
+		"description": "Loot 6 different kinds of real place (over all your runs).",
+		"id": "local_tourist",
+		"name": "Local Tourist",
+		"unlocks": ""
+	},
+	"long_haul": {
+		"condition": "win_far_store:6000",
+		"description": "Be rescued from a home with no store within 6 km.",
+		"id": "long_haul",
+		"name": "Long Haul",
+		"unlocks": ""
+	},
+	"map_reader": {
+		"condition": "map_trips:3",
+		"description": "Shorten 3 trips with a map in one run.",
+		"id": "map_reader",
+		"name": "Map Reader",
+		"unlocks": ""
+	},
+	"not_today": {
+		"condition": "takeover_stopped",
+		"description": "Drive the gang off when they come for the shelter.",
+		"id": "not_today",
+		"name": "Not Today",
+		"unlocks": ""
+	},
+	"on_the_list": {
+		"condition": "ending:rescue_convoy",
+		"description": "Be rescued by the convoy.",
+		"id": "on_the_list",
+		"name": "On the List",
+		"unlocks": ""
+	},
+	"pharmacist": {
+		"condition": "pharmacy_medkit",
+		"description": "Come back from a real pharmacy with a medkit.",
+		"id": "pharmacist",
+		"name": "Pharmacist",
+		"unlocks": ""
+	},
+	"ration_book": {
+		"condition": "win_never_thirsty",
+		"description": "Be rescued without anyone ever going thirsty.",
+		"id": "ration_book",
+		"name": "Ration Book",
+		"unlocks": ""
+	},
+	"second_opinion": {
+		"condition": "repairs:1",
+		"description": "Repair something with the survival manual.",
+		"id": "second_opinion",
+		"name": "Second Opinion",
+		"unlocks": ""
+	},
+	"shake_them_off": {
+		"condition": "gang_shaken:1",
+		"description": "Stop raids until the gang gives up.",
+		"id": "shake_them_off",
+		"name": "Shake Them Off",
+		"unlocks": ""
+	},
+	"town_meeting": {
+		"condition": "rules:1",
+		"description": "Pass your first House Rule.",
+		"id": "town_meeting",
+		"name": "Town Meeting",
+		"unlocks": ""
+	},
+	"tuned_in": {
+		"condition": "radio_all_clear",
+		"description": "Hear the all-clear on the radio.",
+		"id": "tuned_in",
+		"name": "Tuned In",
+		"unlocks": ""
+	},
+	"well_equipped": {
+		"condition": "credit_items:10",
+		"description": "Get a 'Used:' receipt from 10 different items in one run.",
+		"id": "well_equipped",
+		"name": "Well Equipped",
+		"unlocks": ""
+	},
+	"well_fed": {
+		"condition": "win_never_hungry",
+		"description": "Be rescued without anyone going hungry.",
+		"id": "well_fed",
+		"name": "Well Fed",
+		"unlocks": ""
+	}
 }

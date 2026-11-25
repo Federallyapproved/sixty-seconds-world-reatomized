@@ -320,7 +320,7 @@ func _kind_color(kind: String) -> Color:
 			return C_WATER
 		"sick":
 			return Color("#f48fb1")
-		"morale":
+		"morale", "rule":
 			return C_PURPLE
 		"status":
 			return Color("#ffd27f")
@@ -633,6 +633,7 @@ func _commit_end_day() -> void:
 	SoundManager.play_sfx("page_turn")
 	_busy = true
 	ShelterSim.end_day(s, _plan)
+	GameState.check_achievements()
 	BunkerSim.sync_world()
 	BunkerSim.sync_outcome()
 	GameState.inventory_changed.emit()

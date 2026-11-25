@@ -2,7 +2,7 @@
 	"checks": [
 		{
 			"check": "Random win rate ≤ 5%",
-			"detail": "0.1%",
+			"detail": "0.0%",
 			"ok": true
 		},
 		{
@@ -12,42 +12,42 @@
 		},
 		{
 			"check": "Naive win rate 10–20%",
-			"detail": "11.1%",
+			"detail": "14.9%",
 			"ok": true
 		},
 		{
 			"check": "Expert win rate 45–60%",
-			"detail": "49.2%",
+			"detail": "56.5%",
 			"ok": true
 		},
 		{
 			"check": "Expert − random ≥ 40 points",
-			"detail": "49.1 points",
+			"detail": "56.5 points",
 			"ok": true
 		},
 		{
 			"check": "Expert: everyone dead before day 15 in < 10%",
-			"detail": "1.4%",
+			"detail": "0.3%",
 			"ok": true
 		},
 		{
 			"check": "Expert: no cause > 40% of deaths",
-			"detail": "largest: sickness 38%",
+			"detail": "largest: thirst 39%",
 			"ok": true
 		},
 		{
 			"check": "Expert makes 3–6 expeditions",
-			"detail": "mean 5.2, median 5.0",
+			"detail": "mean 4.4, median 4.0",
 			"ok": true
 		},
 		{
 			"check": "Expert runs lost to dice with zero mistakes < 10%",
-			"detail": "5.1% (zero-mistake losses of any kind: 50.5%)",
+			"detail": "0.0% (zero-mistake losses of any kind: 23.9%)",
 			"ok": true
 		},
 		{
 			"check": "Expert win-rate spread across distance quartiles ≤ 20 points",
-			"detail": "4.7 points",
+			"detail": "5.6 points",
 			"ok": true
 		},
 		{
@@ -66,257 +66,286 @@
 		"fixtures": 37,
 		"policies": {
 			"expert": {
+				"afflictions_per_run": 0.2838,
 				"crafted_share": 0,
 				"death_causes": {
-					"sickness": 0.379900347842437,
-					"starvation": 0.283397574504089,
-					"thirst": 0.256792328664097,
-					"trip": 0.0799097489893767
+					"sickness": 0.233298791018998,
+					"starvation": 0.264594127806563,
+					"thirst": 0.391088082901554,
+					"trip": 0.111018998272884
 				},
 				"death_days": {
-					"05-09": 175,
-					"10-14": 1769,
-					"100-104": 6,
-					"105-109": 7,
-					"110-114": 10,
-					"115-119": 6,
-					"15-19": 1201,
-					"20-24": 2629,
-					"25-29": 4599,
-					"30-34": 3519,
-					"35-39": 3576,
-					"40-44": 1805,
-					"45-49": 763,
-					"50-54": 514,
-					"55-59": 260,
-					"60-64": 144,
-					"65-69": 109,
-					"70-74": 60,
-					"75-79": 41,
-					"80-84": 32,
-					"85-89": 24,
-					"90-94": 14,
-					"95-99": 11
-				},
-				"dice_losses": 0.051,
-				"earliest_win_day": 27,
-				"endings": {
-					"loss_all_dead": 2836,
-					"loss_no_adult": 705,
-					"loss_takeover": 1519,
-					"rescue_airlift": 3107,
-					"rescue_convoy": 1564,
-					"rescue_neighbourhood": 246,
-					"timeout": 23
-				},
-				"events_per_run": 32.4309,
-				"followed_share": 0.5765,
-				"groups": {
-					"rural": {
-						"n": 1080,
-						"win": 0.368518518518519
-					},
-					"suburban": {
-						"n": 2432,
-						"win": 0.53125
-					},
-					"town": {
-						"n": 3244,
-						"win": 0.491368680641184
-					},
-					"urban": {
-						"n": 3244,
-						"win": 0.503390875462392
-					}
-				},
-				"item_options_per_run": 10.5634,
-				"median_loss_day": 34,
-				"median_run_days": 37,
-				"median_win_day": 38,
-				"mistakes": {
-					"skipped_food": 48
-				},
-				"quartile_spread": 0.0474228452154213,
-				"quartile_win": [
-					0.504624491305956,
-					0.502258726899384,
-					0.501233552631579,
-					0.457201646090535
-				],
-				"raids_per_run": 2.7012,
-				"runs": 10000,
-				"trip_death_rate": 0.0329508450922624,
-				"trips_mean": 5.1592,
-				"trips_median": 5,
-				"win_rate": 0.4917,
-				"wipe_before_15": 0.0144,
-				"zero_mistake_losses": 0.5048
-			},
-			"naive": {
-				"crafted_share": 0,
-				"death_causes": {
-					"sickness": 0.341438923114501,
-					"starvation": 0.0306944934458708,
-					"thirst": 0.596954975981762,
-					"trip": 0.0309116074578663
-				},
-				"death_days": {
-					"05-09": 20043,
-					"10-14": 436,
-					"15-19": 3261,
-					"20-24": 4918,
-					"25-29": 2935,
-					"30-34": 2324,
-					"35-39": 1448,
-					"40-44": 754,
-					"45-49": 391,
-					"50-54": 162,
-					"55-59": 84,
-					"60-64": 35,
-					"65-69": 26,
-					"70-74": 15,
-					"75-79": 9,
-					"80-84": 3,
-					"85-89": 2,
-					"90-94": 1
+					"05-09": 45,
+					"10-14": 791,
+					"100-104": 41,
+					"105-109": 46,
+					"110-114": 36,
+					"115-119": 21,
+					"120-124": 2,
+					"15-19": 715,
+					"20-24": 1207,
+					"25-29": 2308,
+					"30-34": 2129,
+					"35-39": 2742,
+					"40-44": 1808,
+					"45-49": 788,
+					"50-54": 542,
+					"55-59": 298,
+					"60-64": 180,
+					"65-69": 240,
+					"70-74": 122,
+					"75-79": 109,
+					"80-84": 109,
+					"85-89": 73,
+					"90-94": 74,
+					"95-99": 49
 				},
 				"dice_losses": 0,
 				"earliest_win_day": 27,
 				"endings": {
-					"loss_all_dead": 7046,
-					"loss_no_adult": 1758,
-					"loss_takeover": 89,
-					"rescue_airlift": 1049,
-					"rescue_convoy": 58
+					"loss_all_dead": 2000,
+					"loss_no_adult": 397,
+					"loss_takeover": 1892,
+					"rescue_airlift": 3482,
+					"rescue_convoy": 2050,
+					"rescue_neighbourhood": 117,
+					"timeout": 62
 				},
-				"events_per_run": 23.3516,
-				"followed_share": 0.2366,
+				"events_per_run": 36.2799,
+				"followed_share": 0.5312,
 				"groups": {
 					"rural": {
 						"n": 1080,
-						"win": 0.0824074074074074
+						"win": 0.415740740740741
 					},
 					"suburban": {
 						"n": 2432,
-						"win": 0.113486842105263
+						"win": 0.59375
 					},
 					"town": {
 						"n": 3244,
-						"win": 0.106658446362515
+						"win": 0.582922318125771
 					},
 					"urban": {
 						"n": 3244,
-						"win": 0.122071516646116
+						"win": 0.574907521578298
 					}
 				},
-				"item_options_per_run": 4.7234,
+				"item_options_per_run": 7.0114,
+				"maybe_rate": 0,
+				"median_loss_day": 36,
+				"median_run_days": 38,
+				"median_win_day": 38,
+				"mistakes": {
+					"gang_unanswered": 1892,
+					"mask_left_home": 27,
+					"sent_unwell": 376,
+					"skipped_food": 61
+				},
+				"quartile_spread": 0.056061623344889,
+				"quartile_win": [
+					0.58157602663707,
+					0.57864476386037,
+					0.571957236842105,
+					0.525514403292181
+				],
+				"raids_per_run": 2.7532,
+				"rules_per_run": 1.9,
+				"runs": 10000,
+				"stole_share": 0,
+				"stranger_share": 0.2863,
+				"trip_death_rate": 0.0368375206308454,
+				"trips_mean": 4.3624,
+				"trips_median": 4,
+				"win_rate": 0.5649,
+				"wipe_before_15": 0.0033,
+				"zero_mistake_losses": 0.2394
+			},
+			"naive": {
+				"afflictions_per_run": 0.5198,
+				"crafted_share": 0,
+				"death_causes": {
+					"sickness": 0.317505452336913,
+					"starvation": 0.0387322971592634,
+					"thirst": 0.607238494878944,
+					"trip": 0.0365237556248792
+				},
+				"death_days": {
+					"05-09": 20185,
+					"10-14": 705,
+					"100-104": 1,
+					"15-19": 3397,
+					"20-24": 4790,
+					"25-29": 2548,
+					"30-34": 1887,
+					"35-39": 1236,
+					"40-44": 665,
+					"45-49": 315,
+					"50-54": 199,
+					"55-59": 113,
+					"60-64": 78,
+					"65-69": 46,
+					"70-74": 39,
+					"75-79": 12,
+					"80-84": 4,
+					"85-89": 1,
+					"90-94": 1,
+					"95-99": 1
+				},
+				"dice_losses": 0,
+				"earliest_win_day": 27,
+				"endings": {
+					"loss_all_dead": 6408,
+					"loss_no_adult": 1723,
+					"loss_takeover": 381,
+					"rescue_airlift": 1351,
+					"rescue_convoy": 135,
+					"rescue_neighbourhood": 2
+				},
+				"events_per_run": 25.4102,
+				"followed_share": 0.353,
+				"groups": {
+					"rural": {
+						"n": 1080,
+						"win": 0.122222222222222
+					},
+					"suburban": {
+						"n": 2432,
+						"win": 0.155016447368421
+					},
+					"town": {
+						"n": 3244,
+						"win": 0.154747225647349
+					},
+					"urban": {
+						"n": 3244,
+						"win": 0.147040690505549
+					}
+				},
+				"item_options_per_run": 2.8018,
+				"maybe_rate": 0,
 				"median_loss_day": 28,
 				"median_run_days": 30,
-				"median_win_day": 37,
+				"median_win_day": 38,
 				"mistakes": {
-					"hunger_with_food": 24,
-					"sent_unwell": 6541,
-					"skipped_food": 669,
-					"skipped_water": 155140,
-					"thirst_with_water": 21248
+					"gang_unanswered": 381,
+					"hunger_with_food": 79,
+					"mask_left_home": 108,
+					"sent_unwell": 6030,
+					"skipped_food": 1296,
+					"skipped_water": 154657,
+					"thirst_with_water": 21323
 				},
-				"quartile_spread": 0.032939916905193,
+				"quartile_spread": 0.018800763482781,
 				"quartile_win": [
-					0.128745837957825,
-					0.107186858316222,
-					0.0958059210526316,
-					0.109053497942387
+					0.150573436921939,
+					0.149075975359343,
+					0.157072368421053,
+					0.138271604938272
 				],
-				"raids_per_run": 0.6677,
+				"raids_per_run": 1.2716,
+				"rules_per_run": 0,
 				"runs": 10000,
-				"trip_death_rate": 0.113130711164084,
-				"trips_mean": 1.0068,
+				"stole_share": 0.0136,
+				"stranger_share": 0.2492,
+				"trip_death_rate": 0.143992163691772,
+				"trips_mean": 0.9188,
 				"trips_median": 0,
-				"win_rate": 0.1107,
-				"wipe_before_15": 0.1347,
+				"win_rate": 0.1488,
+				"wipe_before_15": 0.1449,
 				"zero_mistake_losses": 0
 			},
 			"random": {
+				"afflictions_per_run": 0.7731,
 				"crafted_share": 0,
 				"death_causes": {
-					"air": 0.00436973888799528,
-					"sickness": 0.0563776741193502,
-					"starvation": 0.164253927403356,
-					"thirst": 0.68612943005737,
-					"trip": 0.0888692295319286
+					"air": 0.00147035234989039,
+					"sickness": 0.0514890659252526,
+					"starvation": 0.188098166069614,
+					"thirst": 0.654761268245736,
+					"trip": 0.104181147409507
 				},
 				"death_days": {
-					"00-04": 54,
-					"05-09": 12484,
-					"10-14": 10980,
-					"15-19": 7770,
-					"20-24": 3923,
-					"25-29": 1512,
-					"30-34": 428,
-					"35-39": 115,
-					"40-44": 29,
-					"45-49": 7
+					"00-04": 47,
+					"05-09": 12194,
+					"10-14": 10689,
+					"15-19": 7970,
+					"20-24": 4222,
+					"25-29": 1594,
+					"30-34": 498,
+					"35-39": 134,
+					"40-44": 37,
+					"45-49": 16,
+					"50-54": 3,
+					"55-59": 1,
+					"60-64": 1
 				},
 				"dice_losses": 0,
-				"earliest_win_day": 27,
+				"earliest_win_day": 33,
 				"endings": {
-					"loss_all_dead": 7567,
-					"loss_empty": 1050,
-					"loss_no_adult": 1297,
-					"loss_takeover": 76,
-					"rescue_airlift": 10
+					"loss_all_dead": 7653,
+					"loss_empty": 885,
+					"loss_no_adult": 1346,
+					"loss_takeover": 83,
+					"maybe_walk_out": 29,
+					"rescue_airlift": 4
 				},
-				"events_per_run": 14.247,
-				"followed_share": 0.3621,
+				"events_per_run": 14.8626,
+				"followed_share": 0.3539,
 				"groups": {
 					"rural": {
 						"n": 1080,
-						"win": 0.00185185185185185
+						"win": 0
 					},
 					"suburban": {
 						"n": 2432,
-						"win": 0.00123355263157895
+						"win": 0
 					},
 					"town": {
 						"n": 3244,
-						"win": 0.00061652281134402
+						"win": 0.00030826140567201
 					},
 					"urban": {
 						"n": 3244,
 						"win": 0.00092478421701603
 					}
 				},
-				"item_options_per_run": 2.4527,
+				"item_options_per_run": 0.9972,
+				"maybe_rate": 0.0029,
 				"median_loss_day": 17,
 				"median_run_days": 17,
-				"median_win_day": 35.5,
+				"median_win_day": 36,
 				"mistakes": {
-					"empty_unlocked": 1050,
-					"hunger_with_food": 533,
-					"lethal_trip": 4602,
-					"mask_left_home": 4737,
-					"medkit_unused": 275,
-					"medkit_unused_death": 36,
-					"sent_unwell": 8711,
-					"skipped_food": 2830,
-					"skipped_water": 28784,
-					"thirst_with_water": 7473
+					"empty_unlocked": 885,
+					"gang_unanswered": 83,
+					"hunger_with_food": 532,
+					"lethal_trip": 4600,
+					"mask_left_home": 4903,
+					"medkit_unused": 383,
+					"medkit_unused_death": 65,
+					"sent_unwell": 8135,
+					"skipped_food": 2926,
+					"skipped_water": 29431,
+					"thirst_with_water": 7543
 				},
-				"quartile_spread": 0.00168765386424777,
+				"quartile_spread": 0.00110987791342952,
 				"quartile_win": [
-					0.000369959304476508,
-					0.00082135523613963,
-					0.000822368421052632,
-					0.00205761316872428
+					0.00110987791342952,
+					0.000410677618069815,
+					0,
+					0
 				],
-				"raids_per_run": 1.0407,
+				"raids_per_run": 1.0553,
+				"rules_per_run": 2.453,
 				"runs": 10000,
-				"trip_death_rate": 0.123911337046313,
-				"trips_mean": 2.6753,
+				"stole_share": 0.09,
+				"stranger_share": 0.138,
+				"trip_death_rate": 0.14322466830828,
+				"trips_mean": 2.7209,
 				"trips_median": 2,
-				"win_rate": 0.001,
-				"wipe_before_15": 0.3541,
-				"zero_mistake_losses": 0.1054
+				"win_rate": 0.0004,
+				"wipe_before_15": 0.3344,
+				"zero_mistake_losses": 0.0979
 			}
 		},
 		"quartile_edges_m": [

@@ -234,7 +234,9 @@ func _test_actor_succession() -> void:
 	_ok(str(a2.get("name", "")) == "Priya", "leader away -> oldest able survivor acts (%s)" % a2.get("name", ""))
 	leader["loc"] = "shelter"
 	leader["morale"] = 0
+	leader["affliction"] = "withdrawn"   # M2: Withdrawn is an affliction that follows morale 0 and a warning
 	_ok(str(EventDeck.pick_actor().get("name", "")) == "Priya", "leader withdrawn -> oldest able survivor acts")
+	leader["affliction"] = ""
 	leader["morale"] = 7
 	fam[1]["alive"] = false
 	fam[1]["loc"] = "dead"
@@ -440,7 +442,9 @@ func _test_long_runs() -> void:
 			var s: ShelterState = GameState.shelter
 			var rng := RandomNumberGenerator.new()
 			rng.seed = 400 + seed_i
-			while not s.is_over() and s.day < 90:
+			# M2: the cap matches the balance harness (120 days); a family still alive there with every
+			# rescue gone quiet is a finished run, not a script error.
+			while not s.is_over() and s.day < 120:
 				ShelterSim.begin_day(s)
 				if s.is_over():
 					break
@@ -459,7 +463,7 @@ func _test_long_runs() -> void:
 	_report["long_runs"] = summaries
 	var finished: int = 0
 	for sm2 in summaries:
-		if str((sm2 as Dictionary)["ending"]) != "":
+		if str((sm2 as Dictionary)["ending"]) != "" or int((sm2 as Dictionary)["day"]) >= 120:
 			finished += 1
-	_ok(summaries.size() == 18 and finished == 18, "18 long simulated runs reached an ending without script errors (%d/18)" % finished)
+	_ok(summaries.size() == 18 and finished == 18, "18 long simulated runs reached an ending (or the 120-day cap) without script errors (%d/18)" % finished)
 

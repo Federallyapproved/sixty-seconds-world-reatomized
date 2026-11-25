@@ -530,10 +530,13 @@ func _audit_3_bunker_survival_math(gs: Node) -> void:
 	for _d in range(4):
 		_m1_day(mut, true, true)
 	_check(not bool(gs.get("FEATURE_MUTATION")) and not bool((mut.members[0] as Dictionary).get("is_mutant", false)), "Radiation never turns anyone into a mutant (feature off); it causes radiation sickness instead")
-	# [3G insanity breaks gear / abandons bunker -> M1: morale 0 means Withdrawn (won't work)]
+	# [3G insanity breaks gear / abandons bunker -> M1: morale 0 means Withdrawn -> M2: morale 0 brings an
+	#  affliction (Selfish, Paranoid, Reckless or Withdrawn) after a day's warning; a Withdrawn survivor won't go out]
 	var wd: ShelterState = _m1_run([_m1_member("m0", "Sam", "adult", 40), _m1_member("m1", "Priya", "adult", 39)], {"food": 8, "water": 8}, 717)
-	(wd.members[1] as Dictionary)["morale"] = 0
-	_check(ShelterTrips.can_go(wd, wd.members[1]).begins_with("Withdrawn"), "At morale 0 a survivor is Withdrawn and won't go out")
+	ShelterSim.add_morale(wd, wd.members[1], -10, "")
+	var warned: bool = str((wd.members[1] as Dictionary).get("affliction_next", "")) != "" and ShelterState.affliction(wd.members[1]) == ""
+	(wd.members[1] as Dictionary)["affliction"] = "withdrawn"
+	_check(warned and ShelterTrips.can_go(wd, wd.members[1]).begins_with("Withdrawn"), "At morale 0 a survivor is warned first, then afflicted; a Withdrawn one won't go out")
 	# [3H repair via toolbox/book/handy -> M1: the survival manual repairs (85%, better for a Handy actor)]
 	var fixed: int = 0
 	for trial in range(100):

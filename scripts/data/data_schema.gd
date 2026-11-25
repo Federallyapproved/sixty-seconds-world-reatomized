@@ -53,6 +53,12 @@ const EFFECT_OPS: Array[String] = [
 	"junk",         # {item, n}: crafting junk (M3); ignored until junk exists
 	"say",          # {text}: an extra receipt line (e.g. inside a chance branch)
 	"drain",        # {category: [...], share}: unseen survivors strip a share of those stores
+	# M2
+	"later",        # {in, text | trigger, kind?, quiet_place?}: the narrator brings it up days later
+	"trip_flag",    # {set}: marks the expedition in progress (e.g. "took" at an occupied house)
+	"rule",         # {rule}: adopt a House Rule (the House meeting builds these)
+	"rule_declined",# the House meeting adopts nothing
+	"end_run",      # {ending}: a "maybe" ending the family chooses (a gamble, not a death)
 ]
 
 const WHO: Array[String] = ["actor", "explorer", "random", "all", "weakest", "sickest", "thirstiest", "child", "adult", "subject"]
@@ -62,7 +68,15 @@ const CONDITION_KEYS: Array[String] = [
 	"needs_fallout_clear", "needs_heavy_fallout", "needs_flag", "not_flag", "needs_owned", "needs_missing",
 	"needs_pet", "no_pet", "needs_sick", "needs_injured", "needs_child", "needs_low_morale", "min_people",
 	"needs_broken", "needs_chain_active", "after_escalation",
+	# M2
+	"trip_occupied", "needs_rule", "not_rule", "needs_affliction", "needs_guilt", "needs_pet_any",
 ]
+
+## Afflictions at morale 0 (section 7); each has a row in data/afflictions.csv.
+const AFFLICTIONS: Array[String] = ["selfish", "paranoid", "reckless", "withdrawn"]
+
+## What a House Rule can require before it is offered.
+const RULE_NEEDS: Array[String] = ["", "pet", "child"]
 
 const TEXT_TOKENS: Array[String] = [
 	"{name}", "{n}", "{day}", "{home}", "{street}", "{area}", "{place}", "{nearest_school}",

@@ -52,7 +52,12 @@
    - **One screen per day:** the morning receipt ("Used: Medkit → cured Maya", "No axe → the shutter at the pharmacy stayed shut"), the day's dilemma (item options carry their icon; missing items show "Needs: X" and what is at stake), a ration row per person with tomorrow's preview ("Skip water: Sam is thirsty tomorrow (day 3 without)"), Treat, Rest or Trip, then End Day.
    - **Trips to real, finite places** found in OpenStreetMap: walking distance sets the days away (2–7), stock runs out and other survivors empty the shelves, and the planner shows the never-return band, dose band, sickness on return, likely loot, the tool a shutter needs and the chance of being followed home before anyone leaves.
    - **Pressure clocks:** being followed brings raids that the rifle, axe or padlock stop; an unanswered gang tries to take the shelter (warned the morning before); black rain and empty shelves arrive around day 8.
-   - **Three rescues** heard on the hand-crank radio after the fallout clears — **the convoy**, **the neighbourhood** (opened at a real church or school) and **the airlift** — each a chain of item requests. Nothing lands before day 25. (The car escape is switched off: `GameState.FEATURE_CAR_ESCAPE = false`.)
+   - **Drama:** at morale 0 people turn Selfish, Paranoid, Reckless or Withdrawn (always with a warning the day before); every 4 days a House meeting can pass one more House Rule ("Finders eat first", "Kids eat last"…), each with a real bonus and a morale cost; some neighbours are still home, and what you take from them stays with you; one rare stranger per run.
+   - **Three rescues** heard on the hand-crank radio after the fallout clears — **the convoy**, **the neighbourhood** (opened at a real church or school) and **the airlift** — each a chain of item requests. Nothing lands before day 25. Two gamble endings let the family leave on a hope. (The car escape is switched off: `GameState.FEATURE_CAR_ESCAPE = false`.)
+
+6. **The Survival Almanac and achievements (`scripts/meta/`)**
+   - The Almanac fills in as you play: each item's page lists what it was seen doing and the options it opened; items you have never found stay greyed out, and their options stay hidden until you do.
+   - 30+ achievements that each ask for a decision (none for hiding in the shelter), with an unlock toast. The end-of-run report shows the MVP items, what was missing when it counted, and how each death happened, with the turning point marked.
 
 ---
 
@@ -65,6 +70,7 @@ The v3 rules live in data, run headless and are measured. Day-to-day commands (G
 | Validate and build the data (`data/*.csv`, `data/events/*.json` → `data/build/`, `CREDITS.md`) | `godot --headless --path . -s res://tools/build_data.gd` (add `-- --check` to validate only) |
 | Data pipeline suite | `godot --headless --path . -s res://tests/pass2/run.gd -- --suite=../m1/data_pipeline_suite` |
 | Shelter rules suite | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/m1/shelter_rules_suite.gd` |
+| Drama and achievements suites (M2) | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/m2/drama_suite.gd` · `--script=res://tests/m2/achievements_suite.gd` |
 | Systems gauntlet, QA, 60-second and OSM audits | `godot --headless --path . -s res://tests/pass2/run.gd -- --suite=systems_gauntlet` · `godot --headless --fixed-fps 30 --path . -s res://tests/critic_qa_audit.gd` · `-s res://tests/critic_60s_audit.gd` · `-s res://tests/critic_osm_audit.gd` |
 | Keyboard-and-mouse playthrough of the shelter (needs a display) | `godot --path . --rendering-driver opengl3 -s res://tests/pass2/play_shelter.gd -- --out=<dir>` |
 | Balance harness: 10,000 runs per policy, writes `docs/BALANCE_REPORT.md` | `GODOT=godot tools/run_sim.sh 10000 8 normal` |

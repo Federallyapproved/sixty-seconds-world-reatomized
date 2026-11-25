@@ -1,0 +1,34 @@
+[
+	{
+		"id": "evacuation_line", "title": "The Evacuation Line", "type": "moral", "mood": "neutral", "weight": 1.5,
+		"setup": "A hand-painted sign on the corner: EVACUATION LINE, HIGHWAY NORTH, TWO DAYS' WALK. BRING WATER. Someone has added: IT'S REAL.",
+		"conditions": {"min_day": 30, "needs_fallout_clear": true},
+		"options": [
+			{"id": "scout", "label": "Send one person to check it's real", "cinematic": "hazard",
+				"effects": [{"do": "tired", "who": "actor", "days": 3}, {"do": "dose", "who": "actor", "msv": 15}, {"do": "chance", "p": 0.5, "then": [{"do": "morale", "who": "all", "n": 2}, {"do": "say", "kind": "good", "text": "It's real: buses, a queue and a list. Nobody is ready to decide yet."}], "else": [{"do": "morale", "who": "all", "n": -1}, {"do": "say", "kind": "info", "text": "{name} found the highway, and a lot of other people looking for the line."}]}],
+				"outcome": "{name} walks north for a day and back for a day. The family waits by the hatch, packing and unpacking."},
+			{"id": "stay", "label": "Stay and wait for rescue", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "The sign stays on the corner. Nobody mentions it at dinner, very loudly."},
+			{"id": "walk", "label": "Pack up and walk out", "cinematic": "hazard", "stakes": "ends the run: a gamble on the road",
+				"effects": [{"do": "end_run", "ending": "maybe_walk_out"}],
+				"outcome": "Everyone carries what they can. {name} shuts the hatch behind them out of habit, and the family turns north."}
+		]
+	},
+	{
+		"id": "last_truck", "title": "Room in the Back", "type": "visitor", "mood": "neutral", "weight": 1.2,
+		"setup": "A pickup idles by the hatch. The driver is leaving the zone tonight, with a full tank and room in the back.",
+		"conditions": {"min_day": 30, "needs_fallout_clear": true},
+		"options": [
+			{"id": "letter", "label": "Ask him to carry a letter out", "hatch": true, "cinematic": "give",
+				"effects": [{"do": "lose", "item": "food", "n": 1}, {"do": "morale", "who": "all", "n": 1}, {"do": "later", "in": 6, "text": "Someone wonders out loud whether the letter got anywhere. Nobody guesses."}],
+				"outcome": "Everyone writes a line. He takes the letter and a can for his trouble, and doesn't promise anything."},
+			{"id": "wave", "label": "Wave him on", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "His tail lights shrink to nothing at the end of the street. The shelter feels a size smaller."},
+			{"id": "go", "label": "Climb in the back", "hatch": true, "cinematic": "signal", "stakes": "ends the run: a gamble on a stranger",
+				"effects": [{"do": "end_run", "ending": "maybe_stranger"}],
+				"outcome": "Bags in, family in, tailgate up. The driver doesn't ask anyone's name, and nobody offers one."}
+		]
+	}
+]

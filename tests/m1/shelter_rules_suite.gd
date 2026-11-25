@@ -118,10 +118,11 @@ func _test_trip_rules() -> void:
 	_ok(ShelterTrips.base_days(s.places[5]) == 7, "60 km round trip clamps to 7 days")
 	_ok(ShelterTrips.trip_days(s.places[1], ["map"]) == 2, "a map takes a day off")
 	var pv0: Dictionary = ShelterTrips.preview(s, m, 2, [])
-	var expect: float = 1.0 - pow(1.0 - 0.025 * 2.0, float(int(pv0["days"])))
+	var base_p: float = ShelterData.B("trip_base_p_day", 0.025)   # 2.5% in M1, 3% since M2's tuning
+	var expect: float = 1.0 - pow(1.0 - base_p * 2.0, float(int(pv0["days"])))
 	_ok(absf(float(pv0["p_death"]) - expect) < 0.0001, "death chance = 1-(1-p)^days, no mask in heavy fallout doubles p (%.3f)" % float(pv0["p_death"]))
 	var pv1: Dictionary = ShelterTrips.preview(s, m, 2, ["gas_mask", "map"])
-	var expect1: float = 1.0 - pow(1.0 - 0.025 * 0.6, float(int(pv1["days"])))
+	var expect1: float = 1.0 - pow(1.0 - base_p * 0.6, float(int(pv1["days"])))
 	_ok(absf(float(pv1["p_death"]) - expect1) < 0.0001, "mask removes the heavy-fallout x2, the map multiplies by 0.6")
 	_ok(int(pv0["carry"]) == 2 and int(ShelterTrips.preview(s, m, 2, ["suitcase"])["carry"]) == 5, "carry 2 slots, 5 with the suitcase")
 	_ok(absf(float(pv0["sick_p"]) - 0.7) < 0.001 and absf(float(pv1["sick_p"]) - 0.2) < 0.001, "sick on return in heavy fallout: 70% without a mask, 20% with")
@@ -373,7 +374,8 @@ func _test_fairness_over_runs() -> void:
 			if not ev.is_empty():
 				var eid: String = str(ev["id"])
 				seen[eid] = true
-				if drawn.has(eid):
+				# M2: the House meeting recurs by design; every drawn event still never repeats.
+				if drawn.has(eid) and eid != "house_meeting":
 					repeats += 1
 				drawn[eid] = true
 				var random_draw: bool = not ev.has("chain") and not bool(ev.get("system", false))
@@ -416,8 +418,81 @@ func _test_fairness_over_runs() -> void:
 			c["next_day"] = t.day
 			if ShelterChains.due_event(t) == str(eid):
 				continue
+		elif _reachable_by_setup(str(eid)):
+			# M2: rule-, affliction- and place-gated events are rare in 600 runs; build a state that
+			# meets the event's conditions and check the director would accept it.
+			continue
 		missing.append(eid)
-	_ok(missing.is_empty(), "every event is reachable (seen in 600 runs or reached by setting its chain up; unreachable: %s)" % str(missing))
+	_ok(missing.is_empty(), "every event is reachable (seen in 600 runs, or its chain or conditions set up; unreachable: %s)" % str(missing))
+
+
+## Whether a state meeting the event's conditions exists (and the director would weigh it above 0).
+## System events count when another event schedules them.
+func _reachable_by_setup(eid: String) -> bool:
+	var ev: Dictionary = ShelterData.event(eid)
+	if bool(ev.get("system", false)):
+		for oid in ShelterData.events().keys():
+			for o_v in (ShelterData.events()[oid] as Dictionary).get("options", []):
+				for e_v in DataBuilder._flat_effects((o_v as Dictionary).get("effects", [])):
+					if str((e_v as Dictionary).get("do", "")) == "schedule" and str((e_v as Dictionary).get("event", "")) == eid:
+						return true
+		return eid == "occupied_house"   # scheduled by ShelterTrips.launch at an occupied home
+	var c: Dictionary = ev.get("conditions", {})
+	var places: Array = _places()
+	for cat in ["school", "civic", "auto", "restaurant", "park", "hardware"]:
+		places.append({"osm_id": 900 + places.size(), "name": "Test " + cat, "category": cat, "walk_m": 800.0, "lat": 0.0, "lon": 0.0})
+	var haul: Dictionary = {}
+	for it in ShelterData.core_ids():
+		haul[it] = 2
+	var factors: Array = []
+	for _i in range(places.size()):
+		factors.append(0.05)
+	var t: ShelterState = ShelterSim.new_run({"members": SimPolicies.default_family(), "haul": haul, "places": places,
+		"rad_factors": factors, "h1_home_msv": 11500.0, "seed": 79})
+	t.day = maxi(int(c.get("min_day", 1)), 8 if bool(c.get("after_escalation", false)) else 1)
+	if bool(c.get("needs_fallout_clear", false)):
+		t.fallout_clear_day = 1
+		t.fallout_announced = true
+	if bool(c.get("needs_heavy_fallout", false)):
+		t.fallout_clear_day = 99
+	if bool(c.get("needs_followed", false)):
+		t.followed = true
+	if c.has("needs_pet"):
+		t.pets[str(c["needs_pet"])] = {"since": 1}
+	if bool(c.get("needs_pet_any", false)):
+		t.pets["dog"] = {"since": 1}
+	var m1: Dictionary = t.member("m1")
+	if bool(c.get("needs_sick", false)):
+		ShelterSim.make_sick(t, m1, "test", "chance")
+	if bool(c.get("needs_injured", false)):
+		ShelterSim.make_injured(t, m1, "test", "chance")
+	if bool(c.get("needs_low_morale", false)):
+		m1["morale"] = 3
+	if c.has("needs_rule"):
+		ShelterSim.adopt_rule(t, str(c["needs_rule"]))
+	if c.has("needs_affliction"):
+		var want: String = str(c["needs_affliction"])
+		m1["morale"] = 0
+		m1["affliction"] = "withdrawn" if want == "any" else want
+	if bool(c.get("needs_guilt", false)):
+		m1["guilt"] = true
+	if c.has("needs_missing"):
+		t.stock.erase(str(c["needs_missing"]))
+	if c.has("needs_broken"):
+		t.broken[str(c["needs_broken"])] = 1
+	if c.has("needs_flag"):
+		t.flags[str(c["needs_flag"])] = 1
+	if c.has("needs_chain_active"):
+		(t.chains[str(c["needs_chain_active"])] as Dictionary)["state"] = "active"
+	if c.has("trip_place"):
+		var cats: Array = c["trip_place"] if c["trip_place"] is Array else [c["trip_place"]]
+		for p_v in t.places:
+			if str((p_v as Dictionary)["category"]) in cats or cats.has("any"):
+				if bool(c.get("trip_occupied", false)):
+					(p_v as Dictionary)["occupied"] = true
+				ShelterTrips.launch(t, t.member("m0"), int((p_v as Dictionary)["idx"]), [])
+				break
+	return ShelterEvents._conditions_ok(t, ev, false) and ShelterEvents._weight(t, ev) > 0.0
 
 
 func _test_clarity() -> void:

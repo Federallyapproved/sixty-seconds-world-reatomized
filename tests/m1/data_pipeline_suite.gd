@@ -105,10 +105,14 @@ func _check_validator_rejects() -> void:
 	var basic := {"id": "a", "label": "Do nothing", "outcome": "Nothing happens.", "effects": []}
 	var costly := {"id": "b", "label": "Pay", "outcome": "It costs.", "effects": [{"do": "lose", "item": "water", "n": 1}]}
 	var axe := {"id": "c", "label": "Chop", "item": "axe", "outcome": "Chopped.", "effects": [{"do": "use", "item": "axe"}]}
+	var wait := {"id": "w", "label": "Wait it out", "outcome": "Time passes.", "effects": [{"do": "morale", "who": "all", "n": -1}]}
 	_ok(_errors_for(_event_with([basic, costly])).is_empty(), "validator accepts a well-formed event")
+	# M2: "2 basic choices plus 0-2 item choices" (section 8).
+	_ok(not _errors_for(_event_with([axe, costly])).is_empty(), "validator rejects an event with only one option that needs no item (M2)")
 	_ok(not _errors_for(_event_with([axe, {"id": "d", "label": "Spray", "item": "bug_spray", "outcome": "x", "effects": []}])).is_empty(), "validator rejects an event with no no-item option")
 	_ok(not _errors_for(_event_with([axe, basic])).is_empty(), "validator rejects an item-gated event whose no-item options are all free")
-	_ok(_errors_for(_event_with([axe, costly])).is_empty(), "validator accepts an item-gated event with a costly no-item option")
+	# [was: accepts [axe, costly]; M2 needs a second no-item option, so the same event plus one]
+	_ok(_errors_for(_event_with([axe, costly, wait])).is_empty(), "validator accepts an item-gated event with a costly no-item option")
 	var killer := {"id": "k", "label": "Wait", "outcome": "x", "effects": [{"do": "kill", "who": "random", "cause": "x"}]}
 	_ok(not _errors_for(_event_with([killer, basic])).is_empty(), "validator rejects a fatal outcome without a warning kind")
 	_ok(_errors_for(_event_with([killer, basic], {"warning": "fumes"})).is_empty(), "validator accepts a fatal outcome with a warning kind")

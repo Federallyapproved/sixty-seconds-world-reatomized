@@ -59,11 +59,25 @@ Add an object to any file in `data/events/` (one JSON array per file):
 }
 ```
 
-Rules the validator enforces: a setup of 25 words or fewer and outcomes of 30 or fewer; 2–4 options with at least one that needs no item and at most two item options; an item-gated event needs a costly no-item option; anything that can kill (`kill`) or end the run (`lose_run`) needs `"warning": "<kind>"` and an `"omen"` line, which the game shows a day earlier. The effects, conditions and `{placeholders}` you can use are listed in `scripts/data/data_schema.gd`. Rescue-chain requests carry `"chain"` and `"step"` (and a `"retry": true` variant for the second try). Follow the tone guide: deadpan, no punchline on a death, real places only as neutral facts.
+Rules the validator enforces: a setup of 25 words or fewer and outcomes of 30 or fewer; 2–4 options with at least two that need no item and at most two item options; an item-gated event needs a costly no-item option; anything that can kill (`kill`) or end the run (`lose_run`) needs `"warning": "<kind>"` and an `"omen"` line, which the game shows a day earlier. The effects, conditions and `{placeholders}` you can use are listed in `scripts/data/data_schema.gd`. Rescue-chain requests carry `"chain"` and `"step"` (and a `"retry": true` variant for the second try). Follow the tone guide: deadpan, no punchline on a death, real places only as neutral facts.
+
+M2 fields:
+- `"hatch": true` on an option that opens the hatch to someone (a trade, a visitor, handing something out). It is greyed out while anyone is Paranoid or the House Rule "Nobody opens the hatch" is in force, so keep at least one other option.
+- `"contagion": true` on an event where sickness spreads; "The sick sleep upstairs" keeps it from coming up.
+- `"stranger": true` (type `stranger`) for a rare visitor with an item-gated option of their own; the game allows one per run.
+- Effects: `later` (`{"in": 3, "trigger": "house_quiet", "quiet_place": true}`: the narrator brings it up days later), `end_run` (`{"ending": "maybe_walk_out"}` or `maybe_stranger`: a gamble the family chooses), `trip_flag`. Conditions: `needs_affliction` (`selfish`, `paranoid`, `reckless`, `withdrawn` or `any`), `needs_guilt`, `needs_rule` / `not_rule` (a House Rule id), `trip_occupied`, `needs_pet_any`. Weight keys: `afflicted`, `guilt`, `rule:<id>`, `place:<category>`.
+
+## A House Rule
+
+Add a row to `data/house_rules.csv`: `id,name,order,bonus,cost,morale_hit,needs,narrator_line`. Meetings offer the next two rules by `order`; `needs` can be `pet` or `child`. The bonus and cost text is what the meeting card shows; the effect itself is code (`s.has_rule("<id>")` where the rule acts), so a new rule needs a few lines in `scripts/shelter/` and a test in `tests/m2/drama_suite.gd`.
+
+## An affliction line
+
+`data/afflictions.csv` holds the four afflictions' names, the line when one takes hold (`onset`), when it lifts (`recover`), and three warnings (`warning_1..3`, each naming the person with `{name}`). Afflictions are never played for laughs.
 
 ## An achievement (M2)
 
-Add a row to `data/achievements.csv`: `id,name,description,condition,unlocks`. Every achievement must depend on decisions, not drops, and needs a test that unlocks it.
+Add a row to `data/achievements.csv`: `id,name,description,condition,unlocks`. `condition` is one of `Achievements.CONDITIONS` (`scripts/meta/achievements.gd`), with a number or id after a colon where it takes one (`padlock_stops:3`, `ending:rescue_convoy`). Every achievement must depend on decisions, not drops (nothing for surviving N days), and needs a setup in `tests/m2/achievements_suite.gd` that earns it.
 
 ## A narration line
 
