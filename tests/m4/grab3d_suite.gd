@@ -225,6 +225,13 @@ func _house_checks(g: HouseGrab3D, osm: String, kinds_seen: Dictionary) -> bool:
 		if "Floor" in names and "Ceiling" in names and rm.get("light") != null:
 			lit += 1
 	_check("h%s_rooms_have_floor_ceiling_light" % osm, lit == open_rooms and open_rooms >= 1, "%d of %d" % [lit, open_rooms])
+	var shell: Node = (g._house3d["root"] as Node).get_node_or_null("Shell")
+	var walls_in_rooms: int = 0
+	for rm in rooms:
+		for c in (rm["node"] as Node).get_children():
+			if str(c.name).begins_with("Walls"):
+				walls_in_rooms += 1
+	_check("h%s_walls_never_culled" % osm, shell != null and shell.get_child_count() >= 1 and walls_in_rooms == 0, "%d wall meshes outside the rooms, %d inside" % [shell.get_child_count() if shell != null else 0, walls_in_rooms])
 	# Props are merged per room only where there is mesh data (with a display).
 	if not HouseBuilder3D.no_mesh_data():
 		_check("h%s_few_meshes_per_room" % osm, worst_meshes <= 5, "worst %d" % worst_meshes)

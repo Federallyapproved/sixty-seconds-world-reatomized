@@ -2808,33 +2808,42 @@ class _ScavengeHUD extends Control:
 		if scene_ref._phase == ScavengeScene.Phase.OUTRO:
 			_draw_outro_transition_overlay(font)
 
-	func _draw_minimap_panel(font: Font) -> void:
-		var panel_r := Rect2(14.0, 12.0, 224.0, 154.0)
-		draw_rect(Rect2(panel_r.position + Vector2(3.0, 4.0), panel_r.size), Color(0.0, 0.0, 0.0, 0.45), true)
-		draw_rect(panel_r, Color(0.10, 0.12, 0.14, 0.93), true)
-		draw_rect(Rect2(panel_r.position.x, panel_r.position.y, panel_r.size.x, 22.0), ScavengeScene.COL_SLATE, true)
-		draw_rect(panel_r, ScavengeScene.COL_BORDER, false, 1.0)
+	## The minimap's frame, footprint, rooms and captions never change during a grab: they are drawn
+	## once into a small viewport and reused as a texture (about 40 fewer draw calls a frame). The
+	## dots (items, family, the hatch, you) are drawn live on top.
+	var _minimap_cache: SubViewport = null
+	const MINIMAP_PANEL := Rect2(14.0, 12.0, 224.0, 154.0)
+	const MINIMAP_PAD := Vector2(10.0, 8.0)
 
-		draw_string(font, panel_r.position + Vector2(8.0, 16.0), "REAL OSM FOOTPRINT", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_TEXT)
-		draw_circle(panel_r.position + Vector2(panel_r.size.x - 12.0, 11.0), 4.0, ScavengeScene.COL_OK_GREEN)
-
+	func _minimap_xform() -> Array:
+		var panel_r: Rect2 = MINIMAP_PANEL
 		var map_area := Rect2(panel_r.position.x + 10.0, panel_r.position.y + 28.0, panel_r.size.x - 20.0, panel_r.size.y - 46.0)
 		var hb: Rect2 = scene_ref._house_bounds
 		var scale_f: float = minf(map_area.size.x / maxf(1.0, hb.size.x), map_area.size.y / maxf(1.0, hb.size.y)) * 0.92
-		var map_center: Vector2 = map_area.get_center()
-		var world_center: Vector2 = hb.get_center()
+		return [map_area.get_center(), hb.get_center(), scale_f]
 
-		# Footprint polygon
+	## Draws the unchanging part of the minimap on canvas `c`, shifted by `off`.
+	func draw_minimap_static(c: CanvasItem, off: Vector2) -> void:
+		var font: Font = ThemeDB.fallback_font
+		var panel_r := Rect2(MINIMAP_PANEL.position + off, MINIMAP_PANEL.size)
+		c.draw_rect(Rect2(panel_r.position + Vector2(3.0, 4.0), panel_r.size), Color(0.0, 0.0, 0.0, 0.45), true)
+		c.draw_rect(panel_r, Color(0.10, 0.12, 0.14, 0.93), true)
+		c.draw_rect(Rect2(panel_r.position.x, panel_r.position.y, panel_r.size.x, 22.0), ScavengeScene.COL_SLATE, true)
+		c.draw_rect(panel_r, ScavengeScene.COL_BORDER, false, 1.0)
+		c.draw_string(font, panel_r.position + Vector2(8.0, 16.0), "REAL OSM FOOTPRINT", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_TEXT)
+		c.draw_circle(panel_r.position + Vector2(panel_r.size.x - 12.0, 11.0), 4.0, ScavengeScene.COL_OK_GREEN)
+		var xf: Array = _minimap_xform()
+		var map_center: Vector2 = (xf[0] as Vector2) + off
+		var world_center: Vector2 = xf[1]
+		var scale_f: float = xf[2]
 		if scene_ref._outer_polygon.size() >= 3:
 			var mini_poly := PackedVector2Array()
 			for pt in scene_ref._outer_polygon:
 				mini_poly.append(map_center + (pt - world_center) * scale_f)
 			if scene_ref._outer_poly_valid:
-				draw_colored_polygon(mini_poly, Color("#232a33"))
+				c.draw_colored_polygon(mini_poly, Color("#232a33"))
 			mini_poly.append(mini_poly[0])
-			draw_polyline(mini_poly, ScavengeScene.COL_AMBER, 1.5, true)
-
-		# Room dividers, then the short codes (lines first and text after, so each batches).
+			c.draw_polyline(mini_poly, ScavengeScene.COL_AMBER, 1.5, true)
 		for r_var in scene_ref._rooms:
 			var rm: Dictionary = r_var
 			var rr: Rect2 = rm["rect"]
@@ -2844,15 +2853,44 @@ class _ScavengeHUD extends Control:
 				for rpt in rpoly:
 					mp_poly.append(map_center + (rpt - world_center) * scale_f)
 				mp_poly.append(mp_poly[0])
-				draw_polyline(mp_poly, Color(0.60, 0.64, 0.68, 0.45), 1.0)
+				c.draw_polyline(mp_poly, Color(0.60, 0.64, 0.68, 0.45), 1.0)
 			elif rr.size.x > 1.0 and rr.size.y > 1.0:
 				var mr := Rect2(map_center + (rr.position - world_center) * scale_f, rr.size * scale_f)
-				draw_rect(mr, Color(0.60, 0.64, 0.68, 0.35), false, 1.0)
+				c.draw_rect(mr, Color(0.60, 0.64, 0.68, 0.35), false, 1.0)
 		for r_var2 in scene_ref._rooms:
-			var rm: Dictionary = r_var2
-			var rc: Vector2 = map_center + ((rm["center"] as Vector2) - world_center) * scale_f
-			var short_lbl: String = str(rm.get("name", "")).substr(0, 3).to_upper()
-			ScavengeScene._draw_text_centered(self, font, rc, short_lbl, 8, Color(0.91, 0.92, 0.93, 0.55))
+			var rm2: Dictionary = r_var2
+			var rc: Vector2 = map_center + ((rm2["center"] as Vector2) - world_center) * scale_f
+			ScavengeScene._draw_text_centered(c, font, rc, str(rm2.get("name", "")).substr(0, 3).to_upper(), 8, Color(0.91, 0.92, 0.93, 0.55))
+		var meta: Dictionary = scene_ref._floorplan_meta
+		var foot_lbl: String = "%d m² · %d rooms · layout fictional" % [int(round(float(meta.get("real_area_m2", 0.0)))), int(meta.get("room_count", scene_ref._rooms.size()))]
+		c.draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y - 5.0), foot_lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_TEXT_MUTED)
+		if float(meta.get("scale", 1.0)) < 0.99 or float(meta.get("scale", 1.0)) > 1.01:
+			c.draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y + 12.0), "scaled ×%.2f to fit play time" % float(meta.get("scale", 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_AMBER)
+
+	class _MinimapStatic extends Control:
+		var hud: Object = null
+
+		func _draw() -> void:
+			if hud != null:
+				hud.call("draw_minimap_static", self, _ScavengeHUD.MINIMAP_PAD - _ScavengeHUD.MINIMAP_PANEL.position)
+
+	func _draw_minimap_panel(font: Font) -> void:
+		if _minimap_cache == null:
+			_minimap_cache = SubViewport.new()
+			_minimap_cache.size = Vector2i(int(MINIMAP_PANEL.size.x + MINIMAP_PAD.x * 2.0 + 6.0), int(MINIMAP_PANEL.size.y + MINIMAP_PAD.y * 2.0 + 22.0))
+			_minimap_cache.transparent_bg = true
+			_minimap_cache.disable_3d = true
+			_minimap_cache.render_target_update_mode = SubViewport.UPDATE_ONCE
+			var st := _MinimapStatic.new()
+			st.hud = self
+			st.size = Vector2(_minimap_cache.size)
+			_minimap_cache.add_child(st)
+			add_child(_minimap_cache)
+		draw_texture(_minimap_cache.get_texture(), MINIMAP_PANEL.position - MINIMAP_PAD)
+		var xf: Array = _minimap_xform()
+		var map_center: Vector2 = xf[0]
+		var world_center: Vector2 = xf[1]
+		var scale_f: float = xf[2]
 
 		# Remaining items
 		for it_var in scene_ref._world_items:
@@ -2889,12 +2927,6 @@ class _ScavengeHUD extends Control:
 		draw_line(pp_mini, pp_mini + scene_ref._player_facing * 7.5, ScavengeScene.COL_OK_GREEN, 2.0)
 		draw_circle(pp_mini, 3.6, Color.WHITE)
 		draw_arc(pp_mini, 3.6, 0.0, TAU, 12, ScavengeScene.COL_INK, 1.2)
-
-		var meta: Dictionary = scene_ref._floorplan_meta
-		var foot_lbl: String = "%d m² · %d rooms · layout fictional" % [int(round(float(meta.get("real_area_m2", 0.0)))), int(meta.get("room_count", scene_ref._rooms.size()))]
-		draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y - 5.0), foot_lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_TEXT_MUTED)
-		if float(meta.get("scale", 1.0)) < 0.99 or float(meta.get("scale", 1.0)) > 1.01:
-			draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y + 12.0), "scaled ×%.2f to fit play time" % float(meta.get("scale", 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_AMBER)
 
 	func _draw_stopwatch_and_banner(font: Font) -> void:
 		var is_scout: bool = (scene_ref._phase == ScavengeScene.Phase.SCOUT)

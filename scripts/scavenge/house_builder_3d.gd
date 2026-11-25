@@ -139,21 +139,26 @@ static func build(layout: Dictionary) -> Dictionary:
 			_box(rm2, "trim", to3(c2, DOOR_H * 0.5) + along * (len_m * 0.5 + 0.03) * s, Vector3(0.07, DOOR_H, INT_T + 0.04), yaw)
 		_box(rm2, "trim", to3(c2, DOOR_H + 0.035), Vector3(len_m + 0.2, 0.07, INT_T + 0.04), yaw)
 
+	# Walls and trim are never culled with a room: a wall between two rooms belongs to one of them,
+	# and hiding it with that room would open a hole in the other. One mesh each per room is cheap.
+	var shell := Node3D.new()
+	shell.name = "Shell"
+	root.add_child(shell)
 	for rm in rooms:
 		var node: Node3D = rm["node"]
 		if int(rm["walls_n"]) > 0:
 			var wmi := MeshInstance3D.new()
-			wmi.name = "Walls"
+			wmi.name = "Walls_" + str(node.name)
 			wmi.mesh = null if no_mesh_data() else (rm["walls"] as SurfaceTool).commit()
 			wmi.material_override = wall_material()
-			node.add_child(wmi)
+			shell.add_child(wmi)
 		if int(rm["trim_n"]) > 0:
 			var tmi := MeshInstance3D.new()
-			tmi.name = "Trim"
+			tmi.name = "Trim_" + str(node.name)
 			tmi.mesh = null if no_mesh_data() else (rm["trim"] as SurfaceTool).commit()
 			tmi.material_override = trim_material()
 			tmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			node.add_child(tmi)
+			shell.add_child(tmi)
 		rm.erase("walls")
 		rm.erase("trim")
 
@@ -370,7 +375,8 @@ static func _collect_meshes(n: Node, xf: Transform3D, groups: Dictionary, order:
 
 ## Adds an axis box (size along its local X/Y/Z, turned by yaw about Y) to a room's wall or trim mesh.
 static func _box(rm: Dictionary, which: String, center: Vector3, size: Vector3, yaw: float) -> void:
-	var st: SurfaceTool = rm[which]
+	# Trim (door and window frames) goes into the walls mesh in white: one draw call per room.
+	var st: SurfaceTool = rm["walls"]
 	var basis := Basis(Vector3.UP, yaw)
 	var hx: float = size.x * 0.5
 	var hy: float = size.y * 0.5
@@ -398,7 +404,7 @@ static func _box(rm: Dictionary, which: String, center: Vector3, size: Vector3, 
 			else:
 				uvs.append(Vector2(pp.x, -pp.y) / 2.0)
 		# Godot treats clockwise triangles as front faces; the quads above are listed counter-clockwise.
-		var paint := Color.WHITE
+		var paint := Color(1.08, 1.07, 1.04) if which == "trim" else Color.WHITE
 		if which == "walls" and absf(n.y) < 0.5:
 			var fc: Vector3 = ((q[0] as Vector3) + (q[2] as Vector3)) * 0.5 + n * 0.12
 			var ri: int = _room_at(_paint_rooms, Vector2(fc.x, fc.z) * PX)
@@ -412,7 +418,7 @@ static func _box(rm: Dictionary, which: String, center: Vector3, size: Vector3, 
 			st.set_normal(n)
 			st.set_uv(uvs[k])
 			st.add_vertex(p2)
-	rm[which + "_n"] = int(rm[which + "_n"]) + 1
+	rm["walls_n"] = int(rm["walls_n"]) + 1
 
 
 # ------------------------------------------------------------------------------

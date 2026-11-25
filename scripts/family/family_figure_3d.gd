@@ -127,6 +127,9 @@ func _dress() -> void:
 			mi.material_override = _body_mat
 		elif mname.find("eyebrow") >= 0:
 			mi.material_override = _hair_material(mat0, hair_col)
+		# Eyes and brows are tiny from across a room: not drawn beyond 5 m (two draw calls a figure).
+		if mname.find("eye") >= 0:
+			mi.visibility_range_end = 5.0
 
 
 func _apply_outfit(mat: ShaderMaterial) -> void:

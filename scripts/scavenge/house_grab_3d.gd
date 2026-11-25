@@ -156,7 +156,7 @@ func _place_furniture() -> void:
 		_furn_nodes.append(null)
 		_furn_base.append(node.transform)
 	for rm in rooms:
-		var merged: MeshInstance3D = HouseBuilder3D.merge_statics(rm["node"], ["Floor", "Ceiling", "Walls", "Trim"])
+		var merged: MeshInstance3D = HouseBuilder3D.merge_statics(rm["node"], ["Floor", "Ceiling"])
 		if merged != null:
 			merged.visibility_range_end = 26.0
 
@@ -207,8 +207,8 @@ func _build_portals() -> void:
 
 ## Occlusion culling doesn't work on the web, so whole rooms are shown and hidden here (portal
 ## culling on the floorplan): the room you're in, and every room you can see into through a chain of
-## doorways inside your view. Hidden rooms take their furniture, items and family with them; room
-## lights stay on, so turning around never changes the lighting.
+## doorways inside your view. Hidden rooms take their floor, ceiling, furniture, items and family
+## with them; walls and room lights stay, so no hole opens and turning around never changes the light.
 func _update_room_visibility() -> void:
 	var rooms: Array = _house3d.get("rooms", [])
 	_shown_rooms.clear()
