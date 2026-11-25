@@ -79,6 +79,9 @@ func _ready() -> void:
 	_osm_service.search_failed.connect(_on_nominatim_search_failed)
 	_osm_service.map_data_loaded.connect(_on_live_map_data_loaded)
 	_osm_service.extended_data_loaded.connect(_on_extended_data_loaded)
+	var fetcher: ExtendedAreaFetcher = GameState.get_extended_fetcher()
+	fetcher.updated.connect(_on_extended_fetcher_updated)
+	fetcher.status_changed.connect(_on_extended_fetcher_status)
 	_osm_service.map_data_failed.connect(_on_live_map_data_failed)
 
 	_build_ui()
@@ -655,6 +658,17 @@ func _on_nominatim_search_failed(error_message: String) -> void:
 func _on_live_map_data_loaded(parsed_data: Dictionary, label: String) -> void:
 	_apply_parsed_neighborhood(parsed_data, label, -1)
 
+func _on_extended_fetcher_updated() -> void:
+	_extended_pois = GameState.extended_pois.duplicate(true)
+	_extended_roads = GameState.extended_roads.duplicate(true)
+	if not GameState.selected_house.is_empty():
+		_select_house(GameState.selected_house, false)
+
+
+func _on_extended_fetcher_status(text: String, busy: bool) -> void:
+	_set_status_text(("◌ " if busy else "● ") + text, busy)
+
+
 func _on_extended_data_loaded(ext: Dictionary) -> void:
 	_extended_pois = ext.get("pois", [])
 	_extended_roads = ext.get("roads", [])
@@ -678,8 +692,16 @@ func _apply_parsed_neighborhood(parsed: Dictionary, label: String, preferred_osm
 		"place_names": parsed.get("place_names", {}),
 		"landmarks": parsed.get("landmarks", []),
 	}
-	if str(parsed.get("source", "")) == "live" and is_instance_valid(_osm_service):
-		_osm_service.fetch_extended_area(float(parsed.get("center_lat", 0.0)), float(parsed.get("center_lon", 0.0)))
+	var fetcher: ExtendedAreaFetcher = GameState.get_extended_fetcher()
+	if str(parsed.get("source", "")) == "live":
+		# Runs under GameState, so it finishes even if the player moves on before it returns.
+		fetcher.start(float(parsed.get("center_lat", 0.0)), float(parsed.get("center_lon", 0.0)))
+	else:
+		fetcher.reset()
+		GameState.extended_pois = []
+		GameState.extended_roads = []
+		GameState.extended_status = ""
+		GameState.extended_radius_m = 0
 
 	var b_v: Variant = parsed.get("buildings", [])
 	_current_buildings = b_v if typeof(b_v) == TYPE_ARRAY else []
@@ -716,6 +738,7 @@ func _select_house(bldg: Dictionary, recenter_softly: bool) -> void:
 
 	GameState.selected_house = house_copy
 	GameState.nearby_pois = targets.duplicate(true)
+	GameState.osm_local_pois = _current_pois.duplicate(true)
 	store_map_context(house_copy, _current_buildings, _current_parsed_meta, _extended_roads)
 	GameState.osm_house_selected.emit(GameState.selected_house)
 
@@ -734,6 +757,8 @@ func _select_house(bldg: Dictionary, recenter_softly: bool) -> void:
 ## shelter map, expeditions and story text can use true positions and names later.
 static func store_map_context(house: Dictionary, buildings: Array, meta: Dictionary, extended_roads: Array) -> void:
 	var roads: Array = (meta.get("roads", []) as Array).duplicate()
+	GameState.osm_local_roads = roads.duplicate()
+	GameState.osm_local_buildings = buildings.duplicate()
 	roads.append_array(extended_roads)
 	GameState.map_roads = roads
 	GameState.map_parks = meta.get("parks", [])

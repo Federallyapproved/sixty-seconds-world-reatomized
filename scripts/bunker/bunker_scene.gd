@@ -128,6 +128,7 @@ func _ready() -> void:
 	add_child(_cinematic)
 	_cinematic.choice_made.connect(_on_dilemma_choice)
 	_cinematic.sequence_finished.connect(_on_cinematic_finished)
+	GameState.get_extended_fetcher().updated.connect(_on_extended_area_updated)
 
 	if not GameState.inventory_changed.is_connected(_on_external_state_changed):
 		GameState.inventory_changed.connect(_on_external_state_changed)
@@ -1418,6 +1419,29 @@ func _build_expedition_planner(root: Control) -> void:
 	t_vbox.add_theme_constant_override("separation", 4)
 	t_scroll.add_child(t_vbox)
 
+	# Say plainly why the list is short (still searching / nothing mapped / search failed).
+	var has_service: bool = false
+	for tv in _available_targets:
+		if str((tv as Dictionary).get("category", "house")) not in ["house", "neighbor_house"]:
+			has_service = true
+			break
+	if not has_service:
+		var fetch_state: String = GameState.get_extended_fetcher().state
+		var why: String = ""
+		match fetch_state:
+			"loading":
+				why = "Still searching OpenStreetMap for stores further out — they will appear here."
+			"failed":
+				why = "The store search could not reach OpenStreetMap; only nearby homes are listed."
+			"loaded":
+				why = "No stores, pharmacies or garages are mapped within %.0f km of this house." % (GameState.extended_radius_m / 1000.0)
+			_:
+				why = "No stores or services are mapped close to this house."
+		var why_lbl := _make_ink_label(why, 11, COL_STAMP_RED)
+		why_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		why_lbl.custom_minimum_size = Vector2(300.0, 0.0)
+		t_vbox.add_child(why_lbl)
+
 	for i in range(_available_targets.size()):
 		var td: Dictionary = _available_targets[i]
 		var is_sel: bool = (i == _selected_poi_index)
@@ -2147,6 +2171,25 @@ func _on_cinematic_finished(kind: String) -> void:
 	if kind == "install" and is_instance_valid(_garage):
 		_garage.show_view()
 	_run_day_queue()
+
+
+## Stores found by the wider search after the shelter opened: refresh the planner, keeping the
+## player's current pick (targets are matched by OSM id, not list position).
+func _on_extended_area_updated() -> void:
+	if not GameState.active_expedition.is_empty():
+		return
+	var prev_id: int = -1
+	if _selected_poi_index >= 0 and _selected_poi_index < _available_targets.size():
+		prev_id = int((_available_targets[_selected_poi_index] as Dictionary).get("osm_id", -1))
+	_available_targets = ExpeditionEngine.get_available_targets()
+	_selected_poi_index = 0
+	for i in range(_available_targets.size()):
+		if int((_available_targets[i] as Dictionary).get("osm_id", -2)) == prev_id:
+			_selected_poi_index = i
+			break
+	if is_instance_valid(_backdrop):
+		_backdrop.refresh_bunker()
+	_rebuild_tab_expedition()
 
 
 func _member_by_id(mid: String) -> Dictionary:

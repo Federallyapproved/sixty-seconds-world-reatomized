@@ -44,6 +44,17 @@ var map_bounds: Dictionary = {}    # {minlat, minlon, maxlat, maxlon} of the loa
 var map_source: String = ""        # "preset:<id>" | "live" | "unmapped"
 var place_names: Dictionary = {}   # {street, neighborhood, city, region, country, postcode}
 var map_landmarks: Array = []      # verified named places beyond the map bbox: {name, lat, lon, source}
+# Full records from the ~450 m live/preset fetch, kept so late-arriving wider-area results can
+# rebuild the expedition targets after the house-select screen is gone.
+var osm_local_buildings: Array = []
+var osm_local_pois: Array = []
+var osm_local_roads: Array = []
+# Wider-area search (2.2 km, widened to 6 km when needed) run by ExtendedAreaFetcher.
+var extended_pois: Array = []
+var extended_roads: Array = []
+var extended_status: String = ""
+var extended_radius_m: int = 0
+var _extended_fetcher: ExtendedAreaFetcher = null
 
 # Difficulty: "normal" (60 s scavenge) or "hard" (30 s scavenge). Recon time is separate.
 var difficulty: String = "normal"
@@ -121,6 +132,15 @@ func _parse_cli_args() -> void:
 			rng.seed = int(a.split("=")[1])
 		elif a.begins_with("--difficulty="):
 			difficulty = "hard" if a.split("=")[1] == "hard" else "normal"
+
+## The wider-area store search lives here (under the autoload) so it survives screen changes.
+func get_extended_fetcher() -> ExtendedAreaFetcher:
+	if _extended_fetcher == null or not is_instance_valid(_extended_fetcher):
+		_extended_fetcher = ExtendedAreaFetcher.new()
+		_extended_fetcher.name = "ExtendedAreaFetcher"
+		add_child(_extended_fetcher)
+	return _extended_fetcher
+
 
 func reset_to_defaults() -> void:
 	day = 1
