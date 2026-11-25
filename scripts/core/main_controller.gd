@@ -86,7 +86,8 @@ func _mount_screen(screen_name: String) -> void:
 			_active_node = s
 		GameState.SCREEN_SCAVENGE:
 			SoundManager.set_ambience("scavenge")
-			var s := ScavengeScene.new()
+			# First person by default; the classic top-down view is a setting (slow machines).
+			var s: ScavengeScene = ScavengeScene.new() if GameSettings.top_down_grab() else HouseGrab3D.new()
 			_screen_holder.add_child(s)
 			_active_node = s
 		GameState.SCREEN_BUNKER:

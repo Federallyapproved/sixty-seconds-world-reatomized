@@ -1069,7 +1069,7 @@ func _attempt_pickup_target(target: Dictionary) -> bool:
 	if _get_used_slots() + needed_slots > _max_slots:
 		if _hands_full_timer <= 0.45:
 			SoundManager.play_sfx("button_click", -2.0, 0.72)
-			_spawn_popup(_player_pos + Vector2(0.0, -32.0), "HANDS FULL — DROP AT THE HATCH (SPACE)", COL_ALERT_RED, 1.35)
+			_spawn_popup(_player_pos + Vector2(0.0, -32.0), _hands_full_text(), COL_ALERT_RED, 1.35)
 		_hands_full_timer = 1.55
 		return false
 	var entity_ref: Dictionary = target.get("ref", {})
@@ -1444,6 +1444,18 @@ func _tooltip_target() -> Dictionary:
 	if GameState.demo_mode or not is_inside_tree():
 		return {}
 	return _find_target_near_point(get_global_mouse_position(), 30.0)
+
+
+func _pickup_hint() -> String:
+	return "SPACE or click: pick up"
+
+
+func _grab_banner() -> String:
+	return "GRAB SUPPLIES & FAMILY — SPACE TO PICK UP"
+
+
+func _hands_full_text() -> String:
+	return "HANDS FULL — SPACE AT THE HATCH TO DROP EVERYTHING"
 
 
 func _toggle_auto_pickup() -> void:
@@ -2737,6 +2749,33 @@ class _ScavengeHUD extends Control:
 		if is_instance_valid(scene_ref):
 			scene_ref._toggle_auto_pickup()
 
+	## Family portraits are dozens of shapes each; drawn every frame they were most of the HUD's
+	## draw calls. Each is drawn once into a small viewport and reused as a texture.
+	var _portraits: Dictionary = {}
+
+	func _portrait(m: Dictionary, r: Rect2) -> void:
+		var key: String = "%s_%d_%s" % [str(m.get("id", m.get("name", ""))), int(r.size.x), str(bool(m.get("alive", true)))]
+		var vp: SubViewport = _portraits.get(key)
+		if vp == null:
+			vp = SubViewport.new()
+			vp.size = Vector2i(int(r.size.x) * 2, int(r.size.y) * 2)
+			vp.transparent_bg = true
+			vp.disable_3d = true
+			vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+			var c := _PortraitCanvas.new()
+			c.member = m.duplicate()
+			c.size = Vector2(vp.size)
+			vp.add_child(c)
+			add_child(vp)
+			_portraits[key] = vp
+		draw_texture_rect(vp.get_texture(), r, false)
+
+	class _PortraitCanvas extends Control:
+		var member: Dictionary = {}
+
+		func _draw() -> void:
+			CharacterArtist.draw_portrait(self, Rect2(Vector2.ZERO, size), member, true)
+
 	func sync_state() -> void:
 		if not is_instance_valid(scene_ref):
 			return
@@ -2795,7 +2834,7 @@ class _ScavengeHUD extends Control:
 			mini_poly.append(mini_poly[0])
 			draw_polyline(mini_poly, ScavengeScene.COL_AMBER, 1.5, true)
 
-		# Room dividers & short codes
+		# Room dividers, then the short codes (lines first and text after, so each batches).
 		for r_var in scene_ref._rooms:
 			var rm: Dictionary = r_var
 			var rr: Rect2 = rm["rect"]
@@ -2809,6 +2848,8 @@ class _ScavengeHUD extends Control:
 			elif rr.size.x > 1.0 and rr.size.y > 1.0:
 				var mr := Rect2(map_center + (rr.position - world_center) * scale_f, rr.size * scale_f)
 				draw_rect(mr, Color(0.60, 0.64, 0.68, 0.35), false, 1.0)
+		for r_var2 in scene_ref._rooms:
+			var rm: Dictionary = r_var2
 			var rc: Vector2 = map_center + ((rm["center"] as Vector2) - world_center) * scale_f
 			var short_lbl: String = str(rm.get("name", "")).substr(0, 3).to_upper()
 			ScavengeScene._draw_text_centered(self, font, rc, short_lbl, 8, Color(0.91, 0.92, 0.93, 0.55))
@@ -2909,7 +2950,7 @@ class _ScavengeHUD extends Control:
 			if urgent:
 				banner_txt = "LAST SECONDS — GET TO THE HATCH!"
 			else:
-				banner_txt = "GRAB SUPPLIES & FAMILY — SPACE TO PICK UP"
+				banner_txt = scene_ref._grab_banner()
 
 		var banner_sb := StyleBoxFlat.new()
 		banner_sb.bg_color = banner_bg
@@ -2966,7 +3007,7 @@ class _ScavengeHUD extends Control:
 			var p_rect := Rect2(px, py, 32.0, 32.0)
 			var in_bunk: bool = bool(m.get("in_bunker", false))
 			var is_ldr: bool = bool(m.get("is_leader", false))
-			CharacterArtist.draw_portrait(self, p_rect, m, true)
+			_portrait(m, p_rect)
 			if in_bunk:
 				draw_rect(p_rect, ScavengeScene.COL_OK_GREEN, false, 2.2)
 				draw_circle(p_rect.end - Vector2(5.0, 5.0), 5.5, ScavengeScene.COL_OK_GREEN)
@@ -2985,7 +3026,7 @@ class _ScavengeHUD extends Control:
 		if scene_ref._suitcase_flash_timer > 0.0:
 			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "SUITCASE: +3 SLOTS WHILE YOU CARRY IT", 14, ScavengeScene.COL_INK, ScavengeScene.COL_AMBER)
 		elif scene_ref._hands_full_timer > 0.0:
-			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "HANDS FULL — SPACE AT THE HATCH TO DROP EVERYTHING", 14, ScavengeScene.COL_INK, ScavengeScene.COL_ALERT_RED)
+			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), scene_ref._hands_full_text(), 14, ScavengeScene.COL_INK, ScavengeScene.COL_ALERT_RED)
 		if not scene_ref._pending_action.is_empty():
 			var act_t: String = str(scene_ref._pending_action.get("type", ""))
 			var label: String = "GRABBING..." if act_t == "grab" else "DROPPING DOWN THE HATCH..."
@@ -3040,7 +3081,7 @@ class _ScavengeHUD extends Control:
 			if kind == "family":
 				var m: Dictionary = entry["member"]
 				var port_r := Rect2(card_r.position.x + 6.0, card_r.position.y + 5.0, 46.0, 46.0)
-				CharacterArtist.draw_portrait(self, port_r, m, true)
+				_portrait(m, port_r)
 				draw_string(font, Vector2(port_r.end.x + 8.0, card_r.position.y + 24.0), str(entry.get("name", "Family")), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ScavengeScene.COL_TEXT)
 				draw_string(font, Vector2(port_r.end.x + 8.0, card_r.position.y + 43.0), "[%d SLOTS]" % span, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_ALERT_RED)
 			else:
@@ -3076,7 +3117,7 @@ class _ScavengeHUD extends Control:
 		if scene_ref._phase == ScavengeScene.Phase.SCOUT:
 			hint = "Look now, grab when the timer starts"
 		elif fits:
-			hint = "SPACE or click: pick up"
+			hint = scene_ref._pickup_hint()
 		else:
 			hint = "Hands full: drop something or empty them at the hatch"
 		var w_line: float = font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
@@ -3201,7 +3242,7 @@ class _ScavengeHUD extends Control:
 			var fm: Dictionary = GameState.family_members[fi]
 			var pr := Rect2(px0 + float(fi) * (p_size + p_gap), py0, p_size, p_size)
 			var safe: bool = bool(fm.get("in_bunker", false)) and bool(fm.get("alive", false))
-			CharacterArtist.draw_portrait(self, pr, fm, true)
+			_portrait(fm, pr)
 			if not safe:
 				draw_rect(pr, Color(0.15, 0.05, 0.05, 0.55), true)
 			draw_rect(pr, ScavengeScene.COL_OK_GREEN if safe else ScavengeScene.COL_ALERT_RED, false, 3.0)

@@ -31,6 +31,12 @@ It compiles `data/*.csv` and `data/events/*.json` into `data/build/*.json` (what
 
 The item now appears in the grab, the stores, tooltips and the validator. A **core** item must gate at least 3 events, so the build fails until you write them.
 
+**Its 3D prop (M4).** Add the item to `ITEMS` in `scripts/scavenge/prop_library.gd`: either a model (`"crowbar": ["S:tool-hammer", 0.5, true]` — `S:` Survival Kit, `F:` Food Kit, no prefix Furniture Kit; the number is the height, or the length when the last value is `true` and it lies on the floor) or `"@crowbar"` plus a recipe of primitives in `_recipe()` (`["box", size, position, colour]`, `cyl`, `sphere`, `torus`, `quad`). A new model file needs an `assets_manifest.csv` row like any other asset. `tests/m4/grab3d_suite.gd` fails while a core or junk item has no prop.
+
+## A furniture piece (M4)
+
+Furniture kinds come from `FURNITURE_SPECS` in `scripts/scavenge/floorplan_generator.gd` (room, kind, width and depth in metres). Each kind needs a row in `FURNITURE` in `prop_library.gd`: parts `[model, x, z, width, height, depth, y, yaw (, roll)]` in the piece's frame (front faces +Z; sizes below zero are fractions of the footprint). The grab backs the piece onto the nearest wall and merges each room's furniture into one mesh. The suite fails on a kind without a row.
+
 ## A junk piece (M3)
 
 The same as an item, with `category` set to `junk`, a `scrap_yield` (`metal:2;electronics:1`), `grab_rooms` for the house and `loot_weights.csv` rows in the place types that stock it (`home` is the house grab, `shelter_box` the shelter's own box of odds and ends, `electronics` phone and electronics shops). Its tooltip is built from the yield ("Toaster [2] → 2 Metal, 1 Electronics"), so the `purpose_line` only needs to say the same in words. The build fails if a part a recipe needs can't be found in junk from at least 2 place types.

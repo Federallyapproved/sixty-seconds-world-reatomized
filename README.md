@@ -12,7 +12,9 @@
 
 | Where | Keys |
 |---|---|
-| Grab | **WASD / arrows** move · **SPACE** grab (timed) · at the hatch **SPACE** drops your load down · elsewhere **SPACE** drops the selected item · **Q** or **1–7** select a carried slot · **F** climb down · **TAB** end the look-around early · mouse click walks & grabs · the item in reach (or under the mouse) shows its name, slot count and what it is for |
+| Grab (first person) | **F3** shows frames per second and draw calls · **WASD** move (**↑ ↓** too) · **mouse** looks (click once to lock the pointer; **ESC** frees it; **← →** also turn) · **E**, **SPACE** or **left-click** grabs what the crosshair is on (timed) · at the hatch **E** drops your load down · **right-click** or **G** drops the selected thing · **Q**, **1–7** or the wheel select a carried slot · **F** climb down · **TAB** end the look-around early · what you aim at shows its name, slot count and what it is for |
+| Grab (classic top-down, in Settings) | **WASD / arrows** move · **SPACE** grab · at the hatch **SPACE** drops your load down · elsewhere **SPACE** drops the selected item · **Q** or **1–7** select · **F** climb down · **TAB** end the look-around |
+| Settings (top right of the title screen) | mouse sensitivity · invert mouse Y · field of view · the classic top-down grab for slower computers |
 | Shelter | one screen per day: **1–4** or click answers the dilemma · click **Give / Skip** for each person's food and water · **Treat** spends a medkit (or a rag bandage on a wound) · each person's **job** button: **Rest**, **Trip…** (the trip planner: map, list, risk preview, gear), **Craft…** (the workbench) or **Study…** (the manual) · **Bench** (top right) takes junk apart and shows the recipes · **ENTER** or **END DAY** ends the day · **SPACE** skips an animation · **ESC** closes the bench |
 | Difficulty | **Story**: 20 s look-around, 60 s grab, generous stock, exact odds · **Normal**: 10 s look-around, 60 s grab · **Hard**: 3 s look-around, 30 s grab, faster stock drain, smarter raiders (pick it on the strike screen, or `--difficulty=story|normal|hard`) |
 
@@ -45,6 +47,7 @@
 
 4. **The Grab (`scripts/scavenge/`)**
    - Generates the level **inside the building's real OpenStreetMap outline** (`scripts/scavenge/floorplan_generator.gd`): OBB alignment, BSP subdivision into rooms and hallways whose count follows the real floor area, doors only where a doorway fits, front door facing the mapped street, furniture, connectivity healing and BFS/A* verification. Interiors are labelled as fictional approximations.
+   - **First person** (`house_grab_3d.gd`, M4): the real outline extruded to 2.55 m walls with windows, door frames, ceilings, painted rooms and one light per room (`house_builder_3d.gd`); Kenney furniture and props fitted to the floorplan, with simple modelled items where no kit has one (`prop_library.gd`); a subtle outline on every item and a brighter one on what you aim at; the family as Quaternius characters in clothes painted on by a shader, idle animations from the Universal Animation Library (`scripts/family/family_figure_3d.gd`). The shelter hatch is an opening with a ladder down a lit shaft. The top-down view is still there as a setting.
    - **Look-around, then the grab** (timers per difficulty), timed grabs, **4-slot hands** (the 3-slot **Suitcase** gives 4 more while carried: net +1), 10 %/slot encumbrance, SPACE-to-deposit at the hatch (no automatic depositing), unique durable items, a last-second climb down the hatch. The HUD shows each item's name, slot count and purpose and keeps your carried slots on screen.
 
 5. **The Shelter & Real-World Trips (`scripts/shelter/`, `scripts/bunker/`, `data/`)**
@@ -79,11 +82,15 @@ The v3 rules live in data, run headless and are measured. Day-to-day commands (G
 | Drama and achievements suites (M2) | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/m2/drama_suite.gd` · `--script=res://tests/m2/achievements_suite.gd` |
 | Crafting and salvage suite (M3) | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/m3/craft_suite.gd` |
 | M3 screenshots (needs a display) | `godot --path . --rendering-driver opengl3 -s res://tests/m3/capture_m3.gd -- --out=<dir>` |
+| First-person grab suite (M4): 3D house, reach, aim, models, figures, settings over 24 real houses | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/m4/grab3d_suite.gd` |
+| First-person grab played with simulated keys and mouse (headless, or with a display for screenshots and draw-call counts) | `godot --headless --fixed-fps 60 --path . -s res://tools/run_node.gd -- --script=res://tests/m4/play_grab_3d.gd --out=<dir> [--hard]` |
+| Draw calls by part of the frame (needs a display) | `godot --path . --rendering-driver opengl3 -s res://tools/run_node.gd -- --script=res://tests/m4/perf_probe.gd` |
+| Rebuild the family's animation clips from Quaternius' Universal Animation Library GLBs | `godot --headless --path . -s res://tools/build_family_anims.gd -- --ual1=<UAL1_Standard.glb> --ual2=<UAL2_Standard.glb>` |
 | Systems gauntlet, QA, 60-second and OSM audits | `godot --headless --path . -s res://tests/pass2/run.gd -- --suite=systems_gauntlet` · `godot --headless --fixed-fps 30 --path . -s res://tests/critic_qa_audit.gd` · `-s res://tests/critic_60s_audit.gd` · `-s res://tests/critic_osm_audit.gd` |
 | Keyboard-and-mouse playthrough of the shelter (needs a display) | `godot --path . --rendering-driver opengl3 -s res://tests/pass2/play_shelter.gd -- --out=<dir>` |
 | Balance harness: 10,000 runs per policy (random, naive, expert, and the "crafter" stress test), writes `docs/BALANCE_REPORT.md` | `GODOT=godot tools/run_sim.sh 10000 8 normal` |
 | One simulated run, day by day | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/sim/sim_trace.gd --policy=expert --seed=5` |
 
-Adding an item, event or loot table is a data change: see [`docs/ADDING_CONTENT.md`](docs/ADDING_CONTENT.md). Milestone reports: [`docs/M1_REPORT.md`](docs/M1_REPORT.md) · [`docs/M2_REPORT.md`](docs/M2_REPORT.md) · [`docs/M3_REPORT.md`](docs/M3_REPORT.md) · balance: [`docs/BALANCE_REPORT.md`](docs/BALANCE_REPORT.md).
+Adding an item, event or loot table is a data change: see [`docs/ADDING_CONTENT.md`](docs/ADDING_CONTENT.md). Milestone reports: [`docs/M1_REPORT.md`](docs/M1_REPORT.md) · [`docs/M2_REPORT.md`](docs/M2_REPORT.md) · [`docs/M3_REPORT.md`](docs/M3_REPORT.md) · [`docs/M4_REPORT.md`](docs/M4_REPORT.md) · balance: [`docs/BALANCE_REPORT.md`](docs/BALANCE_REPORT.md).
 
-Test windows are opened without taking focus: keep a local `override.cfg` (git-ignored) with `[display]` / `window/size/no_focus=true`.
+Test windows are opened without taking focus: keep a local `override.cfg` (git-ignored) with `[display]` / `window/size/no_focus=true`; add `--position 30000,30000` to keep a capture window off the screen. Test tools pass `--automation` (or set `GameSettings.automation`), so the grab never locks the real mouse pointer.
