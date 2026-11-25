@@ -1,0 +1,37 @@
+{
+	"group": "rural",
+	"h1_home_msv": 11500,
+	"house": {
+		"area_sqm": 116,
+		"lat": 38.6,
+		"lon": -98.2,
+		"osm_id": -1
+	},
+	"id": "rural_kansas_0",
+	"location": "rural_kansas",
+	"nearest_essential_m": 99999,
+	"nuke": {
+		"bunker_temp_c": 32.1,
+		"distance_km": 3.99999999999885,
+		"yield_kt": 250,
+		"zone": "ground_zero_edge"
+	},
+	"rad_factors": [
+		0.15
+	],
+	"targets": [
+		{
+			"area_sqm": 0,
+			"category": "school",
+			"distance_m": 3874,
+			"fictional": false,
+			"lat": 38.5650095,
+			"lon": -98.202558,
+			"name": "Thomas School",
+			"osm_id": 358629387,
+			"subkind": "school",
+			"walk_m": 5230,
+			"walk_source": "estimate"
+		}
+	]
+}

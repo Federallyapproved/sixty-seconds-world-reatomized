@@ -8,18 +8,18 @@ extends Control
 
 signal target_clicked(poi_index: int)
 
-const COL_PAPER := Color("#efe3c8")
-const COL_PAPER_DARK := Color("#e2d3b0")
-const COL_INK := Color("#1d1a16")
-const COL_ROAD_CASE := Color(0.24, 0.21, 0.17, 0.9)
-const COL_ROAD_MAJOR := Color("#f7e3a6")
-const COL_ROAD_MINOR := Color("#fbf6ea")
-const COL_PATH := Color(0.42, 0.36, 0.28, 0.75)
+const COL_PAPER := Color("#e4e7eb")
+const COL_PAPER_DARK := Color("#d3d8de")
+const COL_INK := Color("#14171c")
+const COL_ROAD_CASE := Color(0.22, 0.25, 0.29, 0.85)
+const COL_ROAD_MAJOR := Color("#ffffff")
+const COL_ROAD_MINOR := Color("#f4f5f7")
+const COL_PATH := Color(0.40, 0.44, 0.50, 0.70)
 const COL_PARK := Color(0.47, 0.64, 0.38, 0.45)
 const COL_WATER := Color(0.3, 0.55, 0.74, 0.55)
-const COL_BLDG := Color(0.62, 0.54, 0.42, 0.35)
-const COL_HOME := Color("#d94c2a")
-const COL_ROUTE := Color("#b8321e")
+const COL_BLDG := Color(0.60, 0.64, 0.68, 0.40)
+const COL_HOME := Color("#ff4d4f")
+const COL_ROUTE := Color("#e0383a")
 const NEARBY_RADIUS_M: float = 320.0
 
 var targets: Array = []
@@ -62,16 +62,16 @@ func _make_button(txt: String, anchor_off: Vector2, cb: Callable, w: float = 28.
 	b.size = Vector2(w, 26.0)
 	b.add_theme_font_size_override("font_size", 11 if w > 30.0 else 16)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#232824")
-	sb.border_color = Color("#f2b82e")
+	sb.bg_color = Color("#1a1e24")
+	sb.border_color = Color("#39414b")
 	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(3)
+	sb.set_corner_radius_all(8)
 	b.add_theme_stylebox_override("normal", sb)
 	var sbh: StyleBoxFlat = sb.duplicate()
-	sbh.bg_color = Color("#3a423b")
+	sbh.bg_color = Color("#2f3640")
 	b.add_theme_stylebox_override("hover", sbh)
 	b.add_theme_stylebox_override("pressed", sbh)
-	b.add_theme_color_override("font_color", Color("#f2b82e"))
+	b.add_theme_color_override("font_color", Color("#e8eaed"))
 	b.pressed.connect(func() -> void:
 		SoundManager.play_sfx("button_click")
 		cb.call()
@@ -371,7 +371,7 @@ func _draw_road_label(font: Font, nm: String, pts: PackedVector2Array, occupied:
 	occupied.append(box)
 	draw_set_transform(mid2, ang, Vector2.ONE)
 	draw_string_outline(font, Vector2(-tw * 0.5, 4.0), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(COL_PAPER, 0.95))
-	draw_string(font, Vector2(-tw * 0.5, 4.0), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.25, 0.2, 0.15))
+	draw_string(font, Vector2(-tw * 0.5, 4.0), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.16, 0.18, 0.21))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	return true
 
@@ -485,7 +485,7 @@ func _draw_chrome(font: Font, r: Rect2) -> void:
 		var mode_txt: String = "NEARBY (%d m)" % int(NEARBY_RADIUS_M) if view_mode == "nearby" else "EXTENDED (%.1f km)" % (_extent_m() / 1000.0)
 		draw_string(font, Vector2(8, 16), mode_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_INK)
 	var attrib: String = "© OpenStreetMap contributors"
-	draw_string(font, Vector2(8, r.size.y - (38.0 if show_controls else 6.0)), attrib, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.3, 0.26, 0.2, 0.8))
+	draw_string(font, Vector2(8, r.size.y - (38.0 if show_controls else 6.0)), attrib, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.25, 0.28, 0.32, 0.8))
 
 
 func _draw_tooltip(font: Font, t: Dictionary, at: Vector2, r: Rect2) -> void:
@@ -506,10 +506,10 @@ func _draw_tooltip(font: Font, t: Dictionary, at: Vector2, r: Rect2) -> void:
 		box.position.x = at.x - box.size.x - 14.0
 	if box.end.y > r.size.y:
 		box.position.y = at.y - box.size.y - 8.0
-	draw_rect(box, Color("#232824"))
-	draw_rect(box, Color("#f2b82e"), false, 1.5)
+	draw_rect(box, Color("#1a1e24"))
+	draw_rect(box, Color("#39414b"), false, 1.0)
 	for i in range(lines.size()):
-		draw_string(font, box.position + Vector2(8, 16 + i * 15), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#f2b82e") if i == 0 else Color("#efe3c8"))
+		draw_string(font, box.position + Vector2(8, 16 + i * 15), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#ffb020") if i == 0 else Color("#e8eaed"))
 
 
 func _poly_visible(pts: PackedVector2Array, r: Rect2) -> bool:

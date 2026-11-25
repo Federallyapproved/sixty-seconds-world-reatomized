@@ -1,0 +1,203 @@
+[
+	{
+		"id": "convoy_1_retry", "title": "Channel Four, Again", "type": "rescue", "mood": "good", "chain": "convoy", "step": 1, "retry": true,
+		"setup": "The loudspeaker van is back, slower this time. \"Last call for channel four. On the hour.\"",
+		"options": [
+			{"id": "answer", "label": "Crank the radio and answer", "item": "radio", "cinematic": "radio",
+				"effects": [{"do": "use", "item": "radio", "what": "answered the convoy"}, {"do": "chain", "chain": "convoy", "step": "advance"}],
+				"outcome": "\"Got you this time.\" The dispatcher sounds relieved, or tired."},
+			{"id": "run", "label": "Run up and flag the van down", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 40}, {"do": "chance", "p": 0.5, "then": [{"do": "chain", "chain": "convoy", "step": "advance"}], "else": [{"do": "chain", "chain": "convoy", "step": "miss"}]}],
+				"outcome": "{name} chases the van down the street, waving."},
+			{"id": "quiet", "label": "Let it go", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "convoy", "step": "miss"}],
+				"outcome": "The van turns the corner and doesn't come back."}
+		]
+	},
+	{
+		"id": "convoy_2_retry", "title": "Roll Call, Last Names", "type": "rescue", "mood": "good", "chain": "convoy", "step": 2, "retry": true,
+		"setup": "The dispatcher is reading the roll call one more time, slowly, for anyone who missed it.",
+		"options": [
+			{"id": "answer", "label": "Answer on the radio", "item": "radio", "cinematic": "radio",
+				"effects": [{"do": "use", "item": "radio", "what": "answered the roll call"}, {"do": "chain", "chain": "convoy", "step": "advance"}],
+				"outcome": "\"There you are. You're on the list.\""},
+			{"id": "light", "label": "Flash the house number at the street", "item": "flashlight", "cinematic": "signal",
+				"effects": [{"do": "use", "item": "flashlight", "what": "flashed the house number"}, {"do": "chance", "p": 0.5, "then": [{"do": "chain", "chain": "convoy", "step": "advance"}], "else": [{"do": "chain", "chain": "convoy", "step": "miss"}]}],
+				"outcome": "Long, short, long, at every passing engine."},
+			{"id": "skip", "label": "Miss it", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "convoy", "step": "miss"}],
+				"outcome": "The roll call ends. The names keep going on without yours."}
+		]
+	},
+	{
+		"id": "convoy_3_retry", "title": "Any Landmark", "type": "rescue", "mood": "good", "chain": "convoy", "step": 3, "retry": true,
+		"setup": "The dispatcher tries again: \"Give me anything. A landmark, a street sign, a big tree.\"",
+		"options": [
+			{"id": "map", "label": "Read the nearest junction off the map", "item": "map", "cinematic": "signal",
+				"effects": [{"do": "use", "item": "map", "what": "named the nearest junction"}, {"do": "chain", "chain": "convoy", "step": "advance"}],
+				"outcome": "\"I know that corner. Pickup confirmed.\""},
+			{"id": "describe", "label": "Describe what's out the vent", "cinematic": "radio",
+				"effects": [{"do": "chance", "p": 0.5, "then": [{"do": "chain", "chain": "convoy", "step": "advance"}], "else": [{"do": "chain", "chain": "convoy", "step": "miss"}]}],
+				"outcome": "A fence, a lamp post, a lot of grey. She writes something down."},
+			{"id": "skip", "label": "Don't answer", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "convoy", "step": "miss"}],
+				"outcome": "Static, then music, then static."}
+		]
+	},
+	{
+		"id": "convoy_4_retry", "title": "Second Pass", "type": "rescue", "mood": "good", "chain": "convoy", "step": 4, "retry": true,
+		"setup": "\"Trucks will pass again at midnight. If you're there, show us.\"",
+		"options": [
+			{"id": "flashlight", "label": "Signal at midnight", "item": "flashlight", "cinematic": "signal",
+				"effects": [{"do": "use", "item": "flashlight", "what": "the trucks saw the signal"}, {"do": "chain", "chain": "convoy", "step": "advance"}],
+				"outcome": "A horn, twice. Somebody saw."},
+			{"id": "fire", "label": "Burn something in the yard", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 30}, {"do": "followed", "p": 0.3, "why": "a fire in the yard drew attention"}, {"do": "chance", "p": 0.6, "then": [{"do": "chain", "chain": "convoy", "step": "advance"}], "else": [{"do": "chain", "chain": "convoy", "step": "miss"}]}],
+				"outcome": "A small, smoky fire. Visible from a long way off, to anyone."},
+			{"id": "dark", "label": "Sleep through it", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "convoy", "step": "miss"}],
+				"outcome": "Engines at midnight. Then not."}
+		]
+	},
+	{
+		"id": "convoy_5_retry", "title": "The Knock, Again", "type": "rescue", "mood": "good", "chain": "convoy", "step": 5, "final": true, "retry": true,
+		"setup": "Knocking again, harder. A voice this time: \"Convoy. Last stop on this street.\"",
+		"options": [
+			{"id": "open", "label": "Open the hatch", "cinematic": "victory",
+				"effects": [{"do": "chain", "chain": "convoy", "step": "win"}],
+				"outcome": "Hi-vis vests, a clipboard, and a ramp into a truck with seats in it."},
+			{"id": "shut", "label": "Keep it shut", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "convoy", "step": "miss"}],
+				"outcome": "Boots on gravel, an engine, quiet."}
+		]
+	},
+	{
+		"id": "neighbourhood_1_retry", "title": "The Runner Comes Back", "type": "rescue", "mood": "good", "chain": "neighbourhood", "step": 1, "retry": true,
+		"setup": "The runner from {place} tries once more. Anything to show the family will pull its weight.",
+		"options": [
+			{"id": "medkit", "label": "Send a medkit", "item": "medkit", "cinematic": "give",
+				"effects": [{"do": "give", "item": "medkit", "what": "sent to the neighbourhood shelter"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
+				"outcome": "\"That'll do it.\" The name goes on the list."},
+			{"id": "water", "label": "Send a bottle of water", "item": "water", "cinematic": "give",
+				"effects": [{"do": "use", "item": "water", "what": "sent to the neighbourhood shelter"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
+				"outcome": "Water is always welcome. The name goes on the list."},
+			{"id": "none", "label": "Send them away", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}],
+				"outcome": "The runner doesn't come back after that."}
+		]
+	},
+	{
+		"id": "neighbourhood_2_retry", "title": "Any Way to Reach You", "type": "rescue", "mood": "good", "chain": "neighbourhood", "step": 2, "retry": true,
+		"setup": "\"We tried knocking. Nobody heard. Is there any other way to reach you?\"",
+		"options": [
+			{"id": "radio", "label": "Agree a radio channel", "item": "radio", "cinematic": "radio",
+				"effects": [{"do": "use", "item": "radio", "what": "agreed a channel with the shelter"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
+				"outcome": "Channel nine at dusk, written on two hands this time."},
+			{"id": "cloth", "label": "Tie a cloth to the hatch when you're ready", "cinematic": "shrug",
+				"effects": [{"do": "dose", "who": "actor", "msv": 15}, {"do": "chance", "p": 0.5, "then": [{"do": "chain", "chain": "neighbourhood", "step": "advance"}], "else": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}]}],
+				"outcome": "A strip of bedsheet, tied to the handle. It might be seen."},
+			{"id": "none", "label": "Shrug", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}],
+				"outcome": "\"Then we'll find you,\" the runner says, without much hope."}
+		]
+	},
+	{
+		"id": "neighbourhood_3_retry", "title": "A Safer Street", "type": "rescue", "mood": "good", "chain": "neighbourhood", "step": 3, "retry": true,
+		"setup": "The escort's first route was blocked. The runner asks for another way round.",
+		"options": [
+			{"id": "map", "label": "Find another route on the map", "item": "map", "cinematic": "signal",
+				"effects": [{"do": "use", "item": "map", "what": "found a second route"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
+				"outcome": "Through the school field and along the creek. Longer, quieter."},
+			{"id": "walk", "label": "Walk a route yourself and report back", "cinematic": "hazard",
+				"effects": [{"do": "tired", "who": "actor", "days": 1}, {"do": "dose", "who": "actor", "msv": 40}, {"do": "chance", "p": 0.6, "then": [{"do": "chain", "chain": "neighbourhood", "step": "advance"}], "else": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}]}],
+				"outcome": "{name} walks three blocks and back, counting doors."},
+			{"id": "none", "label": "Tell them you can't help", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}],
+				"outcome": "The runner folds up the plan and leaves."}
+		]
+	},
+	{
+		"id": "neighbourhood_4_retry", "title": "Supplies for the Road", "type": "rescue", "mood": "good", "chain": "neighbourhood", "step": 4, "retry": true,
+		"setup": "\"Last chance before the escort sets out. Anything for the walk?\"",
+		"options": [
+			{"id": "water", "label": "Pack a bottle", "item": "water", "cinematic": "give",
+				"effects": [{"do": "use", "item": "water", "what": "packed for the walk"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
+				"outcome": "A bottle by the hatch, labelled in marker."},
+			{"id": "food", "label": "Pack a can instead", "item": "food", "cinematic": "give",
+				"effects": [{"do": "use", "item": "food", "what": "packed for the walk"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
+				"outcome": "A can of {food_label}, which will have to do."},
+			{"id": "none", "label": "There's nothing left", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}],
+				"outcome": "The runner nods. They've heard it before."}
+		]
+	},
+	{
+		"id": "neighbourhood_5_retry", "title": "The Escort Returns", "type": "rescue", "mood": "good", "chain": "neighbourhood", "step": 5, "final": true, "retry": true,
+		"setup": "The two volunteers are back at the hatch. \"Today, or not at all. We can't keep coming.\"",
+		"options": [
+			{"id": "go", "label": "Go with them", "cinematic": "victory",
+				"effects": [{"do": "chain", "chain": "neighbourhood", "step": "win"}],
+				"outcome": "The family leaves the hatch open behind them, for whoever comes next."},
+			{"id": "stay", "label": "Stay", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}],
+				"outcome": "They leave a bag of rice and the list, with the name crossed out."}
+		]
+	},
+	{
+		"id": "airlift_1_retry", "title": "Rotor Noise, Lower", "type": "rescue", "mood": "good", "chain": "airlift", "step": 1, "retry": true,
+		"setup": "The helicopter is back, lower than before, searchlight sweeping the gardens.",
+		"options": [
+			{"id": "signal", "label": "Signal from the hatch", "item": "flashlight", "cinematic": "signal",
+				"effects": [{"do": "use", "item": "flashlight", "what": "the helicopter saw the signal"}, {"do": "chain", "chain": "airlift", "step": "advance"}],
+				"outcome": "The searchlight stops on the hatch, and stays."},
+			{"id": "mirror", "label": "Flash a mirror at it", "cinematic": "signal",
+				"effects": [{"do": "chance", "p": 0.35, "then": [{"do": "chain", "chain": "airlift", "step": "advance"}], "else": [{"do": "chain", "chain": "airlift", "step": "miss"}]}],
+				"outcome": "{name} angles the bathroom mirror at the sky and hopes."},
+			{"id": "hide", "label": "Stay below", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "airlift", "step": "miss"}],
+				"outcome": "The searchlight moves on to the next street."}
+		]
+	},
+	{
+		"id": "airlift_2_retry", "title": "Mark It Again", "type": "rescue", "mood": "good", "chain": "airlift", "step": 2, "retry": true,
+		"setup": "A second canister: \"Couldn't see your roof. Try again tonight, bigger.\"",
+		"options": [
+			{"id": "mask", "label": "Go up masked and lay out every sheet", "item": "gas_mask", "cinematic": "hazard",
+				"effects": [{"do": "use", "item": "gas_mask", "what": "marked the roof through the dust"}, {"do": "chain", "chain": "airlift", "step": "advance"}],
+				"outcome": "Every sheet in the shelter, pegged down with tins. Very visible."},
+			{"id": "torch", "label": "Shine a light up from the yard", "item": "flashlight", "cinematic": "signal",
+				"effects": [{"do": "use", "item": "flashlight", "what": "lit up the yard"}, {"do": "dose", "who": "actor", "msv": 20}, {"do": "chain", "chain": "airlift", "step": "advance"}],
+				"outcome": "A beam straight up, all night. They'll see that."},
+			{"id": "skip", "label": "Leave it", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "airlift", "step": "miss"}],
+				"outcome": "The roof stays grey."}
+		]
+	},
+	{
+		"id": "airlift_3_retry", "title": "Somewhere to Land", "type": "rescue", "mood": "good", "chain": "airlift", "step": 3, "retry": true,
+		"setup": "\"The field was blocked. We need another clear spot. Anywhere flat.\"",
+		"options": [
+			{"id": "map", "label": "Find a car park on the map", "item": "map", "cinematic": "signal",
+				"effects": [{"do": "use", "item": "map", "what": "picked a second landing zone"}, {"do": "chain", "chain": "airlift", "step": "advance"}],
+				"outcome": "A supermarket car park, empty for once. They agree."},
+			{"id": "scout", "label": "Walk the streets and look", "cinematic": "hazard",
+				"effects": [{"do": "tired", "who": "actor", "days": 2}, {"do": "dose", "who": "actor", "msv": 50}, {"do": "chance", "p": 0.6, "then": [{"do": "chain", "chain": "airlift", "step": "advance"}], "else": [{"do": "chain", "chain": "airlift", "step": "miss"}]}],
+				"outcome": "{name} paces out an intersection and waves at the sky."},
+			{"id": "none", "label": "Don't answer", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "airlift", "step": "miss"}],
+				"outcome": "They circle once and fly on."}
+		]
+	},
+	{
+		"id": "airlift_4_retry", "title": "One More Pass", "type": "rescue", "mood": "good", "chain": "airlift", "step": 4, "final": true, "retry": true,
+		"setup": "The helicopter settles again, rotor turning. \"This is the last flight out of this area.\"",
+		"options": [
+			{"id": "go", "label": "Run for it", "cinematic": "victory",
+				"effects": [{"do": "chain", "chain": "airlift", "step": "win"}],
+				"outcome": "Everyone is pulled aboard, bags and all. Nobody looks back for long."},
+			{"id": "stay", "label": "Stay", "cinematic": "gloom",
+				"effects": [{"do": "chain", "chain": "airlift", "step": "miss"}],
+				"outcome": "The noise fades, then the silence settles back in."}
+		]
+	}
+]

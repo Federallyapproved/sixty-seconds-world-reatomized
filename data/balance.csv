@@ -1,0 +1,97 @@
+key,value,notes
+food_hungry_day,6,Days without food before Hungry
+food_starving_day,8,Days without food before Starving
+food_death_day,10,Days without food that kill
+water_thirsty_day,3,Days without water before Thirsty
+water_dehydrated_day,4,Days without water before Dehydrated
+water_death_roll_day,5,Days without water that bring a death roll
+water_death_roll_p,0.5,Chance of dying on the death-roll day
+water_death_day,6,Days without water that kill
+malnutrition_sick_p,0.30,Daily chance a Dehydrated or Starving person falls sick
+sick_diseased_day,7,Untreated sick days before Diseased
+sick_death_roll_day,10,Untreated sick days before daily death rolls
+sick_death_roll_p,0.10,Daily death chance from the roll day on
+sick_death_day,18,Untreated sick days that kill
+relapse_vulnerable_days,5,Days after a cure with relapse risk
+relapse_p,0.01,Daily relapse chance while vulnerable
+injury_infection_day,6,Untreated injury days before infection rolls
+injury_infection_p,0.08,Daily chance an old injury turns into sickness
+trip_base_p_day,0.025,Base chance per day away of never returning
+trip_mult_no_mask_heavy,2.0,Death multiplier without a gas mask in heavy fallout
+trip_mult_lethal_dose,1.5,Extra death multiplier for a Lethal dose band
+trip_mult_hungry,1.5,Death multiplier if Hungry or Thirsty
+trip_mult_sick,2.0,Death multiplier if Sick
+trip_mult_injured,1.5,Death multiplier if Injured
+trip_mult_map,0.6,Death multiplier with a map
+trip_mult_armed_raiders,0.7,Death multiplier with a rifle or axe while raiders are active
+trip_km_per_day,6.0,Round-trip km per extra trip day
+trip_days_min,2,Shortest trip before the map bonus
+trip_days_max,7,Longest trip
+trip_overdue_p,0.25,Chance of coming back 1-2 days late
+trip_sick_heavy_mask,0.20,Sick-on-return chance in heavy fallout with a gas mask
+trip_sick_heavy_nomask,0.70,Sick-on-return chance in heavy fallout without one
+trip_sick_lethal_mask,0.60,Sick-on-return chance in a Lethal dose band with a mask
+trip_injury_p,0.10,Chance of coming back injured
+trip_encounter_p,0.30,Chance of meeting looters on the road while raiders are about
+trip_encounter_unarmed_injury,0.25,Extra injury chance when looters meet an unarmed explorer
+trip_injury_armed_mult,0.6,Injury multiplier when armed
+trip_item_break_p,0.10,Chance each carried item breaks or is lost
+trip_followed_p,0.20,Base chance of being followed home
+trip_followed_map_mult,0.5,Followed multiplier with a map
+trip_tired_min_days,3,Trips this long leave the survivor Tired
+trip_tired_days,2,Days Tired after a long trip
+carry_base,2,Carry slots without bags
+search_share,0.80,Share of a building's remaining stock a search turns up
+scout_extra_carry,1,Extra carry slots for a Knows the Area explorer (pockets a little extra)
+scout_extra_share,0.10,Extra search share for a Knows the Area explorer
+shutter_share_mult,0.6,Search share at a shuttered store without an axe
+ars_severe_death_p,0.15,Daily death chance with severe radiation sickness (4+ Sv in a week) after the warning day
+dose_band_high_msv,100,Trip dose for the High band
+dose_band_lethal_msv,1000,Trip dose for the Lethal band
+heavy_fallout_msv_h,10,Home dose rate (mSv/h) above which fallout counts as heavy
+fallout_clear_min_day,7,Earliest all-clear
+fallout_clear_max_day,20,Latest all-clear
+stock_drain_fast_min,0.07,Daily drain at groceries and pharmacies (min)
+stock_drain_fast_max,0.10,Daily drain at groceries and pharmacies (max)
+stock_drain_min,0.05,Daily drain elsewhere (min)
+stock_drain_max,0.08,Daily drain elsewhere (max)
+raid_interval_days,3,Days between raids once followed
+raid_steal_units,1,Supply units an unstopped raid takes
+raid_injury_p,0.30,Chance an unstopped raid injures someone
+gang_min_days,20,Days of unresolved raids before the takeover attempt (min)
+gang_max_days,30,Days of unresolved raids before the takeover attempt (max)
+raids_to_shake,2,Raids stopped in a row that make the gang give up
+quake_break_p,0.40,Chance a quake breaks a fragile item
+event_day_p,0.90,Chance a day has an event
+bad_streak_max,2,Most bad events in a row
+escalation_day,8,Day the escalation events unlock
+heat_thirst_c,25,Shelter temperature at which blast heat brings thirst forward a day (once per person)
+cold_sick_p,0.20,Daily chance a hungry survivor catches a chill below freezing
+storm_days,2,Days a radiation storm makes fallout heavy again
+rescue_contact_delay_min,2,Days after the all-clear before first contact (min)
+rescue_contact_delay_max,5,Days after the all-clear before first contact (max)
+rescue_requests_min,4,Requests per chain (min)
+rescue_requests_max,6,Requests per chain (max)
+rescue_gap_min,3,Days between requests (min)
+rescue_gap_max,6,Days between requests (max)
+rescue_miss_delay_min,6,Delay after a missed request (min)
+rescue_miss_delay_max,10,Delay after a missed request (max)
+rescue_earliest_day,25,No rescue arrives before this day
+morale_start,7,Starting morale
+morale_max,10,Morale cap
+morale_death_hit,-3,Morale change for everyone when someone dies
+morale_hungry_hit,-1,Daily morale change while Dehydrated or Starving
+morale_recover_p,0.30,Daily chance morale creeps back up toward 5 when nothing is wrong
+morale_item_lift,1,Daily morale for the lowest person while cards or a console are in the shelter
+morale_withdrawn_at,0,Morale at which a survivor stops working
+manual_repair_p,0.85,Manual repair success
+manual_map_repair_p,0.50,Manual map repair success (failure destroys both)
+radio_tinker_break_p,0.60,Chance tinkering breaks the radio
+axe_wear_max,3,Wear before the axe breaks
+rifle_no_ammo_break_p,0.50,Chance the rifle breaks when fired without ammo
+grab_budget_story,14,Slots of items an expert grabs on Story (simulation)
+grab_budget_normal,12,Slots of items an expert grabs on Normal (simulation)
+grab_budget_hard,7,Slots of items an expert grabs on Hard (simulation)
+story_stock_mult,1.5,Stock multiplier on Story
+hard_drain_mult,1.5,Drain multiplier on Hard
+hard_raid_interval_days,2,Raid interval on Hard

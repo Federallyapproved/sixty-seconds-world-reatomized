@@ -1,6 +1,6 @@
 # The End Is Near (Godot 4.3)
 
-**The End Is Near** is a nuclear-survival game built in **Godot 4.3** where **any real-world house on Earth** via **OpenStreetMap** becomes your scavenging floorplan and fallout shelter. Inspired by *60 Seconds! Reatomized* and *Zombies Aren't Real*.
+**The End Is Near** is a present-day nuclear-survival game built in **Godot 4.3** where **any real-world house on Earth** via **OpenStreetMap** becomes your grab-and-go floorplan and home shelter. The phones lose signal, the emergency alerts still get through, and you have a minute. Inspired by *60 Seconds! Reatomized* and *Zombies Aren't Real*.
 
 ## Play in Browser & Watch Demo Video
 
@@ -12,9 +12,9 @@
 
 | Where | Keys |
 |---|---|
-| Scavenge | **WASD / arrows** move · **SPACE** grab (timed) · at the hatch **SPACE** drops your load down the chute · elsewhere **SPACE** drops the selected item · **Q** or **1–7** select a carried slot · **F** dive in · **TAB** skip recon · mouse click walks & grabs |
-| Shelter | each occupied day opens with a dilemma: **1–4** or click to answer · **SPACE** skips an animation / continues · **GARAGE & CAR** and **BIG MAP** buttons under the notebook |
-| Difficulty | Normal = 60 s scavenge · Hard = 30 s (toggle on the strike screen, or `--difficulty=hard`) |
+| Grab | **WASD / arrows** move · **SPACE** grab (timed) · at the hatch **SPACE** drops your load down · elsewhere **SPACE** drops the selected item · **Q** or **1–7** select a carried slot · **F** climb down · **TAB** end the look-around early · mouse click walks & grabs · the item in reach (or under the mouse) shows its name, slot count and what it is for |
+| Shelter | one screen per day: **1–4** or click answers the dilemma · click **Give / Skip** for each person's food and water · **Treat** spends a medkit · **Rest · Trip…** opens the trip planner (map, list, risk preview, gear) · **ENTER** or **END DAY** ends the day · **SPACE** skips an animation |
+| Difficulty | **Story**: 20 s look-around, 60 s grab, generous stock, exact odds · **Normal**: 10 s look-around, 60 s grab · **Hard**: 3 s look-around, 30 s grab, faster stock drain, smarter raiders (pick it on the strike screen, or `--difficulty=story|normal|hard`) |
 
 ---
 
@@ -31,22 +31,45 @@
 
 ## Core Features
 
-1. **Custom Family Survivor Creator (`scripts/ui/family_screen.gd`, `scripts/family/character_artist.gd`)**
-   - Build a 1–4 survivor household with custom **names**, **ages (`5–85`)**, **roles** (`Child`, `Teen`, `Adult`, `Elder`), **traits** (`Handy Mechanic`, `60s Sprinter`, `Iron Stomach`, `Neighborhood Scout`, `Civil Bookworm`, `Atomic Optimist`), **skin tones**, **8 hair styles**, **10 hair colors**, **eye colors**, **glasses**, **facial hair**, and **5 outfit styles**.
-   - Every customization dynamically renders across **Survival Notebook portraits**, **top-down 60-second scavenge sprites**, and **seated bunker animations**—including live survival state overlays (*Hungry, Dehydrated, Sick, Injured, Insane Tinfoil Hat, and Radioactive Mutant*).
+1. **Family Creator (`scripts/ui/family_screen.gd`, `scripts/family/character_artist.gd`)**
+   - Build a 1–4 person household (default: Sam, Priya, Maya and Leo) with **names**, **ages (`5–85`)**, **roles** (`Child`, `Teen`, `Adult`, `Elder`), **traits** (`Handy`, `Sprinter`, `Iron Stomach`, `Knows the Area`, `Bookworm`, `Optimist`), **skin tones**, **8 hair styles**, **10 hair colors**, **eye colors**, **glasses**, **facial hair**, and **5 present-day outfits** (hoodie, quarter-zip fleece, T-shirt dress, graphic tee, rain jacket).
+   - The same character renders as portraits, top-down sprites in the grab and seated figures in the shelter, with visible conditions (*hungry, thirsty, sick, injured, withdrawn*). The screen is styled as a phone with no signal.
 
 2. **Live OpenStreetMap Real-World House Picker & Neighborhood Scanner (`scripts/osm/`)**
    - Search **any street address, neighborhood, or city on Earth** via live **Nominatim geocoding**, stream real `256x256` **OpenStreetMap PNG slippy tiles**, and fetch real building polygons & POIs via **`api.openstreetmap.org/api/0.6/map.json`** (plus instant cached presets for *Capitol Hill Seattle*, *Concord MA*, and *Carroll Gardens Brooklyn*).
    - **Click any specific house polygon** to claim it as your level—automatically discovering **neighboring houses** alongside real-world **Churches / Sanctuaries**, **Grocery Stores / Supermarkets**, **Pharmacies / Clinics**, **Police & Fire Stations**, **Hardware Stores**, and **Schools / Libraries** with exact geodesic distances and compass bearings.
 
 3. **Global & Regional Nuclear Detonation Impact Planner (`scripts/nuke/`)**
-   - Select **where in the world** (or on your local metro radar) the warhead detonated, warhead yield (`15 kt Tactical`, `250 kt Urban`, `800 kt ICBM`, `50,000 kt Tsar Bomba`), and prevailing wind direction.
-   - Computes real Haversine distance, cube-root blast overpressure & thermal rings, downwind fallout plumes, surface radiation (`Sv/hr`), scorching inner-ring heat (`+30..+36 °C` accelerating thirst), or distant stratospheric **Nuclear Winter** (`-18 °C` freezing shelter hazards).
+   - Select **where in the world** (or on the local map) the warhead detonates, the yield (`15 kt`, `250 kt`, `800 kt`, `50 Mt`), the wind direction, and the difficulty (**Story / Normal / Hard**).
+   - Computes real Haversine distance, cube-root blast overpressure & thermal rings, downwind fallout plumes, surface radiation, inner-ring heat (`+30..+36 °C`, faster thirst), or a distant-strike cold snap (freezing shelter).
 
-4. **Authentic 60-Second House Scavenge (`scripts/scavenge/`)**
+4. **The Grab (`scripts/scavenge/`)**
    - Generates the level **inside the building's real OpenStreetMap outline** (`scripts/scavenge/floorplan_generator.gd`): OBB alignment, BSP subdivision into rooms and hallways whose count follows the real floor area, doors only where a doorway fits, front door facing the mapped street, furniture, connectivity healing and BFS/A* verification. Interiors are labelled as fictional approximations.
-   - **Recon -> 60 s scavenge (30 s on Hard)**, timed grabs, **4-slot hands** (the **Suitcase** adds capacity only while carried), 10 %/slot encumbrance, SPACE-to-deposit at the hatch (no automatic depositing), unique durable items, final shockwave dive.
+   - **Look-around, then the grab** (timers per difficulty), timed grabs, **4-slot hands** (the 3-slot **Suitcase** gives 4 more while carried: net +1), 10 %/slot encumbrance, SPACE-to-deposit at the hatch (no automatic depositing), unique durable items, a last-second climb down the hatch. The HUD shows each item's name, slot count and purpose and keeps your carried slots on screen.
 
-5. **Fallout Shelter Survival & Real-World OSM Expeditions (`scripts/bunker/`, `scripts/expedition/`, `scripts/events/`)**
-   - Illustrated underground shelter physically displaying your exact count of **Soup cans**, **Water bottles**, rescued durable gear, **Padlock**, **Sharikov the Cat**, **Pancake the Dog**, Geiger counter, wall thermometer, pinned neighborhood map, and custom seated family.
-   - Every occupied day opens with a **cinematic dilemma** (never auto-answered) carried out by the leader, or the oldest able survivor when the leader can't act, followed by an animated outcome and a journal entry. Expeditions to **real, finite** neighbourhood buildings (walking-network distances, per-place stock that runs out), location-specific radiation dose, and a **repairable family car** (install salvaged parts by hand in the garage, then drive out crosswind). Multi-tab **Survival Notebook**: Daily Log, Fractional `1/4` Soup & Water Rationing + Medkit Care, **61 branching Dilemma Events** (with **3 multi-stage Rescue Victory Chains**: *U.S. Civil Defense Military*, *Real-World OSM Church/School Sanctuary*, and *Vault Scientist & Sharikov*), and **Interactive Real-World OSM Expedition Radar**.
+5. **The Shelter & Real-World Trips (`scripts/shelter/`, `scripts/bunker/`, `data/`)**
+   - An illustrated home shelter showing your exact stock: **cans of food**, **bottled water**, durable gear, the **padlock** on the hatch, a dog or a cat if one turns up, a dosimeter, a wall thermometer, a printed map of the real neighbourhood, and the seated family.
+   - **One screen per day:** the morning receipt ("Used: Medkit → cured Maya", "No axe → the shutter at the pharmacy stayed shut"), the day's dilemma (item options carry their icon; missing items show "Needs: X" and what is at stake), a ration row per person with tomorrow's preview ("Skip water: Sam is thirsty tomorrow (day 3 without)"), Treat, Rest or Trip, then End Day.
+   - **Trips to real, finite places** found in OpenStreetMap: walking distance sets the days away (2–7), stock runs out and other survivors empty the shelves, and the planner shows the never-return band, dose band, sickness on return, likely loot, the tool a shutter needs and the chance of being followed home before anyone leaves.
+   - **Pressure clocks:** being followed brings raids that the rifle, axe or padlock stop; an unanswered gang tries to take the shelter (warned the morning before); black rain and empty shelves arrive around day 8.
+   - **Three rescues** heard on the hand-crank radio after the fallout clears — **the convoy**, **the neighbourhood** (opened at a real church or school) and **the airlift** — each a chain of item requests. Nothing lands before day 25. (The car escape is switched off: `GameState.FEATURE_CAR_ESCAPE = false`.)
+
+---
+
+## Content, tests and balance (v3)
+
+The v3 rules live in data, run headless and are measured. Day-to-day commands (Godot 4.3 on `PATH` as `godot`):
+
+| What | Command |
+|---|---|
+| Validate and build the data (`data/*.csv`, `data/events/*.json` → `data/build/`, `CREDITS.md`) | `godot --headless --path . -s res://tools/build_data.gd` (add `-- --check` to validate only) |
+| Data pipeline suite | `godot --headless --path . -s res://tests/pass2/run.gd -- --suite=../m1/data_pipeline_suite` |
+| Shelter rules suite | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/m1/shelter_rules_suite.gd` |
+| Systems gauntlet, QA, 60-second and OSM audits | `godot --headless --path . -s res://tests/pass2/run.gd -- --suite=systems_gauntlet` · `godot --headless --fixed-fps 30 --path . -s res://tests/critic_qa_audit.gd` · `-s res://tests/critic_60s_audit.gd` · `-s res://tests/critic_osm_audit.gd` |
+| Keyboard-and-mouse playthrough of the shelter (needs a display) | `godot --path . --rendering-driver opengl3 -s res://tests/pass2/play_shelter.gd -- --out=<dir>` |
+| Balance harness: 10,000 runs per policy, writes `docs/BALANCE_REPORT.md` | `GODOT=godot tools/run_sim.sh 10000 8 normal` |
+| One simulated run, day by day | `godot --headless --path . -s res://tools/run_node.gd -- --script=res://tests/sim/sim_trace.gd --policy=expert --seed=5` |
+
+Adding an item, event or loot table is a data change: see [`docs/ADDING_CONTENT.md`](docs/ADDING_CONTENT.md). Milestone reports: [`docs/M1_REPORT.md`](docs/M1_REPORT.md) · balance: [`docs/BALANCE_REPORT.md`](docs/BALANCE_REPORT.md).
+
+Test windows are opened without taking focus: keep a local `override.cfg` (git-ignored) with `[display]` / `window/size/no_focus=true`.

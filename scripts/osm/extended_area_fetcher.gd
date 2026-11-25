@@ -187,11 +187,38 @@ func _publish() -> void:
 		var all_roads: Array = GameState.osm_local_roads.duplicate()
 		all_roads.append_array(roads)
 		GameState.map_roads = all_roads
-		if GameState.active_expedition.is_empty():
+		if GameState.shelter == null:
 			var all_pois: Array = GameState.osm_local_pois.duplicate()
 			all_pois.append_array(pois)
 			GameState.nearby_pois = OsmService.build_nearby_targets_for_house(GameState.selected_house, GameState.osm_local_buildings, all_pois, all_roads)
+		else:
+			_append_to_running_shelter(all_roads)
 	updated.emit()
+
+
+## The hatch is already closed: existing targets keep their places (the run refers to them by
+## index); stores found now are added at the end, to the target list and to the run.
+func _append_to_running_shelter(all_roads: Array) -> void:
+	var s: ShelterState = GameState.shelter
+	var known: Dictionary = {}
+	for p_v in GameState.nearby_pois:
+		known[int((p_v as Dictionary).get("osm_id", 0))] = true
+	var fresh: Array = []
+	for p_v in pois:
+		var p: Dictionary = p_v
+		if str(p.get("category", "")) in ESSENTIAL_CATEGORIES and not known.has(int(p.get("osm_id", 0))):
+			fresh.append(p)
+	if fresh.is_empty():
+		return
+	var built: Array = OsmService.build_nearby_targets_for_house(GameState.selected_house, [], fresh, all_roads)
+	var stock_mult: float = ShelterData.B("story_stock_mult", 1.5) if s.difficulty == "story" else 1.0
+	for t_v in built:
+		var t: Dictionary = t_v
+		if str(t.get("category", "")) == "neighbor_house":
+			continue
+		var idx: int = GameState.nearby_pois.size()
+		GameState.nearby_pois.append(t)
+		s.places.append(ShelterTrips.make_place(t, idx, RadiationModel.location_factor(float(t.get("lat", 0.0)), float(t.get("lon", 0.0))), stock_mult))
 
 
 func _set_status(t: String, busy: bool) -> void:

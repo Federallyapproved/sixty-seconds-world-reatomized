@@ -1,29 +1,29 @@
 class_name BunkerBackdrop
 extends Control
 
-## Full-screen (1280x720) procedurally illustrated 1950s Civil Defense fallout shelter interior.
-## Dynamically reflects exact physical inventory (individual soup cans, water bottles, durable gear,
-## broken states, padlock on hatch, Sharikov & Pancake), real-world OSM neighborhood map,
-## radiation/temperature gauges, frost/heat overlays, and seated custom family members.
+## Full-screen (1280x720) procedurally illustrated present-day home shelter.
+## Reflects the exact physical inventory (cans of food, water bottles, durable gear, broken
+## states, padlock on the hatch, the cat and the dog if they turned up), a printed map of the
+## real OSM neighbourhood, radiation/temperature gauges, frost/heat overlays, and the seated family.
 
 signal hotspot_selected(hotspot_info: Dictionary)
 
-const COL_BG_DEEP := Color("#161916")
-const COL_WALL_DARK := Color("#232824")
-const COL_WALL_MID := Color("#2c322d")
-const COL_WALL_LIGHT := Color("#363d37")
-const COL_FLOOR_TOP := Color("#222521")
-const COL_FLOOR_BOT := Color("#151714")
-const COL_STEEL := Color("#3b423d")
-const COL_STEEL_HI := Color("#555e57")
-const COL_INK := Color("#1b1917")
-const COL_PARCHMENT := Color("#f2e6ce")
-const COL_PARCHMENT_DIM := Color("#dccba6")
-const COL_HAZARD := Color("#f5be2e")
-const COL_ORANGE := Color("#e05a2b")
-const COL_RED := Color("#d94c2a")
-const COL_GREEN := Color("#7ec850")
-const COL_WATER := Color("#3b8ec2")
+const COL_BG_DEEP := Color("#121417")
+const COL_WALL_DARK := Color("#1f2328")
+const COL_WALL_MID := Color("#282d33")
+const COL_WALL_LIGHT := Color("#31373e")
+const COL_FLOOR_TOP := Color("#1e2125")
+const COL_FLOOR_BOT := Color("#131518")
+const COL_STEEL := Color("#3a4047")
+const COL_STEEL_HI := Color("#59616a")
+const COL_INK := Color("#14171c")
+const COL_PARCHMENT := Color("#e8eaed")
+const COL_PARCHMENT_DIM := Color("#9aa3ad")
+const COL_HAZARD := Color("#ffb020")
+const COL_ORANGE := Color("#f0a35e")
+const COL_RED := Color("#ff4d4f")
+const COL_GREEN := Color("#4cc38a")
+const COL_WATER := Color("#4aa3ff")
 const COL_FROST := Color("#8ad8ff")
 
 var _anim_time: float = 0.0
@@ -154,7 +154,7 @@ func _draw_bunker_architecture(_font: Font) -> void:
 		Vector2(0.0, 48.0), Vector2(1280.0, 48.0),
 		Vector2(1224.0, 124.0), Vector2(56.0, 124.0)
 	])
-	draw_colored_polygon(ceil_poly, Color("#1d221e"))
+	draw_colored_polygon(ceil_poly, Color("#1d1f22"))
 
 	# Corrugated ceiling ribs converging toward back wall
 	for i in range(9):
@@ -182,12 +182,12 @@ func _draw_bunker_architecture(_font: Font) -> void:
 		Vector2(0.0, 48.0), Vector2(56.0, 124.0),
 		Vector2(56.0, 566.0), Vector2(0.0, 648.0)
 	])
-	draw_colored_polygon(left_wall, Color("#1e231f"))
+	draw_colored_polygon(left_wall, Color("#1e2023"))
 	var right_wall := PackedVector2Array([
 		Vector2(1280.0, 48.0), Vector2(1224.0, 124.0),
 		Vector2(1224.0, 566.0), Vector2(1280.0, 648.0)
 	])
-	draw_colored_polygon(right_wall, Color("#1c201c"))
+	draw_colored_polygon(right_wall, Color("#1c1e20"))
 
 	# Main Poured Concrete Back Wall
 	var wall_rect := Rect2(56.0, 124.0, 1168.0, 442.0)
@@ -202,7 +202,7 @@ func _draw_bunker_architecture(_font: Font) -> void:
 		draw_line(Vector2(sx, 124.0), Vector2(sx, 566.0), Color(0.11, 0.12, 0.11, 0.45), 1.5)
 
 	# Subtle moisture grime bands at wall top & baseboard
-	draw_rect(Rect2(56.0, 124.0, 1168.0, 18.0), Color(0.07, 0.08, 0.07, 0.42), true)
+	draw_rect(Rect2(56.0, 124.0, 1168.0, 18.0), Color(0.06, 0.07, 0.08, 0.42), true)
 	draw_rect(Rect2(56.0, 544.0, 1168.0, 22.0), Color(0.08, 0.09, 0.08, 0.52), true)
 	draw_rect(wall_rect, COL_INK, false, 3.0)
 
@@ -220,7 +220,7 @@ func _draw_bunker_architecture(_font: Font) -> void:
 
 	# Floor Drainage Grate in foreground center
 	var grate_rect := Rect2(576.0, 658.0, 128.0, 26.0)
-	draw_rect(grate_rect, Color("#111311"), true)
+	draw_rect(grate_rect, Color("#111213"), true)
 	draw_rect(grate_rect, COL_STEEL, false, 2.0)
 	for gx in range(586, 700, 12):
 		draw_line(Vector2(float(gx), 660.0), Vector2(float(gx), 682.0), COL_STEEL, 2.0)
@@ -230,15 +230,15 @@ func _draw_bunker_architecture(_font: Font) -> void:
 # ---------------------------------------------------------------------------
 func _draw_back_wall_pipes_and_stencils(font: Font) -> void:
 	# Overhead horizontal air-scrubber pipe across back wall top
-	draw_rect(Rect2(62.0, 128.0, 965.0, 11.0), Color("#464e47"), true)
-	draw_rect(Rect2(62.0, 128.0, 965.0, 4.0), Color("#636d64"), true)
+	draw_rect(Rect2(62.0, 128.0, 965.0, 11.0), Color("#464a4e"), true)
+	draw_rect(Rect2(62.0, 128.0, 965.0, 4.0), Color("#63686d"), true)
 	draw_rect(Rect2(62.0, 128.0, 965.0, 11.0), COL_INK, false, 1.5)
 	for px in [180.0, 420.0, 680.0, 910.0]:
 		draw_rect(Rect2(px - 4.0, 125.0, 8.0, 17.0), COL_STEEL_HI, true)
 		draw_rect(Rect2(px - 4.0, 125.0, 8.0, 17.0), COL_INK, false, 1.2)
 
 	# Right-side vertical filtration pipes + red pressure handwheel
-	draw_rect(Rect2(1182.0, 134.0, 14.0, 430.0), Color("#444c45"), true)
+	draw_rect(Rect2(1182.0, 134.0, 14.0, 430.0), Color("#44484c"), true)
 	draw_rect(Rect2(1182.0, 134.0, 14.0, 430.0), COL_INK, false, 1.5)
 	draw_rect(Rect2(1202.0, 150.0, 10.0, 414.0), Color("#594738"), true)
 	draw_rect(Rect2(1202.0, 150.0, 10.0, 414.0), COL_INK, false, 1.5)
@@ -251,17 +251,10 @@ func _draw_back_wall_pipes_and_stencils(font: Font) -> void:
 	draw_line(valve_c + Vector2(0.0, -13.0), valve_c + Vector2(0.0, 13.0), COL_RED, 3.0)
 	draw_circle(valve_c, 3.5, COL_HAZARD)
 
-	# Faded Civil Defense CD Emblem painted on right-center concrete wall
+	# Faded stencil on the right-centre concrete wall
 	var cd_c := Vector2(986.0, 328.0)
-	draw_circle(cd_c, 36.0, Color(0.95, 0.75, 0.18, 0.16))
-	draw_arc(cd_c, 36.0, 0.0, TAU, 32, Color(0.11, 0.10, 0.09, 0.28), 2.5)
-	var tri := PackedVector2Array([
-		cd_c + Vector2(0.0, -26.0),
-		cd_c + Vector2(24.0, 17.0),
-		cd_c + Vector2(-24.0, 17.0)
-	])
-	draw_colored_polygon(tri, Color(0.92, 0.88, 0.78, 0.18))
-	draw_string(font, cd_c + Vector2(-11.0, 11.0), "CD", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.85, 0.31, 0.18, 0.30))
+	draw_string(font, cd_c + Vector2(-44.0, -6.0), "SHELTER", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.91, 0.92, 0.93, 0.16))
+	draw_string(font, cd_c + Vector2(-44.0, 14.0), "MAX 6 PERSONS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.91, 0.92, 0.93, 0.12))
 
 	# Dynamic Structural Damage Cracks based on GameState.bunker_structural_integrity
 	var dmg: float = clampf((100.0 - GameState.bunker_structural_integrity) / 100.0, 0.05, 1.0)
@@ -295,7 +288,7 @@ func _draw_blast_hatch_and_ladder(font: Font) -> void:
 	draw_rect(stripe_rect, COL_INK, false, 2.0)
 
 	# Ladder shadow on concrete wall
-	draw_rect(Rect2(1082.0, 116.0, 58.0, 456.0), Color(0.07, 0.08, 0.07, 0.42), true)
+	draw_rect(Rect2(1082.0, 116.0, 58.0, 456.0), Color(0.06, 0.07, 0.08, 0.42), true)
 
 	# Wall mounting brackets
 	for by in [160.0, 285.0, 410.0, 525.0]:
@@ -311,19 +304,19 @@ func _draw_blast_hatch_and_ladder(font: Font) -> void:
 	# Steel rungs
 	for ry in range(132, 572, 36):
 		var rung_r := Rect2(1080.0, float(ry), 42.0, 6.0)
-		draw_rect(rung_r, Color("#737d75"), true)
+		draw_rect(rung_r, Color("#73787d"), true)
 		draw_rect(rung_r, COL_INK, false, 1.4)
 
 	# Circular Blast Hatch recessed into ceiling
 	var hc := Vector2(1101.0, 86.0)
-	_draw_ellipse(hc, Vector2(74.0, 27.0), Color("#151815"), COL_INK, 3.0)
+	_draw_ellipse(hc, Vector2(74.0, 27.0), Color("#151618"), COL_INK, 3.0)
 	_draw_ellipse(hc, Vector2(64.0, 22.0), COL_HAZARD, COL_INK, 2.0)
-	_draw_ellipse(hc, Vector2(56.0, 18.5), Color("#464f49"), COL_INK, 2.5)
-	_draw_ellipse(hc + Vector2(0.0, -2.0), Vector2(44.0, 13.5), Color("#58625b"), COL_INK, 1.8)
+	_draw_ellipse(hc, Vector2(56.0, 18.5), Color("#464a4f"), COL_INK, 2.5)
+	_draw_ellipse(hc + Vector2(0.0, -2.0), Vector2(44.0, 13.5), Color("#585d62"), COL_INK, 1.8)
 
 	# Submarine locking wheel crank on hatch underside
 	var wc := hc + Vector2(0.0, -1.0)
-	_draw_ellipse(wc, Vector2(18.0, 7.5), Color("#262a27"), COL_HAZARD, 2.0)
+	_draw_ellipse(wc, Vector2(18.0, 7.5), Color("#26282a"), COL_HAZARD, 2.0)
 	draw_line(wc + Vector2(-17.0, 0.0), wc + Vector2(17.0, 0.0), COL_HAZARD, 2.2)
 	draw_line(wc + Vector2(-9.0, -6.0), wc + Vector2(9.0, 6.0), COL_HAZARD, 2.0)
 	draw_line(wc + Vector2(9.0, -6.0), wc + Vector2(-9.0, 6.0), COL_HAZARD, 2.0)
@@ -335,7 +328,7 @@ func _draw_blast_hatch_and_ladder(font: Font) -> void:
 		draw_line(hc + Vector2(18.0, 4.0), hc + Vector2(46.0, 18.0), Color("#b8c2bc"), 4.5)
 		draw_line(hc + Vector2(18.0, 4.0), hc + Vector2(46.0, 18.0), COL_INK, 1.5)
 		var lock_pos := hc + Vector2(48.0, 28.0)
-		draw_circle(lock_pos, 20.0, Color(0.11, 0.12, 0.10, 0.85))
+		draw_circle(lock_pos, 20.0, Color(0.10, 0.12, 0.14, 0.85))
 		draw_arc(lock_pos, 20.0, 0.0, TAU, 24, COL_HAZARD, 2.0)
 		ItemDB.draw_item_icon(self, "padlock", lock_pos, 30.0, false)
 		var tag_r := Rect2(hc.x - 42.0, hc.y + 20.0, 76.0, 16.0)
@@ -364,7 +357,7 @@ func _draw_blast_hatch_and_ladder(font: Font) -> void:
 func _draw_wall_instruments_and_map(font: Font) -> void:
 	# --- A. Pinned Real-World Neighborhood Street Map (Rect2(304, 148, 190, 142)) ---
 	var map_r := Rect2(304.0, 148.0, 190.0, 142.0)
-	draw_rect(Rect2(map_r.position + Vector2(4.0, 5.0), map_r.size), Color(0.06, 0.07, 0.06, 0.55), true)
+	draw_rect(Rect2(map_r.position + Vector2(4.0, 5.0), map_r.size), Color(0.05, 0.06, 0.07, 0.55), true)
 	draw_rect(map_r, COL_PARCHMENT, true)
 	draw_rect(Rect2(map_r.position + Vector2(5.0, 24.0), map_r.size - Vector2(10.0, 29.0)), Color("#e4d5b4"), true)
 	draw_rect(map_r, COL_INK, false, 2.2)
@@ -471,8 +464,8 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 	# --- B. Analog Geiger-Müller Radiation Dial (center = (642, 206)) ---
 	var gc := Vector2(642.0, 206.0)
 	var gr: float = 46.0
-	draw_circle(gc + Vector2(3.0, 4.0), gr + 5.0, Color(0.06, 0.07, 0.06, 0.55))
-	draw_circle(gc, gr + 5.0, Color("#2a2d28"))
+	draw_circle(gc + Vector2(3.0, 4.0), gr + 5.0, Color(0.05, 0.06, 0.07, 0.55))
+	draw_circle(gc, gr + 5.0, Color("#282a2d"))
 	draw_arc(gc, gr + 5.0, 0.0, TAU, 36, COL_INK, 2.5)
 	draw_circle(gc, gr - 2.0, COL_PARCHMENT)
 
@@ -524,8 +517,8 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 
 	# --- C. Wall Mercury Thermometer (Rect2(718, 148, 66, 142)) ---
 	var th_r := Rect2(718.0, 148.0, 66.0, 142.0)
-	draw_rect(Rect2(th_r.position + Vector2(3.0, 4.0), th_r.size), Color(0.06, 0.07, 0.06, 0.5), true)
-	draw_rect(th_r, Color("#2c312c"), true)
+	draw_rect(Rect2(th_r.position + Vector2(3.0, 4.0), th_r.size), Color(0.05, 0.06, 0.07, 0.5), true)
+	draw_rect(th_r, Color("#2c2e31"), true)
 	draw_rect(Rect2(th_r.position + Vector2(4.0, 4.0), th_r.size - Vector2(8.0, 28.0)), COL_PARCHMENT, true)
 	draw_rect(th_r, COL_INK, false, 2.0)
 
@@ -556,18 +549,18 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 
 	var temp_desc: String = "Comfortable shelter climate."
 	if temp_c < 2.0:
-		temp_desc = "NUCLEAR WINTER FREEZE! Frost is creeping across the shelter walls — sickness risk elevated."
+		temp_desc = "Frost on the walls. People get sick in this."
 	elif temp_c > 28.0:
-		temp_desc = "NEAR-BLAST THERMAL HEATWAVE! Sweltering bunker air accelerates family dehydration."
+		temp_desc = "Hot and close down here. The water goes faster."
 	_register_hotspot(th_r, "SHELTER WALL THERMOMETER", "Interior Temp: %.1f °C" % temp_c, temp_desc, merc_col)
 
-	# --- D. Civil Defense Hull & Rescue Telemetry Plaque (Rect2(802, 148, 152, 142)) ---
+	# --- D. Shelter status & rescue progress board (Rect2(802, 148, 152, 142)) ---
 	var cd_r := Rect2(802.0, 148.0, 152.0, 142.0)
-	draw_rect(Rect2(cd_r.position + Vector2(3.0, 4.0), cd_r.size), Color(0.06, 0.07, 0.06, 0.5), true)
-	draw_rect(cd_r, Color("#262b26"), true)
+	draw_rect(Rect2(cd_r.position + Vector2(3.0, 4.0), cd_r.size), Color(0.05, 0.06, 0.07, 0.5), true)
+	draw_rect(cd_r, Color("#26282b"), true)
 	draw_rect(cd_r, COL_INK, false, 2.0)
 	draw_rect(Rect2(cd_r.position, Vector2(cd_r.size.x, 22.0)), COL_HAZARD, true)
-	draw_string(font, cd_r.position + Vector2(7.0, 15.0), "CONELRAD STATUS", HORIZONTAL_ALIGNMENT_LEFT, cd_r.size.x - 14.0, 11, COL_INK)
+	draw_string(font, cd_r.position + Vector2(7.0, 15.0), "SHELTER STATUS", HORIZONTAL_ALIGNMENT_LEFT, cd_r.size.x - 14.0, 11, COL_INK)
 
 	var integ: float = clampf(GameState.bunker_structural_integrity, 0.0, 100.0)
 	draw_string(font, cd_r.position + Vector2(8.0, 40.0), "HULL: %.0f%%" % integ, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_PARCHMENT)
@@ -578,9 +571,9 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 
 	# Rescue chain progress lamps (0..3)
 	var chains := [
-		{"key": "military", "label": "MILITARY"},
-		{"key": "sanctuary", "label": "SANCTUARY"},
-		{"key": "scientist", "label": "SCIENTIST"}
+		{"key": "convoy", "label": "CONVOY"},
+		{"key": "neighbourhood", "label": "NEIGHBOURS"},
+		{"key": "airlift", "label": "AIRLIFT"}
 	]
 	for ci in range(chains.size()):
 		var cinfo: Dictionary = chains[ci]
@@ -592,14 +585,14 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 		for si in range(3):
 			var lamp_c := Vector2(cd_r.position.x + 102.0 + float(si) * 16.0, row_y + 5.0)
 			var lit: bool = si < steps
-			draw_circle(lamp_c, 5.0, COL_GREEN if lit else Color("#181a17"))
+			draw_circle(lamp_c, 5.0, COL_GREEN if lit else Color("#17181a"))
 			draw_arc(lamp_c, 5.0, 0.0, TAU, 12, COL_HAZARD if lit else COL_STEEL, 1.2)
 
 	_register_hotspot(
 		cd_r,
-		"CONELRAD RESCUE TELEMETRY",
+		"RESCUE PROGRESS",
 		"Structural Integrity: %.0f%%" % integ,
-		"Complete all 3 signal stages on Military, Sanctuary, or Scientist rescue tracks to win evacuation!",
+		"Follow one rescue to the end on the crank radio: the convoy, the neighbours or the airlift.",
 		COL_GREEN
 	)
 
@@ -609,11 +602,11 @@ func _draw_wall_instruments_and_map(font: Font) -> void:
 func _draw_supply_shelving_and_gear(font: Font) -> void:
 	var rack_r := Rect2(26.0, 144.0, 274.0, 444.0)
 	# Drop shadow behind rack
-	draw_rect(Rect2(rack_r.position + Vector2(6.0, 6.0), rack_r.size), Color(0.05, 0.06, 0.05, 0.58), true)
+	draw_rect(Rect2(rack_r.position + Vector2(6.0, 6.0), rack_r.size), Color(0.05, 0.06, 0.07, 0.58), true)
 	# Back cross-bracing X-wires
-	draw_rect(rack_r, Color("#1b1f1c"), true)
-	draw_line(rack_r.position + Vector2(8.0, 8.0), rack_r.end - Vector2(8.0, 8.0), Color("#2f3530"), 2.5)
-	draw_line(Vector2(rack_r.end.x - 8.0, rack_r.position.y + 8.0), Vector2(rack_r.position.x + 8.0, rack_r.end.y - 8.0), Color("#2f3530"), 2.5)
+	draw_rect(rack_r, Color("#1b1d1f"), true)
+	draw_line(rack_r.position + Vector2(8.0, 8.0), rack_r.end - Vector2(8.0, 8.0), Color("#2f3235"), 2.5)
+	draw_line(Vector2(rack_r.end.x - 8.0, rack_r.position.y + 8.0), Vector2(rack_r.position.x + 8.0, rack_r.end.y - 8.0), Color("#2f3235"), 2.5)
 
 	# 4 Shelf Y levels (plank surfaces)
 	var shelf_ys := [236.0, 340.0, 452.0, 566.0]
@@ -631,7 +624,7 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 		draw_circle(Vector2(rack_r.position.x + 5.0, float(by)), 1.8, COL_STEEL_HI)
 		draw_circle(Vector2(rack_r.end.x - 5.0, float(by)), 1.8, COL_STEEL_HI)
 
-	# --- TOP SHELF (Shelf 1: Individual Soup Cans) ---
+	# --- TOP SHELF (Shelf 1: individual cans of food) ---
 	var soup_q: int = maxi(0, GameState.soup_quarters)
 	var soup_cans: int = int(ceil(float(soup_q) / 4.0)) if soup_q > 0 else 0
 	var soup_rem: int = soup_q % 4
@@ -641,14 +634,14 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 		var col: int = i % 7
 		var cx: float = 54.0 + float(col) * 33.0 + (8.0 if row == 1 else 0.0)
 		var cy: float = 219.0 - float(row) * 28.0
-		ItemDB.draw_item_icon(self, "soup", Vector2(cx, cy), 30.0, false)
+		ItemDB.draw_item_icon(self, "food", Vector2(cx, cy), 30.0, false)
 	if soup_cans > 14:
 		var extra_r := Rect2(252.0, 162.0, 38.0, 22.0)
 		draw_rect(extra_r, COL_ORANGE, true)
 		draw_rect(extra_r, COL_INK, false, 1.5)
 		draw_string(font, extra_r.position + Vector2(3.0, 15.0), "+%d" % (soup_cans - 14), HORIZONTAL_ALIGNMENT_CENTER, 32.0, 11, COL_PARCHMENT)
 
-	# Fractional Soup Fill Indicator (if an opened can has 1/4, 2/4, or 3/4 left)
+	# Fractional fill indicator (if an opened can has 1/4, 2/4, or 3/4 left)
 	if soup_rem > 0:
 		var fg_r := Rect2(42.0, 158.0, 48.0, 16.0)
 		draw_rect(fg_r, COL_INK, true)
@@ -657,17 +650,17 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 			var seg_r := Rect2(fg_r.position.x + 3.0 + float(seg) * 11.0, fg_r.position.y + 3.0, 9.0, 10.0)
 			draw_rect(seg_r, COL_ORANGE if seg < soup_rem else Color("#2a2622"), true)
 
-	# Bold Soup Stencil Tag
+	# Shelf label
 	var soup_tag := Rect2(44.0, 237.0, 238.0, 17.0)
 	draw_rect(soup_tag, COL_INK, true)
 	draw_rect(soup_tag, COL_ORANGE, false, 1.2)
-	var soup_txt: String = "SOUP: %s CANS (%d/4)" % [GameState.format_quarters_as_cans(soup_q), soup_q]
+	var soup_txt: String = "FOOD: %s CANS (%d rations)" % [GameState.format_quarters_as_cans(soup_q), soup_q]
 	draw_string(font, soup_tag.position + Vector2(6.0, 13.0), soup_txt, HORIZONTAL_ALIGNMENT_LEFT, soup_tag.size.x - 10.0, 10, COL_HAZARD)
 	_register_hotspot(
 		Rect2(36.0, 154.0, 254.0, 100.0),
-		"TOMATO SOUP STOCKPILE",
-		"%s Cans (%d quarter-rations)" % [GameState.format_quarters_as_cans(soup_q), soup_q],
-		"Hearty Civil Defense canned tomato soup. 1/4 can feeds one survivor for several days.",
+		"CANNED FOOD",
+		"%s Cans (%d quarter-can rations)" % [GameState.format_quarters_as_cans(soup_q), soup_q],
+		"Beans, soup, mystery stew. Counted in quarter-can rations.",
 		COL_ORANGE
 	)
 
@@ -699,19 +692,19 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 	var water_tag := Rect2(44.0, 341.0, 238.0, 17.0)
 	draw_rect(water_tag, COL_INK, true)
 	draw_rect(water_tag, COL_WATER, false, 1.2)
-	var water_txt: String = "WATER: %s BOTTLES (%d/4)" % [GameState.format_quarters_as_cans(water_q), water_q]
+	var water_txt: String = "WATER: %s BOTTLES (%d rations)" % [GameState.format_quarters_as_cans(water_q), water_q]
 	draw_string(font, water_tag.position + Vector2(6.0, 13.0), water_txt, HORIZONTAL_ALIGNMENT_LEFT, water_tag.size.x - 10.0, 10, Color("#8ad8ff"))
 	_register_hotspot(
 		Rect2(36.0, 258.0, 254.0, 100.0),
-		"EMERGENCY DRINKING WATER",
-		"%s Bottles (%d quarter-rations)" % [GameState.format_quarters_as_cans(water_q), water_q],
-		"Critical purified water! Survivors perish after ~4 days without water — ration 1/4 bottle regularly.",
+		"DRINKING WATER",
+		"%s Bottles (%d quarter-bottle rations)" % [GameState.format_quarters_as_cans(water_q), water_q],
+		"Counted in quarter-bottle rations. Without it, people get sick fast.",
 		COL_WATER
 	)
 
 	# --- LOWER SHELVES (Shelf 3 & Shelf 4) + ADJACENT WALL HOOK PEGBOARD ---
 	var peg_r := Rect2(308.0, 304.0, 92.0, 206.0)
-	draw_rect(Rect2(peg_r.position + Vector2(3.0, 4.0), peg_r.size), Color(0.05, 0.06, 0.05, 0.45), true)
+	draw_rect(Rect2(peg_r.position + Vector2(3.0, 4.0), peg_r.size), Color(0.05, 0.06, 0.07, 0.45), true)
 	draw_rect(peg_r, Color("#342d24"), true)
 	draw_rect(peg_r, COL_INK, false, 2.0)
 	for py in range(318, 502, 22):
@@ -770,7 +763,7 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 			draw_circle(pos + Vector2(0.0, -20.0), 3.0, COL_HAZARD)
 
 		if is_out:
-			draw_rect(Rect2(pos - Vector2(16.0, 16.0), Vector2(32.0, 32.0)), Color(0.12, 0.14, 0.12, 0.72), true)
+			draw_rect(Rect2(pos - Vector2(16.0, 16.0), Vector2(32.0, 32.0)), Color(0.10, 0.12, 0.14, 0.72), true)
 			draw_rect(Rect2(pos - Vector2(16.0, 16.0), Vector2(32.0, 32.0)), COL_HAZARD, false, 1.2)
 			draw_string(font, pos + Vector2(-13.0, 4.0), "OUT", HORIZONTAL_ALIGNMENT_CENTER, 26.0, 9, COL_HAZARD)
 		else:
@@ -785,7 +778,7 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 		var info: Dictionary = ItemDB.get_item_info(iid)
 		var iname: String = str(info.get("name", iid.capitalize()))
 		var idesc: String = str(info.get("description", "Shelter survival equipment."))
-		var cond_str: String = "Carried on Active Expedition" if is_out else ("BROKEN — Needs Repair!" if broken else "Working Condition")
+		var cond_str: String = "Out on a trip" if is_out else ("Broken — needs fixing" if broken else "Works")
 		if iid == "ammo":
 			cond_str = "%d Rounds Available" % cnt
 		elif cnt > 1:
@@ -799,21 +792,22 @@ func _draw_supply_shelving_and_gear(font: Font) -> void:
 		)
 
 # ---------------------------------------------------------------------------
-# 6. COMPANIONS: SHARIKOV THE CAT (CRATE) & PANCAKE THE DOG (BY LADDER)
+# 6. PETS (only if they turned up through events): THE CAT (ON THE BIN) & THE DOG (BY THE LADDER)
 # ---------------------------------------------------------------------------
 func _draw_companions(font: Font) -> void:
-	# Military wooden crate beside shelf
+	# Plastic storage tote beside the shelf, labelled in marker
 	var crate_r := Rect2(308.0, 524.0, 88.0, 62.0)
-	draw_rect(Rect2(crate_r.position + Vector2(4.0, 4.0), crate_r.size), Color(0.05, 0.06, 0.05, 0.5), true)
-	draw_rect(crate_r, Color("#5b4832"), true)
-	draw_line(Vector2(crate_r.position.x, crate_r.position.y + 20.0), Vector2(crate_r.end.x, crate_r.position.y + 20.0), COL_INK, 1.5)
-	draw_line(Vector2(crate_r.position.x, crate_r.position.y + 42.0), Vector2(crate_r.end.x, crate_r.position.y + 42.0), COL_INK, 1.5)
-	draw_line(crate_r.position, crate_r.end, Color("#463624"), 3.0)
+	draw_rect(Rect2(crate_r.position + Vector2(4.0, 4.0), crate_r.size), Color(0.05, 0.06, 0.07, 0.5), true)
+	draw_rect(crate_r, Color("#4a5562"), true)
+	draw_rect(Rect2(crate_r.position.x - 3.0, crate_r.position.y, crate_r.size.x + 6.0, 9.0), Color("#5d6671"), true)
+	draw_line(Vector2(crate_r.position.x + 6.0, crate_r.position.y + 30.0), Vector2(crate_r.end.x - 6.0, crate_r.position.y + 30.0), Color("#3d4652"), 1.5)
 	draw_rect(crate_r, COL_INK, false, 2.0)
-	draw_string(font, crate_r.position + Vector2(10.0, 35.0), "U.S.C.D.", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#241d15"))
+	var tape_r := Rect2(crate_r.position.x + 10.0, crate_r.position.y + 34.0, 68.0, 14.0)
+	draw_rect(tape_r, Color("#d9d4c7"), true)
+	draw_string(font, tape_r.position + Vector2(3.0, 11.0), "CABLES, MISC", HORIZONTAL_ALIGNMENT_LEFT, tape_r.size.x - 4.0, 9, Color("#2a2f36"))
 
-	if GameState.has_cat_sharikov:
-		# Folded red blanket + curled Sharikov on top of crate
+	if GameState.has_cat:
+		# Folded blanket + the cat curled on top of the tote
 		draw_rect(Rect2(316.0, 517.0, 72.0, 9.0), Color("#8f3428"), true)
 		draw_rect(Rect2(316.0, 517.0, 72.0, 9.0), COL_INK, false, 1.2)
 		var purr_bob: float = sin(_anim_time * 2.8) * 1.4
@@ -822,16 +816,16 @@ func _draw_companions(font: Font) -> void:
 		draw_string(font, cat_pos + Vector2(18.0, -10.0 + sin(_anim_time * 2.0) * 2.0), "purr~", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, COL_PARCHMENT_DIM)
 		_register_hotspot(
 			Rect2(312.0, 474.0, 82.0, 56.0),
-			"SHARIKOV THE CAT",
-			"Bunker Feline Companion",
-			"Curled comfortably on the supply crate. Boosts family sanity, hunts roaches, and may unlock mysterious cables!",
+			"THE CAT",
+			"Turned up and stayed",
+			"Asleep on the storage tote. Unbothered by any of this.",
 			COL_HAZARD
 		)
 
-	if GameState.has_dog_pancake:
-		# Olive mat + food bowl + Pancake the Dog shifted 24px left clear of ladder hazard stripes (x = 1042)
+	if GameState.has_dog:
+		# Mat + food bowl + the dog, kept left of the ladder hazard stripes (x = 1042)
 		var dog_base := Vector2(982.0, 566.0)
-		_draw_ellipse(dog_base + Vector2(0.0, 14.0), Vector2(44.0, 11.0), Color("#3d4a35"), COL_INK, 1.5)
+		_draw_ellipse(dog_base + Vector2(0.0, 14.0), Vector2(44.0, 11.0), Color("#40444a"), COL_INK, 1.5)
 		var wag: float = sin(_anim_time * 5.4) * 2.0
 		ItemDB.draw_item_icon(self, "dog", dog_base + Vector2(wag * 0.4, -10.0 + absf(wag) * 0.3), 48.0, false)
 		# Red dog bowl (x = 1014..1038, cleanly left of x = 1042 hazard stripes)
@@ -840,9 +834,9 @@ func _draw_companions(font: Font) -> void:
 		draw_rect(bowl_r, COL_INK, false, 1.3)
 		_register_hotspot(
 			Rect2(950.0, 526.0, 88.0, 62.0),
-			"PANCAKE THE DOG",
-			"Loyal Shelter Watchdog",
-			"Guards the blast hatch ladder against raiders and lifts everyone's spirits in the dark.",
+			"THE DOG",
+			"Turned up and stayed",
+			"Sleeps by the ladder. Hears anyone on the hatch before you do.",
 			COL_HAZARD
 		)
 
@@ -850,12 +844,12 @@ func _draw_companions(font: Font) -> void:
 # 7. CENTER BENCH / FOLDING CHAIRS — CUSTOM SEATED FAMILY MEMBERS!
 # ---------------------------------------------------------------------------
 func _draw_family_bench_and_members(font: Font) -> void:
-	# Rugged 4-seat Civil Defense wooden & iron bench
+	# Four-seat wooden bench on steel legs
 	var bench_seat := Rect2(404.0, 494.0, 548.0, 16.0)
 	var bench_back := Rect2(410.0, 434.0, 536.0, 26.0)
 
 	# Shadow pool beneath bench
-	_draw_ellipse(Vector2(678.0, 582.0), Vector2(285.0, 18.0), Color(0.05, 0.06, 0.05, 0.55), Color.TRANSPARENT, 0.0)
+	_draw_ellipse(Vector2(678.0, 582.0), Vector2(285.0, 18.0), Color(0.05, 0.06, 0.07, 0.55), Color.TRANSPARENT, 0.0)
 
 	# Steel bench legs & crossbars
 	for lx in [426.0, 592.0, 762.0, 924.0]:
@@ -882,23 +876,23 @@ func _draw_family_bench_and_members(font: Font) -> void:
 		var on_exp: bool = bool(member.get("on_expedition", false))
 
 		if not in_bunker:
-			# Left behind during 60s scavenge
+			# Did not make it down during the grab
 			var tag_empty := Rect2(sx - 52.0, seat_y - 44.0, 104.0, 24.0)
-			draw_rect(tag_empty, Color(0.12, 0.12, 0.11, 0.82), true)
+			draw_rect(tag_empty, Color(0.10, 0.12, 0.14, 0.82), true)
 			draw_rect(tag_empty, COL_STEEL, false, 1.2)
 			draw_string(font, tag_empty.position + Vector2(0.0, 16.0), "NOT IN SHELTER", HORIZONTAL_ALIGNMENT_CENTER, tag_empty.size.x, 9, COL_PARCHMENT_DIM)
 			_draw_seat_nameplate(font, Vector2(sx, 592.0), m_name, Color("#77746b"))
 			_register_hotspot(
 				Rect2(sx - 54.0, seat_y - 80.0, 108.0, 160.0),
 				m_name.to_upper() + " — MISSING",
-				"Did not reach the bunker hatch in time",
-				"Left on the surface when the blast door sealed.",
+				"Did not reach the hatch in time",
+				"Was still upstairs when the hatch shut.",
 				COL_STEEL_HI
 			)
 		elif not alive:
 			# Fallen survivor memorial folded blanket
 			var mem_r := Rect2(sx - 34.0, seat_y - 22.0, 68.0, 22.0)
-			draw_rect(mem_r, Color("#3f473c"), true)
+			draw_rect(mem_r, Color("#3d4247"), true)
 			draw_rect(mem_r, COL_INK, false, 1.6)
 			var rip_r := Rect2(sx - 44.0, seat_y - 48.0, 88.0, 20.0)
 			draw_rect(rip_r, COL_INK, true)
@@ -910,11 +904,11 @@ func _draw_family_bench_and_members(font: Font) -> void:
 				Rect2(sx - 54.0, seat_y - 80.0, 108.0, 160.0),
 				m_name.to_upper() + " — DECEASED",
 				"Fallen Family Member",
-				reason if reason != "" else "Did not survive the atomic aftermath.",
+				reason if reason != "" else "Did not make it.",
 				COL_RED
 			)
 		elif on_exp:
-			# Empty chair with expedition rucksack/tag ("OUT SCAVENGING")
+			# Empty seat with a backpack and an AWAY tag
 			var pack_r := Rect2(sx - 24.0, seat_y - 42.0, 48.0, 42.0)
 			draw_rect(pack_r, Color("#6a5b3e"), true)
 			draw_rect(Rect2(pack_r.position + Vector2(4.0, 6.0), Vector2(40.0, 14.0)), Color("#82704d"), true)
@@ -925,15 +919,15 @@ func _draw_family_bench_and_members(font: Font) -> void:
 			var out_tag := Rect2(sx - 58.0, seat_y - 72.0, 116.0, 24.0)
 			draw_rect(out_tag, COL_HAZARD, true)
 			draw_rect(out_tag, COL_INK, false, 1.8)
-			draw_string(font, out_tag.position + Vector2(0.0, 16.0), "OUT SCAVENGING", HORIZONTAL_ALIGNMENT_CENTER, out_tag.size.x, 10, COL_INK)
+			draw_string(font, out_tag.position + Vector2(0.0, 16.0), "AWAY", HORIZONTAL_ALIGNMENT_CENTER, out_tag.size.x, 10, COL_INK)
 			_draw_seat_nameplate(font, Vector2(sx, 592.0), m_name, COL_HAZARD)
 
 			var exp_dest: String = _get_active_expedition_target_name()
 			_register_hotspot(
 				Rect2(sx - 58.0, seat_y - 86.0, 116.0, 174.0),
-				m_name.to_upper() + " — ON EXPEDITION",
-				"Scavenging: " + exp_dest,
-				"Exploring the irradiated neighborhood outside. Check Tab 4 in the Survival Notebook for return ETA!",
+				m_name.to_upper() + " — AWAY",
+				"Gone to: " + exp_dest,
+				"Out on a trip. Due back in a few days, if the plan holds.",
 				COL_HAZARD
 			)
 		else:
@@ -983,23 +977,21 @@ func _collect_member_status_badges(member: Dictionary) -> Array:
 		res.append({"short": "THR", "label": "Thirsty", "color": COL_WATER})
 
 	if int(member.get("sickness", 0)) > 0:
-		res.append({"short": "SCK", "label": "Sick", "color": COL_GREEN})
+		res.append({"short": "SCK", "label": "Sick", "color": COL_HAZARD})
 	if int(member.get("injury", 0)) > 0:
 		res.append({"short": "INJ", "label": "Injured", "color": COL_RED})
 
 	var san: int = int(member.get("sanity", 0))
-	var is_crazy: bool = (san <= 35) if _sanity_hundred_scale else (san >= 2)
-	if is_crazy:
-		res.append({"short": "CRZ", "label": "Crazy", "color": Color("#c96be8")})
-	if bool(member.get("is_mutant", false)):
-		res.append({"short": "MUT", "label": "Mutant", "color": COL_GREEN})
+	var withdrawn: bool = (san <= 35) if _sanity_hundred_scale else (san >= 2)
+	if withdrawn:
+		res.append({"short": "WDN", "label": "Withdrawn", "color": Color("#9aa3ad")})
 	return res
 
 func _build_member_tooltip_summary(member: Dictionary) -> String:
 	var parts: Array[String] = []
 	var badges: Array = _collect_member_status_badges(member)
 	if badges.is_empty():
-		parts.append("Condition: Healthy & Steady")
+		parts.append("Condition: OK")
 	else:
 		var names: Array[String] = []
 		for b in badges:
@@ -1058,12 +1050,12 @@ func _draw_overhead_swinging_lamp() -> void:
 		bulb_pos + dir * 3.0 + perp * 26.0,
 		bulb_pos + dir * 3.0 - perp * 26.0
 	])
-	draw_colored_polygon(shade, Color("#2f3831"))
+	draw_colored_polygon(shade, Color("#303438"))
 	draw_polyline(PackedVector2Array([shade[0], shade[1], shade[2], shade[3], shade[0]]), COL_INK, 2.0)
 	draw_line(shade[3], shade[2], COL_HAZARD, 2.0)
 
 # ---------------------------------------------------------------------------
-# 9. NUCLEAR WINTER FROST (< 2°C) & NEAR-BLAST HEAT HAZE (> 28°C)
+# 9. FROST (< 2°C) & HEAT HAZE (> 28°C)
 # ---------------------------------------------------------------------------
 func _draw_temperature_and_radiation_atmosphere() -> void:
 	var temp_c: float = GameState.bunker_temp_c
@@ -1119,7 +1111,7 @@ func _draw_temperature_and_radiation_atmosphere() -> void:
 			draw_line(Vector2(1174.0 + sx_off, float(wy)), Vector2(1218.0 - sx_off, float(wy) - 14.0), Color(0.96, 0.48, 0.20, heat_a * 1.8), 2.0)
 
 # ---------------------------------------------------------------------------
-# 10. INTERACTIVE BUNKER INSPECTOR TOOLTIP
+# 10. INTERACTIVE SHELTER TOOLTIP
 # ---------------------------------------------------------------------------
 func _draw_active_tooltip(font: Font) -> void:
 	var active: Dictionary = _pinned_hotspot if not _pinned_hotspot.is_empty() else _hovered_hotspot
@@ -1143,10 +1135,10 @@ func _draw_active_tooltip(font: Font) -> void:
 	var by: float = clampf(anchor_pt.y, 62.0, 610.0)
 	var tip_r := Rect2(bx, by, box_w, box_h)
 
-	draw_rect(Rect2(tip_r.position + Vector2(4.0, 5.0), tip_r.size), Color(0.04, 0.05, 0.04, 0.72), true)
-	draw_rect(tip_r, Color("#1d201d"), true)
+	draw_rect(Rect2(tip_r.position + Vector2(0.0, 5.0), tip_r.size), Color(0.0, 0.0, 0.0, 0.55), true)
+	draw_rect(tip_r, Color("#1a1e24"), true)
 	draw_rect(Rect2(tip_r.position, Vector2(tip_r.size.x, 22.0)), accent, true)
-	draw_rect(tip_r, COL_PARCHMENT, false, 1.8)
+	draw_rect(tip_r, Color("#39414b"), false, 1.0)
 
 	draw_string(font, tip_r.position + Vector2(8.0, 15.0), title, HORIZONTAL_ALIGNMENT_LEFT, box_w - 16.0, 11, COL_INK)
 	draw_string(font, tip_r.position + Vector2(8.0, 38.0), sub, HORIZONTAL_ALIGNMENT_LEFT, box_w - 16.0, 11, accent)
@@ -1195,7 +1187,7 @@ func _get_active_expedition_gear() -> Array:
 
 func _get_active_expedition_target_name() -> String:
 	if GameState.active_expedition.is_empty():
-		return "Irradiated Neighborhood"
+		return "Somewhere nearby"
 	var direct: String = str(GameState.active_expedition.get("target_name", GameState.active_expedition.get("poi_name", "")))
 	if direct != "":
 		return direct

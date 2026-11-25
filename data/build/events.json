@@ -1,0 +1,4948 @@
+{
+	"aftershock": {
+		"conditions": {
+			"min_day": 4
+		},
+		"file": "shelter_life.json",
+		"id": "aftershock",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "suitcase",
+						"what": "the fragile gear rode it out"
+					}
+				],
+				"id": "pack",
+				"item": "suitcase",
+				"label": "Pack the fragile gear in the suitcase",
+				"outcome": "The radio, mask and flashlight ride it out in the suitcase."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "break_fragile",
+						"p": 0.4
+					}
+				],
+				"id": "table",
+				"label": "Get under the table",
+				"outcome": "Everyone is fine. The shelf is less fine."
+			},
+			{
+				"cinematic": "attack",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "injure",
+								"root": "decision",
+								"who": "actor",
+								"why": "a shelf came down"
+							}
+						]
+					}
+				],
+				"id": "hold",
+				"label": "Hold the shelves steady",
+				"outcome": "{name} braces the shelf with both arms until the shaking stops."
+			}
+		],
+		"setup": "A long aftershock rolls through the shelter. Shelves sway. Something glass is thinking about it.",
+		"title": "The Ground Shrugs",
+		"type": "quake",
+		"weight": 1
+	},
+	"airlift_1_retry": {
+		"chain": "airlift",
+		"file": "rescue_retries.json",
+		"id": "airlift_1_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "the helicopter saw the signal"
+					},
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "signal",
+				"item": "flashlight",
+				"label": "Signal from the hatch",
+				"outcome": "The searchlight stops on the hatch, and stays."
+			},
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "airlift",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.35,
+						"then": [
+							{
+								"chain": "airlift",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "mirror",
+				"label": "Flash a mirror at it",
+				"outcome": "{name} angles the bathroom mirror at the sky and hopes."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "hide",
+				"label": "Stay below",
+				"outcome": "The searchlight moves on to the next street."
+			}
+		],
+		"retry": true,
+		"setup": "The helicopter is back, lower than before, searchlight sweeping the gardens.",
+		"step": 1,
+		"title": "Rotor Noise, Lower",
+		"type": "rescue"
+	},
+	"airlift_1_rotor": {
+		"chain": "airlift",
+		"file": "rescue_chains.json",
+		"id": "airlift_1_rotor",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "the helicopter saw the signal"
+					},
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "signal",
+				"item": "flashlight",
+				"label": "Signal from the hatch",
+				"outcome": "The helicopter dips once. Someone up there saw."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 40,
+						"who": "actor"
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "airlift",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.4,
+						"then": [
+							{
+								"chain": "airlift",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "wave",
+				"label": "Climb out and wave",
+				"outcome": "{name} waves both arms in the dust until the noise fades."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "hide",
+				"label": "Stay below",
+				"outcome": "The rotor noise fades toward the river."
+			}
+		],
+		"setup": "A helicopter is sweeping the neighbourhood at dusk, low and slow, as if counting roofs.",
+		"step": 1,
+		"title": "Rotor Noise",
+		"type": "rescue"
+	},
+	"airlift_2_retry": {
+		"chain": "airlift",
+		"file": "rescue_retries.json",
+		"id": "airlift_2_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "marked the roof through the dust"
+					},
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "mask",
+				"item": "gas_mask",
+				"label": "Go up masked and lay out every sheet",
+				"outcome": "Every sheet in the shelter, pegged down with tins. Very visible."
+			},
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "lit up the yard"
+					},
+					{
+						"do": "dose",
+						"msv": 20,
+						"who": "actor"
+					},
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "torch",
+				"item": "flashlight",
+				"label": "Shine a light up from the yard",
+				"outcome": "A beam straight up, all night. They'll see that."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "skip",
+				"label": "Leave it",
+				"outcome": "The roof stays grey."
+			}
+		],
+		"retry": true,
+		"setup": "A second canister: \"Couldn't see your roof. Try again tonight, bigger.\"",
+		"step": 2,
+		"title": "Mark It Again",
+		"type": "rescue"
+	},
+	"airlift_2_roof": {
+		"chain": "airlift",
+		"file": "rescue_chains.json",
+		"id": "airlift_2_roof",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "marked the roof through the dust"
+					},
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "mask",
+				"item": "gas_mask",
+				"label": "Go up masked and lay out sheets",
+				"outcome": "A white cross on a grey roof. It looks like a request."
+			},
+			{
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "advance"
+					},
+					{
+						"do": "chance",
+						"p": 0.7,
+						"then": [
+							{
+								"do": "sick",
+								"who": "actor",
+								"why": "breathed roof dust"
+							}
+						]
+					}
+				],
+				"id": "bare",
+				"label": "Go up without a mask",
+				"outcome": "The cross is laid. {name} coughs for an hour afterwards."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "skip",
+				"label": "Leave the roof as it is",
+				"outcome": "The helicopter passes over a roof like every other roof."
+			}
+		],
+		"setup": "A dropped canister holds a note: mark your roof with something white tonight. The roof is thick with dust.",
+		"step": 2,
+		"title": "Mark the Roof",
+		"type": "rescue"
+	},
+	"airlift_3_lz": {
+		"chain": "airlift",
+		"file": "rescue_chains.json",
+		"id": "airlift_3_lz",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "map",
+						"what": "picked a landing zone"
+					},
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "map",
+				"item": "map",
+				"label": "Pick a clear spot on the map",
+				"outcome": "A school field, two streets over. They signal agreement."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"days": 2,
+						"do": "tired",
+						"who": "actor"
+					},
+					{
+						"do": "dose",
+						"msv": 50,
+						"who": "actor"
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "airlift",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.6,
+						"then": [
+							{
+								"chain": "airlift",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "scout",
+				"label": "Send someone to look",
+				"outcome": "{name} walks the blocks for a flat, open space and comes back grey with dust."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "none",
+				"label": "Don't answer",
+				"outcome": "They circle twice and leave."
+			}
+		],
+		"setup": "A loudhailer from above: they need a clear landing spot within a few streets.",
+		"step": 3,
+		"title": "Landing Zone",
+		"type": "rescue"
+	},
+	"airlift_3_retry": {
+		"chain": "airlift",
+		"file": "rescue_retries.json",
+		"id": "airlift_3_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "map",
+						"what": "picked a second landing zone"
+					},
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "map",
+				"item": "map",
+				"label": "Find a car park on the map",
+				"outcome": "A supermarket car park, empty for once. They agree."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"days": 2,
+						"do": "tired",
+						"who": "actor"
+					},
+					{
+						"do": "dose",
+						"msv": 50,
+						"who": "actor"
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "airlift",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.6,
+						"then": [
+							{
+								"chain": "airlift",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "scout",
+				"label": "Walk the streets and look",
+				"outcome": "{name} paces out an intersection and waves at the sky."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "none",
+				"label": "Don't answer",
+				"outcome": "They circle once and fly on."
+			}
+		],
+		"retry": true,
+		"setup": "\"The field was blocked. We need another clear spot. Anywhere flat.\"",
+		"step": 3,
+		"title": "Somewhere to Land",
+		"type": "rescue"
+	},
+	"airlift_4_lift": {
+		"chain": "airlift",
+		"file": "rescue_chains.json",
+		"final": true,
+		"id": "airlift_4_lift",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "victory",
+				"effects": [
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "win"
+					}
+				],
+				"id": "go",
+				"label": "Run for it",
+				"outcome": "Hands pull everyone aboard. The street drops away."
+			},
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "airlift",
+								"do": "chain",
+								"step": "miss"
+							},
+							{
+								"do": "say",
+								"kind": "warn",
+								"text": "The crew can't wait. The helicopter lifts off without you."
+							}
+						],
+						"p": 0.5,
+						"then": [
+							{
+								"chain": "airlift",
+								"do": "chain",
+								"step": "win"
+							}
+						]
+					}
+				],
+				"id": "wait",
+				"label": "Wait for everyone to gather their things",
+				"outcome": "The crew chief taps her watch."
+			}
+		],
+		"setup": "At first light the helicopter settles in the street. The crew waves everyone over, fast.",
+		"step": 4,
+		"title": "Lift",
+		"type": "rescue"
+	},
+	"airlift_4_retry": {
+		"chain": "airlift",
+		"file": "rescue_retries.json",
+		"final": true,
+		"id": "airlift_4_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "victory",
+				"effects": [
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "win"
+					}
+				],
+				"id": "go",
+				"label": "Run for it",
+				"outcome": "Everyone is pulled aboard, bags and all. Nobody looks back for long."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "airlift",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "stay",
+				"label": "Stay",
+				"outcome": "The noise fades, then the silence settles back in."
+			}
+		],
+		"retry": true,
+		"setup": "The helicopter settles again, rotor turning. \"This is the last flight out of this area.\"",
+		"step": 4,
+		"title": "One More Pass",
+		"type": "rescue"
+	},
+	"bad_air": {
+		"conditions": {
+			"min_day": 6,
+			"min_people": 2
+		},
+		"file": "shelter_life.json",
+		"id": "bad_air",
+		"mood": "bad",
+		"omen": "Headaches all round this morning. The air in the shelter feels thick.",
+		"options": [
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "cleared the blocked vent"
+					},
+					{
+						"do": "dose",
+						"msv": 20,
+						"who": "actor"
+					}
+				],
+				"id": "mask",
+				"item": "gas_mask",
+				"label": "Go up masked and clear the vent",
+				"outcome": "Ash had packed the vent solid. Fresh air, and a lot of coughing."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 20,
+						"who": "all"
+					},
+					{
+						"do": "followed",
+						"p": 0.2,
+						"why": "someone saw the open hatch"
+					}
+				],
+				"id": "open",
+				"label": "Open the hatch for an hour",
+				"outcome": "Cold air pours in. So does the dust, and possibly attention."
+			},
+			{
+				"cinematic": "doom",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"do": "morale",
+								"n": -2,
+								"who": "all"
+							}
+						],
+						"p": 0.25,
+						"then": [
+							{
+								"cause": "The air in the shelter went bad overnight.",
+								"do": "kill",
+								"kind": "air",
+								"root": "decision",
+								"who": "weakest"
+							}
+						]
+					}
+				],
+				"id": "sleep",
+				"label": "Lie down and wait for it to pass",
+				"outcome": "Everyone lies down. The headaches get worse before they get better."
+			}
+		],
+		"setup": "Everyone is dizzy. The air has gone stale and heavy, and the candle flame keeps shrinking.",
+		"title": "Bad Air",
+		"type": "contamination",
+		"warning": "fumes",
+		"weight": 0.8
+	},
+	"black_rain": {
+		"conditions": {
+			"after_escalation": true,
+			"min_day": 8
+		},
+		"file": "shelter_life.json",
+		"id": "black_rain",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "kept the rain-out out of the vent"
+					},
+					{
+						"do": "flag",
+						"set": "storm"
+					}
+				],
+				"id": "mask",
+				"item": "gas_mask",
+				"label": "Go up masked and cover the vent",
+				"outcome": "The vent is covered. Outside is dangerous again for a couple of days."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "flag",
+						"set": "storm"
+					},
+					{
+						"do": "dose",
+						"msv": 25,
+						"who": "all"
+					}
+				],
+				"id": "tape",
+				"label": "Tape the vent from inside",
+				"outcome": "Tape, towels, and a long night listening to the counter. Trips will be dangerous for a while."
+			},
+			{
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "flag",
+						"set": "storm"
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 1
+					},
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "sick",
+								"root": "decision",
+								"who": "random",
+								"why": "drank the black rain"
+							}
+						]
+					}
+				],
+				"id": "barrel",
+				"label": "Catch it in the barrel anyway",
+				"outcome": "A barrel of grey water. Nobody is quite sure it was worth it."
+			}
+		],
+		"setup": "It rains for the first time since the flash. The rain is dark, and the Geiger counter starts clicking again.",
+		"title": "Black Rain",
+		"type": "weather",
+		"weight": 1.2
+	},
+	"bunker_tour": {
+		"conditions": {
+			"min_day": 5
+		},
+		"file": "seed_vignettes.json",
+		"id": "bunker_tour",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "food",
+						"n": -1
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "all"
+					}
+				],
+				"id": "tour",
+				"label": "Give him a tour",
+				"outcome": "He eats a ration \"for the content.\" Everyone feels oddly famous."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "actor",
+						"why": "a hard conversation"
+					}
+				],
+				"id": "truth",
+				"label": "Tell him the truth",
+				"outcome": "He sits on the hatch a long while, then leaves the ring light behind."
+			},
+			{
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "use",
+						"item": "cards",
+						"what": "won his respirator"
+					},
+					{
+						"do": "add",
+						"item": "gas_mask",
+						"n": 1
+					}
+				],
+				"id": "cards",
+				"item": "cards",
+				"label": "Play him for his gear",
+				"outcome": "You win his respirator. He takes it well, for a streamer."
+			}
+		],
+		"setup": "A man in a hazmat suit with a ring light is livestreaming \"Day 6\". Nobody has told him the internet is gone.",
+		"title": "Bunker Tour",
+		"type": "stranger",
+		"weight": 1
+	},
+	"cabin_fever": {
+		"conditions": {
+			"min_day": 5,
+			"min_people": 2
+		},
+		"file": "seed_vignettes.json",
+		"id": "cabin_fever",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "use",
+						"item": "console",
+						"what": "a tournament ended the argument"
+					},
+					{
+						"do": "morale",
+						"n": 2,
+						"who": "all"
+					}
+				],
+				"id": "tournament",
+				"item": "console",
+				"label": "Run a tournament",
+				"outcome": "The finals are tense. Nobody remembers the smell."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "meeting",
+				"label": "Call a family meeting",
+				"outcome": "You have accidentally founded an HOA."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"days": 1,
+						"do": "refuse_trip",
+						"who": "subject"
+					}
+				],
+				"id": "burn",
+				"label": "Let it burn out",
+				"outcome": "It does, eventually. {subject} refuses tomorrow's trip on principle."
+			}
+		],
+		"setup": "The argument about whose fault the smell is has reached its third hour.",
+		"title": "Cabin Fever",
+		"type": "cabin_fever",
+		"weight": 1,
+		"weight_mods": {
+			"low_morale": 2
+		}
+	},
+	"convoy_1_contact": {
+		"chain": "convoy",
+		"file": "rescue_chains.json",
+		"id": "convoy_1_contact",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"what": "answered the convoy"
+					},
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "answer",
+				"item": "radio",
+				"label": "Crank the radio and answer",
+				"outcome": "A tired dispatcher takes the family's names. \"Keep this channel. We'll call back.\""
+			},
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.25,
+						"then": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "advance"
+							},
+							{
+								"do": "say",
+								"kind": "good",
+								"text": "The van stopped. Someone wrote the address down."
+							}
+						]
+					}
+				],
+				"id": "shout",
+				"label": "Shout up through the vent",
+				"outcome": "{name} shouts until their voice gives out."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "quiet",
+				"label": "Stay quiet",
+				"outcome": "The van moves on. The street goes quiet again."
+			}
+		],
+		"setup": "A loudspeaker van crawls past overhead: \"Survivors, tune to channel four on the hour.\"",
+		"step": 1,
+		"title": "Channel Four",
+		"type": "rescue"
+	},
+	"convoy_1_retry": {
+		"chain": "convoy",
+		"file": "rescue_retries.json",
+		"id": "convoy_1_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"what": "answered the convoy"
+					},
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "answer",
+				"item": "radio",
+				"label": "Crank the radio and answer",
+				"outcome": "\"Got you this time.\" The dispatcher sounds relieved, or tired."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 40,
+						"who": "actor"
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.5,
+						"then": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "run",
+				"label": "Run up and flag the van down",
+				"outcome": "{name} chases the van down the street, waving."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "quiet",
+				"label": "Let it go",
+				"outcome": "The van turns the corner and doesn't come back."
+			}
+		],
+		"retry": true,
+		"setup": "The loudspeaker van is back, slower this time. \"Last call for channel four. On the hour.\"",
+		"step": 1,
+		"title": "Channel Four, Again",
+		"type": "rescue"
+	},
+	"convoy_2_retry": {
+		"chain": "convoy",
+		"file": "rescue_retries.json",
+		"id": "convoy_2_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"what": "answered the roll call"
+					},
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "answer",
+				"item": "radio",
+				"label": "Answer on the radio",
+				"outcome": "\"There you are. You're on the list.\""
+			},
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "flashed the house number"
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.5,
+						"then": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "light",
+				"item": "flashlight",
+				"label": "Flash the house number at the street",
+				"outcome": "Long, short, long, at every passing engine."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "skip",
+				"label": "Miss it",
+				"outcome": "The roll call ends. The names keep going on without yours."
+			}
+		],
+		"retry": true,
+		"setup": "The dispatcher is reading the roll call one more time, slowly, for anyone who missed it.",
+		"step": 2,
+		"title": "Roll Call, Last Names",
+		"type": "rescue"
+	},
+	"convoy_2_rollcall": {
+		"chain": "convoy",
+		"file": "rescue_chains.json",
+		"id": "convoy_2_rollcall",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"what": "answered the roll call"
+					},
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "answer",
+				"item": "radio",
+				"label": "Answer the roll call",
+				"outcome": "\"Got you. Sit tight.\" The channel goes back to static."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.2,
+						"then": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "pipes",
+				"label": "Bang on the pipes in case",
+				"outcome": "The pipes ring all afternoon. Hard to say who's listening."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "skip",
+				"label": "Let the hour pass",
+				"outcome": "The hour passes."
+			}
+		],
+		"setup": "Channel four, on the hour. The dispatcher needs a headcount and any medical needs.",
+		"step": 2,
+		"title": "Roll Call",
+		"type": "rescue"
+	},
+	"convoy_3_grid": {
+		"chain": "convoy",
+		"file": "rescue_chains.json",
+		"id": "convoy_3_grid",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "map",
+						"what": "found the pickup point"
+					},
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "map",
+				"item": "map",
+				"label": "Read off the grid square",
+				"outcome": "\"Square D7. Confirmed.\" Someone circles it twice."
+			},
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.4,
+						"then": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "guess",
+				"label": "Describe the street from memory",
+				"outcome": "She repeats it back slowly. \"We'll see what we can do.\""
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "skip",
+				"label": "Don't answer",
+				"outcome": "Other families answer. The list moves on."
+			}
+		],
+		"setup": "The dispatcher reads pickup points by grid square. The family has to name the nearest one.",
+		"step": 3,
+		"title": "Grid Square",
+		"type": "rescue"
+	},
+	"convoy_3_retry": {
+		"chain": "convoy",
+		"file": "rescue_retries.json",
+		"id": "convoy_3_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "map",
+						"what": "named the nearest junction"
+					},
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "map",
+				"item": "map",
+				"label": "Read the nearest junction off the map",
+				"outcome": "\"I know that corner. Pickup confirmed.\""
+			},
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.5,
+						"then": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "describe",
+				"label": "Describe what's out the vent",
+				"outcome": "A fence, a lamp post, a lot of grey. She writes something down."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "skip",
+				"label": "Don't answer",
+				"outcome": "Static, then music, then static."
+			}
+		],
+		"retry": true,
+		"setup": "The dispatcher tries again: \"Give me anything. A landmark, a street sign, a big tree.\"",
+		"step": 3,
+		"title": "Any Landmark",
+		"type": "rescue"
+	},
+	"convoy_4_retry": {
+		"chain": "convoy",
+		"file": "rescue_retries.json",
+		"id": "convoy_4_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "the trucks saw the signal"
+					},
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "flashlight",
+				"item": "flashlight",
+				"label": "Signal at midnight",
+				"outcome": "A horn, twice. Somebody saw."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 30,
+						"who": "actor"
+					},
+					{
+						"do": "followed",
+						"p": 0.3,
+						"why": "a fire in the yard drew attention"
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.6,
+						"then": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "fire",
+				"label": "Burn something in the yard",
+				"outcome": "A small, smoky fire. Visible from a long way off, to anyone."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "dark",
+				"label": "Sleep through it",
+				"outcome": "Engines at midnight. Then not."
+			}
+		],
+		"retry": true,
+		"setup": "\"Trucks will pass again at midnight. If you're there, show us.\"",
+		"step": 4,
+		"title": "Second Pass",
+		"type": "rescue"
+	},
+	"convoy_4_signal": {
+		"chain": "convoy",
+		"file": "rescue_chains.json",
+		"id": "convoy_4_signal",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "the trucks saw the signal"
+					},
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "flashlight",
+				"item": "flashlight",
+				"label": "Signal at nine sharp",
+				"outcome": "A truck flashes its lights back twice. They know where you are."
+			},
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.2,
+						"then": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "phone",
+				"label": "Wave a phone screen",
+				"outcome": "The screen glows for eleven minutes. Then the battery quits."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "dark",
+				"label": "Keep the hatch dark",
+				"outcome": "Engines pass at nine. They don't stop."
+			}
+		],
+		"setup": "\"At nine tonight, show a light at your door so the trucks can find you.\"",
+		"step": 4,
+		"title": "Lights at Nine",
+		"type": "rescue"
+	},
+	"convoy_5_knock": {
+		"chain": "convoy",
+		"file": "rescue_chains.json",
+		"final": true,
+		"id": "convoy_5_knock",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "victory",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "win"
+					}
+				],
+				"id": "open",
+				"label": "Open the hatch",
+				"outcome": "It's the convoy. A woman with a clipboard checks names and hands out water."
+			},
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "miss"
+							},
+							{
+								"do": "say",
+								"kind": "warn",
+								"text": "Nobody answers. Footsteps leave. Engines idle, then go."
+							}
+						],
+						"p": 0.6,
+						"then": [
+							{
+								"chain": "convoy",
+								"do": "chain",
+								"step": "win"
+							}
+						]
+					}
+				],
+				"id": "ask",
+				"label": "Ask who it is first",
+				"outcome": "{name} calls up through the hatch and waits."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "shut",
+				"label": "Keep it shut",
+				"outcome": "The knocking stops. Engines idle, then leave."
+			}
+		],
+		"setup": "Three knocks at the hatch, then three more. No voice. The radio said the convoy would come today.",
+		"step": 5,
+		"title": "The Knock",
+		"type": "rescue"
+	},
+	"convoy_5_retry": {
+		"chain": "convoy",
+		"file": "rescue_retries.json",
+		"final": true,
+		"id": "convoy_5_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "victory",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "win"
+					}
+				],
+				"id": "open",
+				"label": "Open the hatch",
+				"outcome": "Hi-vis vests, a clipboard, and a ramp into a truck with seats in it."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "convoy",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "shut",
+				"label": "Keep it shut",
+				"outcome": "Boots on gravel, an engine, quiet."
+			}
+		],
+		"retry": true,
+		"setup": "Knocking again, harder. A voice this time: \"Convoy. Last stop on this street.\"",
+		"step": 5,
+		"title": "The Knock, Again",
+		"type": "rescue"
+	},
+	"cough_goes_round": {
+		"conditions": {
+			"min_day": 6,
+			"min_people": 2
+		},
+		"file": "shelter_life.json",
+		"id": "cough_goes_round",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "medical",
+				"effects": [
+					{
+						"do": "use",
+						"item": "medkit",
+						"what": "stopped the cough spreading"
+					}
+				],
+				"id": "medkit",
+				"item": "medkit",
+				"label": "Treat it early",
+				"outcome": "Antibiotics, rest and a lot of hot water. It doesn't spread."
+			},
+			{
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"do": "say",
+								"kind": "good",
+								"text": "The sheet works. The cough stays behind it and fades."
+							}
+						],
+						"p": 0.5,
+						"then": [
+							{
+								"do": "sick",
+								"root": "chance",
+								"who": "subject",
+								"why": "the cough"
+							}
+						]
+					},
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "subject",
+						"why": "isolated"
+					}
+				],
+				"id": "isolate",
+				"label": "Hang a sheet and isolate {subject}",
+				"outcome": "{subject} spends three days behind a hung sheet with a book and a bucket."
+			},
+			{
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "sick",
+						"root": "chance",
+						"who": "subject",
+						"why": "the cough"
+					},
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "sick",
+								"root": "decision",
+								"who": "random",
+								"why": "caught the cough"
+							}
+						]
+					}
+				],
+				"id": "ignore",
+				"label": "Carry on as normal",
+				"outcome": "It's just a cough, until it isn't."
+			}
+		],
+		"setup": "{subject} has a dry cough this morning. By noon, so does the person next to them.",
+		"title": "The Cough Goes Round",
+		"type": "sickness",
+		"weight": 1,
+		"weight_mods": {
+			"after_escalation": 1.5
+		}
+	},
+	"dust_in_the_vent": {
+		"conditions": {
+			"min_day": 2,
+			"needs_heavy_fallout": true
+		},
+		"file": "shelter_life.json",
+		"id": "dust_in_the_vent",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "resealed the vent in the dust"
+					},
+					{
+						"do": "dose",
+						"msv": 15,
+						"who": "actor"
+					}
+				],
+				"id": "mask",
+				"item": "gas_mask",
+				"label": "Go up and reseal it",
+				"outcome": "Ten minutes up the ladder. The cover is taped and the dust stops."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 20,
+						"who": "all"
+					},
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "tape",
+				"label": "Tape it from inside",
+				"outcome": "The tape holds, mostly. Everything tastes faintly of chalk."
+			},
+			{
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "sick",
+						"root": "decision",
+						"who": "random",
+						"why": "breathed vent dust"
+					}
+				],
+				"id": "wait",
+				"label": "Hope the wind changes",
+				"outcome": "The wind doesn't change."
+			}
+		],
+		"setup": "The air vent cover has cracked. Grey dust is drifting in with every gust.",
+		"title": "Dust in the Vent",
+		"type": "contamination",
+		"weight": 1.2
+	},
+	"empty_shelves": {
+		"conditions": {
+			"after_escalation": true,
+			"min_day": 9
+		},
+		"file": "shelter_life.json",
+		"id": "empty_shelves",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"category": [
+							"grocery",
+							"pharmacy"
+						],
+						"do": "drain",
+						"share": 0.3
+					},
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "go",
+				"label": "Plan a trip before the rest goes",
+				"outcome": "Somebody starts packing. The stores are a third emptier than yesterday."
+			},
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"what": "heard which stores still had stock"
+					},
+					{
+						"category": [
+							"grocery",
+							"pharmacy"
+						],
+						"do": "drain",
+						"share": 0.3
+					},
+					{
+						"do": "reveal_cache",
+						"items": {
+							"food": 2,
+							"water": 1
+						}
+					}
+				],
+				"id": "radio",
+				"item": "radio",
+				"label": "Listen for which stores are still open",
+				"outcome": "A volunteer reads out a list. One address still has a back room nobody found."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"category": [
+							"grocery",
+							"pharmacy"
+						],
+						"do": "drain",
+						"share": 0.3
+					},
+					{
+						"do": "morale",
+						"n": -2,
+						"who": "all"
+					}
+				],
+				"id": "ration",
+				"label": "Tighten rations instead",
+				"outcome": "Smaller portions, longer evenings. The stores keep emptying anyway."
+			}
+		],
+		"setup": "Through the vent, a neighbour shouts to another: the stores on the main road were cleared out overnight.",
+		"title": "Empty Shelves",
+		"type": "discovery",
+		"weight": 1
+	},
+	"exterior_modification": {
+		"conditions": {
+			"min_day": 3
+		},
+		"file": "seed_vignettes.json",
+		"id": "exterior_modification",
+		"mood": "neutral",
+		"options": [
+			{
+				"effects": [],
+				"id": "lock",
+				"item": "padlock",
+				"label": "Keep it locked",
+				"outcome": "He tapes a violation notice to it. Fines are now theoretical."
+			},
+			{
+				"cinematic": "medical",
+				"effects": [
+					{
+						"do": "use",
+						"item": "medkit",
+						"what": "the HOA president's cough"
+					},
+					{
+						"do": "add",
+						"item": "flashlight",
+						"n": 1
+					}
+				],
+				"id": "treat",
+				"item": "medkit",
+				"label": "Treat his cough",
+				"outcome": "He waives the fine and leaves his flashlight."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "lose",
+						"item": "food",
+						"n": 1
+					}
+				],
+				"id": "talk",
+				"label": "Let him in to talk",
+				"outcome": "He eats a can \"as a courtesy\" and leaves a copy of the bylaws."
+			}
+		],
+		"setup": "The HOA president is at the hatch. He says it breaks the neighbourhood guidelines.",
+		"title": "Exterior Modification",
+		"type": "visitor",
+		"weight": 1
+	},
+	"fizzing_main": {
+		"conditions": {
+			"min_day": 9,
+			"needs_fallout_clear": true
+		},
+		"file": "shelter_life.json",
+		"id": "fizzing_main",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "use",
+						"item": "manual",
+						"what": "checked the water was safe"
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 2
+					}
+				],
+				"id": "check",
+				"item": "manual",
+				"label": "Check the signs chapter three lists",
+				"outcome": "Clear, odourless, no sheen. Two bottles, filled with confidence."
+			},
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "add",
+						"item": "water",
+						"n": 3
+					},
+					{
+						"do": "chance",
+						"p": 0.4,
+						"then": [
+							{
+								"do": "sick",
+								"root": "decision",
+								"who": "random",
+								"why": "the water main"
+							}
+						]
+					}
+				],
+				"id": "fill",
+				"label": "Fill everything and hope",
+				"outcome": "Three bottles. The hope part is ongoing."
+			},
+			{
+				"effects": [],
+				"id": "leave",
+				"label": "Leave it",
+				"outcome": "By tomorrow the street has drunk it all."
+			}
+		],
+		"setup": "Water is bubbling up from a broken main two streets over. It looks clean. It might even be.",
+		"title": "Broken Main",
+		"type": "dirty_water",
+		"weight": 1
+	},
+	"fizzy_rain": {
+		"conditions": {
+			"min_day": 4
+		},
+		"file": "seed_vignettes.json",
+		"id": "fizzy_rain",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "use",
+						"item": "manual",
+						"what": "made the rainwater safe"
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 1
+					}
+				],
+				"id": "boil",
+				"item": "manual",
+				"label": "Boil it the way chapter one says",
+				"outcome": "It takes all afternoon and most of the patience. One bottle, safe."
+			},
+			{
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "add",
+						"item": "water",
+						"n": 2
+					},
+					{
+						"do": "sick",
+						"who": "subject",
+						"why": "drank the rain barrel"
+					}
+				],
+				"id": "drink",
+				"label": "Drink it as it is",
+				"outcome": "Two bottles' worth. {subject} drank first and is now sick."
+			},
+			{
+				"effects": [],
+				"id": "leave",
+				"label": "Leave it",
+				"outcome": "It's still fizzing on day 14. Nobody asks why."
+			}
+		],
+		"setup": "The gutter barrel filled overnight. The water is grey and faintly fizzing.",
+		"title": "Fizzy Rain",
+		"type": "dirty_water",
+		"weight": 1
+	},
+	"fleas": {
+		"file": "followups.json",
+		"id": "fleas",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "bug_spray",
+						"what": "the fleas are gone"
+					}
+				],
+				"id": "spray",
+				"item": "bug_spray",
+				"label": "Spray everything",
+				"outcome": "The shelter smells like a summer evening. The fleas disagree, briefly."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					},
+					{
+						"do": "chance",
+						"p": 0.3,
+						"then": [
+							{
+								"do": "sick",
+								"root": "chance",
+								"who": "random",
+								"why": "infected bites"
+							}
+						]
+					}
+				],
+				"id": "scratch",
+				"label": "Scratch and bear it",
+				"outcome": "Three itchy days. Everyone's temper shortens."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": -3
+					}
+				],
+				"id": "wash",
+				"label": "Wash everyone in drinking water",
+				"outcome": "Clean people, clean dog, a lot less water."
+			}
+		],
+		"setup": "Everyone is scratching. The dog looks innocent, which is suspicious.",
+		"system": true,
+		"title": "Fleas",
+		"type": "pests"
+	},
+	"good_boy": {
+		"conditions": {
+			"min_day": 3,
+			"no_pet": true
+		},
+		"file": "seed_vignettes.json",
+		"id": "good_boy",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "pet",
+				"effects": [
+					{
+						"do": "use",
+						"item": "bug_spray",
+						"what": "a clean dog"
+					},
+					{
+						"do": "pet",
+						"kind": "dog"
+					},
+					{
+						"do": "morale",
+						"n": 3,
+						"who": "all"
+					}
+				],
+				"id": "spray",
+				"item": "bug_spray",
+				"label": "De-flea him and let him in",
+				"outcome": "A clean dog. Everyone feels better than they have in days."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "use",
+						"item": "food",
+						"what": "fed a stray"
+					},
+					{
+						"do": "schedule",
+						"event": "good_boy_returns",
+						"in": 1
+					}
+				],
+				"id": "feed",
+				"item": "food",
+				"label": "Feed him and send him off",
+				"outcome": "He eats the whole can and trots off, looking pleased with himself."
+			},
+			{
+				"cinematic": "pet",
+				"effects": [
+					{
+						"do": "pet",
+						"kind": "dog"
+					},
+					{
+						"do": "morale",
+						"n": 2,
+						"who": "all"
+					},
+					{
+						"do": "schedule",
+						"event": "fleas",
+						"in": 1
+					}
+				],
+				"id": "let_in",
+				"label": "Let him in as he is",
+				"outcome": "Everyone's spirits lift. The fleas arrive tomorrow."
+			}
+		],
+		"setup": "A retriever scratches at the hatch. His smart collar is still pinging an owner who stopped checking.",
+		"title": "Good Boy",
+		"type": "pet",
+		"weight": 1.2
+	},
+	"good_boy_returns": {
+		"file": "followups.json",
+		"id": "good_boy_returns",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "pet",
+				"effects": [
+					{
+						"do": "add",
+						"item": "medkit",
+						"n": 1
+					},
+					{
+						"do": "pet",
+						"kind": "dog"
+					}
+				],
+				"id": "keep",
+				"label": "Take it and let him in",
+				"outcome": "He stays. The medkit has only been chewed a little."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "add",
+						"item": "medkit",
+						"n": 1
+					},
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "send",
+				"label": "Take it and send him off",
+				"outcome": "He leaves. Nobody says anything for a while."
+			}
+		],
+		"setup": "The retriever is back at dawn, dragging a medkit by its strap.",
+		"system": true,
+		"title": "Good Boy, Again",
+		"type": "chain_followup"
+	},
+	"jammed": {
+		"conditions": {
+			"min_day": 5
+		},
+		"file": "shelter_life.json",
+		"id": "jammed",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "axe",
+						"mode": "wear",
+						"what": "levered the hatch open"
+					}
+				],
+				"id": "axe",
+				"item": "axe",
+				"label": "Lever it open",
+				"outcome": "A long creak, a short bang, and daylight."
+			},
+			{
+				"cinematic": "attack",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.4,
+						"then": [
+							{
+								"do": "injure",
+								"root": "decision",
+								"who": "random",
+								"why": "the hatch gave all at once"
+							}
+						]
+					}
+				],
+				"id": "push",
+				"label": "Everyone push together",
+				"outcome": "On three. Then on three again. Then it moves."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"days": 1,
+						"do": "refuse_trip",
+						"who": "all"
+					},
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "wait",
+				"label": "Wait for it to settle",
+				"outcome": "It shifts by itself the next evening. Nobody went anywhere in between."
+			}
+		],
+		"setup": "The hatch won't open. Something heavy shifted onto it in the night.",
+		"title": "Jammed",
+		"type": "quake",
+		"weight": 0.9
+	},
+	"lights_out": {
+		"conditions": {
+			"min_day": 6
+		},
+		"file": "shelter_life.json",
+		"id": "lights_out",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "lit the shelter"
+					}
+				],
+				"id": "torch",
+				"item": "flashlight",
+				"label": "Work by torchlight",
+				"outcome": "Two batteries of courage, rationed carefully."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					},
+					{
+						"do": "chance",
+						"p": 0.3,
+						"then": [
+							{
+								"do": "injure",
+								"root": "chance",
+								"who": "random",
+								"why": "a shin met a shelf in the dark"
+							}
+						]
+					}
+				],
+				"id": "dark",
+				"label": "Wait it out in the dark",
+				"outcome": "Everyone learns the shelter by touch. Some lessons leave marks."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "candle",
+				"label": "Burn the emergency candle",
+				"outcome": "One candle, one evening, one very long night after it."
+			}
+		],
+		"setup": "The shelter light flickers and dies. The battery is done, and the dark is very complete.",
+		"title": "Lights Out",
+		"type": "discovery",
+		"weight": 1
+	},
+	"locked_shed": {
+		"conditions": {
+			"trip_place": [
+				"neighbor_house"
+			]
+		},
+		"file": "visitors_trips.json",
+		"id": "locked_shed",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "use",
+						"item": "axe",
+						"mode": "wear",
+						"what": "broke into an emergency shed"
+					},
+					{
+						"do": "trip_loot",
+						"item": "water",
+						"n": 2
+					},
+					{
+						"do": "trip_loot",
+						"item": "food",
+						"n": 1
+					}
+				],
+				"id": "axe",
+				"item": "axe",
+				"label": "Break the lock",
+				"outcome": "Two bottles and a can. The sign was telling the truth."
+			},
+			{
+				"cinematic": "attack",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.4,
+						"then": [
+							{
+								"do": "injure",
+								"who": "explorer",
+								"why": "the shed door gave all at once"
+							}
+						]
+					},
+					{
+						"do": "trip_loot",
+						"item": "food",
+						"n": 1
+					}
+				],
+				"id": "pry",
+				"label": "Pry it by hand",
+				"outcome": "The door gives eventually. One can, and some splinters."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [],
+				"id": "leave",
+				"label": "Leave it",
+				"outcome": "Somebody else's emergency."
+			}
+		],
+		"setup": "Behind {place} there's a garden shed with a padlock and a hand-painted EMERGENCY sign.",
+		"title": "The Shed",
+		"type": "trip",
+		"weight": 2
+	},
+	"lost_and_found": {
+		"conditions": {
+			"trip_place": [
+				"school"
+			]
+		},
+		"file": "visitors_trips.json",
+		"id": "lost_and_found",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"do": "trip_loot",
+								"item": "cards",
+								"n": 1
+							}
+						],
+						"p": 0.5,
+						"then": [
+							{
+								"do": "trip_loot",
+								"item": "console",
+								"n": 1
+							}
+						]
+					}
+				],
+				"id": "dig",
+				"label": "Dig through it",
+				"outcome": "Under the hoodies: something to pass the time."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 20,
+						"who": "explorer"
+					},
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "trip_loot",
+								"item": "medkit",
+								"n": 1
+							}
+						]
+					}
+				],
+				"id": "nurse",
+				"label": "Try the nurse's office",
+				"outcome": "The office is at the end of a long, dusty corridor."
+			}
+		],
+		"setup": "The lost-and-found box is still outside the office at {place}. It's mostly hoodies. Mostly.",
+		"title": "Lost and Found",
+		"type": "trip",
+		"weight": 2
+	},
+	"model_home": {
+		"conditions": {
+			"trip_place": [
+				"neighbor_house"
+			]
+		},
+		"file": "seed_vignettes.json",
+		"id": "model_home",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "use",
+						"item": "suitcase",
+						"what": "packed a whole pantry"
+					},
+					{
+						"do": "trip_loot",
+						"item": "food",
+						"n": 3
+					},
+					{
+						"do": "trip_loot",
+						"item": "water",
+						"n": 1
+					}
+				],
+				"id": "pack",
+				"item": "suitcase",
+				"label": "Pack the pantry",
+				"outcome": "Three cans and a bottle. The plastic fruit stays."
+			},
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "trip_loot",
+						"item": "food",
+						"n": 1
+					}
+				],
+				"id": "pockets",
+				"label": "Fill your pockets",
+				"outcome": "One can, and a brochure about the clubhouse."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 30,
+						"who": "explorer"
+					}
+				],
+				"id": "lockbox",
+				"label": "Try the realtor's lockbox",
+				"outcome": "The code is 1234. Inside: keys to this house. {name} lingered too long in the dust."
+			}
+		],
+		"setup": "Near {place}, a staged show home has plastic fruit and a real pantry.",
+		"title": "Model Home",
+		"type": "trip",
+		"weight": 2
+	},
+	"motion_detected": {
+		"conditions": {
+			"min_day": 4
+		},
+		"file": "seed_vignettes.json",
+		"id": "motion_detected",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "waved a stranger on"
+					},
+					{
+						"do": "add",
+						"item": "food",
+						"n": 1
+					}
+				],
+				"id": "signal",
+				"item": "flashlight",
+				"label": "Signal him to keep moving",
+				"outcome": "He flashes back \"SORRY\" and leaves a can by the hatch."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [],
+				"id": "lock",
+				"item": "padlock",
+				"label": "Lock up and wait",
+				"outcome": "He tries the hatch twice and moves on. The lock holds."
+			},
+			{
+				"cinematic": "attack",
+				"effects": [
+					{
+						"do": "lose",
+						"item": "water",
+						"n": 1
+					}
+				],
+				"id": "nothing",
+				"label": "Do nothing",
+				"outcome": "He visits tonight. A padlock would have stopped him."
+			}
+		],
+		"setup": "A stranger with a crowbar is checking houses. The doorbell camera upstairs keeps announcing him.",
+		"title": "Motion Detected",
+		"type": "raid",
+		"weight": 1,
+		"weight_mods": {
+			"after_escalation": 1.5,
+			"followed": 1.5
+		}
+	},
+	"neighbour_thanks": {
+		"file": "followups.json",
+		"id": "neighbour_thanks",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "add",
+						"item": "water",
+						"n": 2
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "all"
+					}
+				],
+				"id": "take",
+				"label": "Take it inside",
+				"outcome": "The drawing goes up by the radio. The water goes on the shelf."
+			},
+			{
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "morale",
+						"n": 2,
+						"who": "all"
+					}
+				],
+				"id": "pass",
+				"label": "Leave the water for someone else",
+				"outcome": "You keep the drawing. Someone else gets the water."
+			}
+		],
+		"setup": "A bag hangs from the hatch handle. Inside: water, and a crayon drawing of your hatch.",
+		"system": true,
+		"title": "A Note Under the Hatch",
+		"type": "chain_followup"
+	},
+	"neighbourhood_1_medicine": {
+		"chain": "neighbourhood",
+		"file": "rescue_chains.json",
+		"id": "neighbourhood_1_medicine",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "give",
+						"item": "medkit",
+						"what": "sent to the neighbourhood shelter"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "medkit",
+				"item": "medkit",
+				"label": "Send a medkit back with them",
+				"outcome": "The runner writes the family's name at the top of the page."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "use",
+						"item": "food",
+						"what": "sent to the neighbourhood shelter"
+					},
+					{
+						"do": "lose",
+						"item": "food",
+						"n": 1
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "food",
+				"item": "food",
+				"label": "Send two cans instead",
+				"outcome": "\"Food works too.\" The name goes on the list."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "none",
+				"label": "Say there's nothing to spare",
+				"outcome": "The runner nods and checks the next house."
+			}
+		],
+		"setup": "A runner from {place} has a list. The shelter there is short of medicine and takes families who help.",
+		"step": 1,
+		"title": "A Runner From {place}",
+		"type": "rescue"
+	},
+	"neighbourhood_1_retry": {
+		"chain": "neighbourhood",
+		"file": "rescue_retries.json",
+		"id": "neighbourhood_1_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "give",
+						"item": "medkit",
+						"what": "sent to the neighbourhood shelter"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "medkit",
+				"item": "medkit",
+				"label": "Send a medkit",
+				"outcome": "\"That'll do it.\" The name goes on the list."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "use",
+						"item": "water",
+						"what": "sent to the neighbourhood shelter"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "water",
+				"item": "water",
+				"label": "Send a bottle of water",
+				"outcome": "Water is always welcome. The name goes on the list."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "none",
+				"label": "Send them away",
+				"outcome": "The runner doesn't come back after that."
+			}
+		],
+		"retry": true,
+		"setup": "The runner from {place} tries once more. Anything to show the family will pull its weight.",
+		"step": 1,
+		"title": "The Runner Comes Back",
+		"type": "rescue"
+	},
+	"neighbourhood_2_retry": {
+		"chain": "neighbourhood",
+		"file": "rescue_retries.json",
+		"id": "neighbourhood_2_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"what": "agreed a channel with the shelter"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "radio",
+				"item": "radio",
+				"label": "Agree a radio channel",
+				"outcome": "Channel nine at dusk, written on two hands this time."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 15,
+						"who": "actor"
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "neighbourhood",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.5,
+						"then": [
+							{
+								"chain": "neighbourhood",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "cloth",
+				"label": "Tie a cloth to the hatch when you're ready",
+				"outcome": "A strip of bedsheet, tied to the handle. It might be seen."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "none",
+				"label": "Shrug",
+				"outcome": "\"Then we'll find you,\" the runner says, without much hope."
+			}
+		],
+		"retry": true,
+		"setup": "\"We tried knocking. Nobody heard. Is there any other way to reach you?\"",
+		"step": 2,
+		"title": "Any Way to Reach You",
+		"type": "rescue"
+	},
+	"neighbourhood_2_signal": {
+		"chain": "neighbourhood",
+		"file": "rescue_chains.json",
+		"id": "neighbourhood_2_signal",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"what": "agreed a channel with the shelter"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "radio",
+				"item": "radio",
+				"label": "Agree a radio channel",
+				"outcome": "Channel nine, at dusk. The runner writes it on her hand."
+			},
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "agreed a light signal"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "light",
+				"item": "flashlight",
+				"label": "Agree a light signal",
+				"outcome": "Two long, one short. They practise it once, laughing."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "neighbourhood",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.3,
+						"then": [
+							{
+								"chain": "neighbourhood",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "knock",
+				"label": "Tell them to just knock",
+				"outcome": "\"We'll try,\" she says, in the voice people use for maybe."
+			}
+		],
+		"setup": "The runner is back. {place} wants a way to reach the family when the escort is ready.",
+		"step": 2,
+		"title": "How to Reach You",
+		"type": "rescue"
+	},
+	"neighbourhood_3_retry": {
+		"chain": "neighbourhood",
+		"file": "rescue_retries.json",
+		"id": "neighbourhood_3_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "map",
+						"what": "found a second route"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "map",
+				"item": "map",
+				"label": "Find another route on the map",
+				"outcome": "Through the school field and along the creek. Longer, quieter."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"days": 1,
+						"do": "tired",
+						"who": "actor"
+					},
+					{
+						"do": "dose",
+						"msv": 40,
+						"who": "actor"
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "neighbourhood",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.6,
+						"then": [
+							{
+								"chain": "neighbourhood",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "walk",
+				"label": "Walk a route yourself and report back",
+				"outcome": "{name} walks three blocks and back, counting doors."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "none",
+				"label": "Tell them you can't help",
+				"outcome": "The runner folds up the plan and leaves."
+			}
+		],
+		"retry": true,
+		"setup": "The escort's first route was blocked. The runner asks for another way round.",
+		"step": 3,
+		"title": "A Safer Street",
+		"type": "rescue"
+	},
+	"neighbourhood_3_route": {
+		"chain": "neighbourhood",
+		"file": "rescue_chains.json",
+		"id": "neighbourhood_3_route",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "map",
+						"what": "marked a safe route"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "map",
+				"item": "map",
+				"label": "Mark a route on the map",
+				"outcome": "A pencil line through back streets and a park. It looks almost easy."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "neighbourhood",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.4,
+						"then": [
+							{
+								"chain": "neighbourhood",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "memory",
+				"label": "Draw it from memory",
+				"outcome": "The drawing has confident arrows and one street that may not exist."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "shrug",
+				"label": "Admit nobody knows the area",
+				"outcome": "They'll scout it themselves. It will take a while."
+			}
+		],
+		"setup": "The escort needs a route that avoids the worst streets. The runner asks if anyone knows one.",
+		"step": 3,
+		"title": "The Long Way Round",
+		"type": "rescue"
+	},
+	"neighbourhood_4_retry": {
+		"chain": "neighbourhood",
+		"file": "rescue_retries.json",
+		"id": "neighbourhood_4_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "use",
+						"item": "water",
+						"what": "packed for the walk"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "water",
+				"item": "water",
+				"label": "Pack a bottle",
+				"outcome": "A bottle by the hatch, labelled in marker."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "use",
+						"item": "food",
+						"what": "packed for the walk"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "food",
+				"item": "food",
+				"label": "Pack a can instead",
+				"outcome": "A can of {food_label}, which will have to do."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "none",
+				"label": "There's nothing left",
+				"outcome": "The runner nods. They've heard it before."
+			}
+		],
+		"retry": true,
+		"setup": "\"Last chance before the escort sets out. Anything for the walk?\"",
+		"step": 4,
+		"title": "Supplies for the Road",
+		"type": "rescue"
+	},
+	"neighbourhood_4_water": {
+		"chain": "neighbourhood",
+		"file": "rescue_chains.json",
+		"id": "neighbourhood_4_water",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "use",
+						"item": "water",
+						"what": "packed for the walk"
+					},
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "advance"
+					}
+				],
+				"id": "water",
+				"item": "water",
+				"label": "Pack a bottle for the walk",
+				"outcome": "One bottle, packed by the hatch, untouchable."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": -2
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"chain": "neighbourhood",
+								"do": "chain",
+								"step": "miss"
+							}
+						],
+						"p": 0.6,
+						"then": [
+							{
+								"chain": "neighbourhood",
+								"do": "chain",
+								"step": "advance"
+							}
+						]
+					}
+				],
+				"id": "rations",
+				"label": "Pack the last loose rations",
+				"outcome": "Two rations in a jar with a lid that mostly fits."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "none",
+				"label": "Say there's none to spare",
+				"outcome": "\"Then we wait for rain,\" the runner says."
+			}
+		],
+		"setup": "The escort will be on foot for hours. They ask the family to bring water for the walk.",
+		"step": 4,
+		"title": "Water for the Walk",
+		"type": "rescue"
+	},
+	"neighbourhood_5_escort": {
+		"chain": "neighbourhood",
+		"file": "rescue_chains.json",
+		"final": true,
+		"id": "neighbourhood_5_escort",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "victory",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "win"
+					}
+				],
+				"id": "go",
+				"label": "Go with them",
+				"outcome": "The family climbs out into grey light and walks, together, the long way round."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "wait",
+				"label": "Ask them to come back tomorrow",
+				"outcome": "They look at each other, then at the list. \"We'll try.\""
+			}
+		],
+		"setup": "Two volunteers with armbands are at the hatch. One of them has the list with the family's name.",
+		"step": 5,
+		"title": "The Escort",
+		"type": "rescue"
+	},
+	"neighbourhood_5_retry": {
+		"chain": "neighbourhood",
+		"file": "rescue_retries.json",
+		"final": true,
+		"id": "neighbourhood_5_retry",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "victory",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "win"
+					}
+				],
+				"id": "go",
+				"label": "Go with them",
+				"outcome": "The family leaves the hatch open behind them, for whoever comes next."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"chain": "neighbourhood",
+						"do": "chain",
+						"step": "miss"
+					}
+				],
+				"id": "stay",
+				"label": "Stay",
+				"outcome": "They leave a bag of rice and the list, with the name crossed out."
+			}
+		],
+		"retry": true,
+		"setup": "The two volunteers are back at the hatch. \"Today, or not at all. We can't keep coming.\"",
+		"step": 5,
+		"title": "The Escort Returns",
+		"type": "rescue"
+	},
+	"neighbours_daughter": {
+		"conditions": {
+			"min_day": 6
+		},
+		"file": "visitors_trips.json",
+		"id": "neighbours_daughter",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "give",
+						"item": "medkit",
+						"what": "a neighbour's daughter"
+					},
+					{
+						"do": "morale",
+						"n": 2,
+						"who": "all"
+					},
+					{
+						"do": "schedule",
+						"event": "neighbour_thanks",
+						"in": 4
+					}
+				],
+				"id": "medkit",
+				"item": "medkit",
+				"label": "Give her the medkit",
+				"outcome": "She doesn't say anything. She doesn't need to."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": -2
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "all"
+					}
+				],
+				"id": "advice",
+				"label": "Give her advice and water",
+				"outcome": "Cool cloths, small sips, watch the temperature. Two rations go with her."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "guilt",
+						"who": "actor"
+					}
+				],
+				"id": "refuse",
+				"label": "Say there's nothing",
+				"outcome": "She thanks you anyway, which is worse."
+			}
+		],
+		"setup": "A neighbour is at the hatch. Her daughter has a fever, and she has tried every house on the street.",
+		"title": "The Neighbour's Daughter",
+		"type": "moral",
+		"weight": 1
+	},
+	"night_shift": {
+		"conditions": {
+			"min_day": 2
+		},
+		"file": "seed_vignettes.json",
+		"id": "night_shift",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "fetched the vacuum through the dust"
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "all"
+					}
+				],
+				"id": "fetch",
+				"item": "gas_mask",
+				"label": "Go out and get it",
+				"outcome": "It docks by the radio and hums. Somehow that helps."
+			},
+			{
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "all"
+					},
+					{
+						"do": "dose",
+						"msv": 10,
+						"who": "actor"
+					}
+				],
+				"id": "name",
+				"label": "Name it and let it be",
+				"outcome": "It's called Gerald now. Someone cries a little when the bumping stops."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "ignore",
+				"label": "Ignore it",
+				"outcome": "Nobody sleeps."
+			}
+		],
+		"setup": "At 2 a.m. something bumps the hatch in a slow, patient pattern. It's the robot vacuum, still cleaning ash off the lawn.",
+		"title": "Night Shift",
+		"type": "visitor",
+		"weight": 1
+	},
+	"nobody_sleeps": {
+		"conditions": {
+			"min_day": 3,
+			"needs_child": true
+		},
+		"file": "shelter_life.json",
+		"id": "nobody_sleeps",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "use",
+						"item": "console",
+						"what": "{subject} finally slept"
+					},
+					{
+						"do": "morale",
+						"n": 2,
+						"who": "subject"
+					}
+				],
+				"id": "console",
+				"item": "console",
+				"label": "Let them play until they drop off",
+				"outcome": "Level four, then level five, then snoring."
+			},
+			{
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "use",
+						"item": "cards",
+						"what": "a slow game until bedtime"
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "all"
+					}
+				],
+				"id": "cards",
+				"item": "cards",
+				"label": "Teach them a slow card game",
+				"outcome": "The rules change every hand. Everybody wins eventually, then sleeps."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"days": 1,
+						"do": "tired",
+						"who": "actor"
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "subject"
+					}
+				],
+				"id": "stories",
+				"label": "Tell stories until morning",
+				"outcome": "{name} runs out of stories at four a.m. and starts inventing them."
+			}
+		],
+		"setup": "{subject} hasn't slept in two nights. Every noise upstairs is the hatch opening.",
+		"title": "Nobody Sleeps",
+		"type": "family",
+		"weight": 1.2
+	},
+	"one_bar": {
+		"conditions": {
+			"min_day": 3,
+			"min_people": 2,
+			"needs_place": [
+				"school"
+			]
+		},
+		"file": "seed_vignettes.json",
+		"id": "one_bar",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"what": "heard about a supply drop"
+					},
+					{
+						"category": [
+							"school"
+						],
+						"do": "supply_drop",
+						"items": {
+							"food": 2,
+							"water": 3
+						}
+					}
+				],
+				"id": "radio",
+				"item": "radio",
+				"label": "Try the radio instead",
+				"outcome": "A broadcast names a supply drop at {nearest_school}. Worth a trip."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 30,
+						"who": "subject"
+					}
+				],
+				"id": "keep",
+				"label": "Let them keep trying",
+				"outcome": "One text arrives: \"Your order has shipped.\" {subject} took some dust for it."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -2,
+						"who": "subject",
+						"why": "phone taken"
+					}
+				],
+				"id": "take",
+				"label": "Take the phone",
+				"outcome": "{subject} sulks in the corner. The phone goes in a drawer."
+			}
+		],
+		"setup": "{subject} keeps climbing the ladder, holding a phone up to the sky.",
+		"title": "One Bar",
+		"type": "family",
+		"weight": 1
+	},
+	"pending_update": {
+		"conditions": {
+			"max_day": 14,
+			"min_day": 2
+		},
+		"file": "seed_vignettes.json",
+		"id": "pending_update",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "use",
+						"item": "axe",
+						"mode": "wear",
+						"what": "pried the fridge open"
+					},
+					{
+						"do": "add",
+						"item": "food",
+						"n": 2
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 1
+					}
+				],
+				"id": "axe",
+				"item": "axe",
+				"label": "Open it by hand",
+				"outcome": "Two cans and a bottle. The fridge is now a cabinet."
+			},
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "use",
+						"item": "manual",
+						"what": "found the hard reset"
+					},
+					{
+						"do": "add",
+						"item": "food",
+						"n": 2
+					}
+				],
+				"id": "manual",
+				"item": "manual",
+				"label": "Look up the hard reset",
+				"outcome": "Factory settings restored. Two cans, and a chirpy welcome tune."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"do": "schedule",
+						"event": "update_complete",
+						"in": 3
+					}
+				],
+				"id": "wait",
+				"label": "Wait for the update",
+				"outcome": "The progress bar says 2%. It has said 2% for an hour."
+			}
+		],
+		"setup": "The smart fridge upstairs has locked itself to install an update. There's food inside.",
+		"title": "Pending Update",
+		"type": "discovery",
+		"weight": 1
+	},
+	"pew_pantry": {
+		"conditions": {
+			"trip_place": [
+				"church"
+			]
+		},
+		"file": "visitors_trips.json",
+		"id": "pew_pantry",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "trip_loot",
+						"item": "food",
+						"n": 1
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "all"
+					}
+				],
+				"id": "sign",
+				"label": "Sign the sheet and take a share",
+				"outcome": "One can, signed for in neat capitals."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "trip_loot",
+						"item": "food",
+						"n": 3
+					},
+					{
+						"do": "guilt",
+						"who": "explorer"
+					}
+				],
+				"id": "take",
+				"label": "Take everything",
+				"outcome": "Three cans. {name} doesn't look at the sign-in sheet on the way out."
+			}
+		],
+		"setup": "Behind {place}'s hall there's a food pantry, half-sorted, with a sign-in sheet nobody signed.",
+		"title": "The Pantry Under the Stairs",
+		"type": "trip",
+		"weight": 2
+	},
+	"pharmacy_looters": {
+		"conditions": {
+			"trip_place": [
+				"pharmacy"
+			]
+		},
+		"file": "visitors_trips.json",
+		"id": "pharmacy_looters",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "combat",
+				"effects": [
+					{
+						"do": "use",
+						"item": "rifle",
+						"what": "looters left the pharmacy"
+					},
+					{
+						"do": "trip_loot",
+						"item": "medkit",
+						"n": 1
+					}
+				],
+				"id": "rifle",
+				"item": "rifle",
+				"label": "Make them leave",
+				"outcome": "They leave without arguing. They leave a medkit, too."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"days": 1,
+						"do": "tired",
+						"who": "explorer"
+					}
+				],
+				"id": "wait",
+				"label": "Wait them out",
+				"outcome": "They take their time. By the time they leave, so has the medicine."
+			},
+			{
+				"cinematic": "attack",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"do": "injure",
+								"who": "explorer",
+								"why": "caught in the back aisle"
+							}
+						],
+						"p": 0.5,
+						"then": [
+							{
+								"do": "trip_loot",
+								"item": "medkit",
+								"n": 1
+							},
+							{
+								"do": "say",
+								"kind": "good",
+								"text": "{name} got a medkit and got out."
+							}
+						]
+					}
+				],
+				"id": "sneak",
+				"label": "Sneak to the back shelves",
+				"outcome": "{name} goes low along the back aisle."
+			}
+		],
+		"setup": "Two people are already inside {place}, filling bags. They haven't seen {name} yet.",
+		"title": "Already Inside",
+		"type": "trip",
+		"weight": 2
+	},
+	"scouts": {
+		"conditions": {
+			"needs_followed": true
+		},
+		"file": "visitors_trips.json",
+		"id": "scouts",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "combat",
+				"effects": [
+					{
+						"do": "use",
+						"item": "rifle",
+						"what": "a warning shot"
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"do": "say",
+								"kind": "warn",
+								"text": "They scatter, then come back to a safer corner."
+							}
+						],
+						"p": 0.5,
+						"then": [
+							{
+								"do": "unfollow"
+							}
+						]
+					}
+				],
+				"id": "shot",
+				"item": "rifle",
+				"label": "Fire a warning shot",
+				"loud": true,
+				"outcome": "The notebooks go away fast."
+			},
+			{
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "chance",
+						"else": [
+							{
+								"do": "say",
+								"kind": "warn",
+								"text": "They note the lock down too."
+							}
+						],
+						"p": 0.4,
+						"then": [
+							{
+								"do": "unfollow"
+							}
+						]
+					}
+				],
+				"id": "lock",
+				"item": "padlock",
+				"label": "Add a second lock where they can see it",
+				"outcome": "A shiny padlock, on display. Security theatre, but theatre works sometimes."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "quiet",
+				"label": "Stay quiet",
+				"outcome": "They write for an hour and leave. Nobody sleeps well."
+			}
+		],
+		"setup": "Two figures on the corner are watching the hatch and writing things down.",
+		"title": "Scouts",
+		"type": "raid",
+		"weight": 1.5
+	},
+	"second_wave": {
+		"conditions": {
+			"min_day": 12
+		},
+		"file": "shelter_life.json",
+		"id": "second_wave",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "bug_spray",
+						"what": "the ants are gone"
+					}
+				],
+				"id": "spray",
+				"item": "bug_spray",
+				"label": "Spray the corners",
+				"outcome": "The corners are quiet again. The can is empty."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": -2
+					},
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "pick",
+				"label": "Pick them out by hand",
+				"outcome": "A long, fiddly afternoon. Two rations are past saving."
+			},
+			{
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.4,
+						"then": [
+							{
+								"do": "sick",
+								"root": "decision",
+								"who": "random",
+								"why": "ants in the water"
+							}
+						]
+					}
+				],
+				"id": "ignore",
+				"label": "Drink around them",
+				"outcome": "It's protein, someone says. Nobody laughs."
+			}
+		],
+		"setup": "The ants are back, and they've brought relatives. They're in the water this time.",
+		"title": "Second Wave",
+		"type": "pests",
+		"weight": 0.8
+	},
+	"signature_required": {
+		"conditions": {
+			"min_day": 2
+		},
+		"file": "seed_vignettes.json",
+		"id": "signature_required",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "combat",
+				"effects": [
+					{
+						"do": "use",
+						"item": "rifle",
+						"what": "drone shot down"
+					},
+					{
+						"do": "add",
+						"item": "food",
+						"n": 2
+					}
+				],
+				"id": "shoot",
+				"item": "rifle",
+				"label": "Shoot it down",
+				"loud": true,
+				"outcome": "It drops a parcel: two cans and a satisfaction survey."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 40,
+						"who": "actor"
+					}
+				],
+				"id": "thumb",
+				"label": "Thumbprint it",
+				"outcome": "Logged as \"Delivered.\" {name} stood a long minute in the dust for it."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "ignore",
+				"label": "Ignore it",
+				"outcome": "It beeps politely until sundown. Nobody sleeps much."
+			}
+		],
+		"setup": "A delivery drone hovers at the hatch, demanding a signature for the house upstairs.",
+		"title": "Signature Required",
+		"type": "visitor",
+		"weight": 1
+	},
+	"smoke_on_the_street": {
+		"conditions": {
+			"max_day": 18,
+			"min_day": 3
+		},
+		"file": "shelter_life.json",
+		"id": "smoke_on_the_street",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "kept the smoke out"
+					},
+					{
+						"days": 1,
+						"do": "tired",
+						"who": "actor"
+					}
+				],
+				"id": "mask",
+				"item": "gas_mask",
+				"label": "Watch the vent all night, masked",
+				"outcome": "{name} keeps the vent clear until dawn and sleeps through lunch."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": -2
+					},
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "seal",
+				"label": "Seal the vent and sweat it out",
+				"outcome": "It gets hot. Everyone drinks more than they should."
+			},
+			{
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "sick",
+								"root": "decision",
+								"who": "random",
+								"why": "smoke in the shelter"
+							}
+						]
+					}
+				],
+				"id": "ignore",
+				"label": "Hope it passes",
+				"outcome": "The smoke passes. Some of it stays in someone's chest."
+			}
+		],
+		"setup": "A house down the street is burning. The smoke is rolling toward the vent.",
+		"title": "Smoke on the Street",
+		"type": "contamination",
+		"weight": 0.9
+	},
+	"static_hour": {
+		"conditions": {
+			"min_day": 5,
+			"min_people": 2,
+			"needs_owned": "radio"
+		},
+		"file": "shelter_life.json",
+		"id": "static_hour",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"mode": "tinker",
+						"what": "tuned in the city channel"
+					},
+					{
+						"do": "fallout_news"
+					}
+				],
+				"id": "tinker",
+				"item": "radio",
+				"label": "Let them tinker",
+				"outcome": "Screws on the table, solder smoke, then a voice reading the fallout map."
+			},
+			{
+				"cinematic": "radio",
+				"effects": [
+					{
+						"days": 1,
+						"do": "tired",
+						"who": "subject"
+					},
+					{
+						"do": "chance",
+						"p": 0.3,
+						"then": [
+							{
+								"do": "fallout_news"
+							}
+						]
+					}
+				],
+				"id": "crank",
+				"label": "Crank it all night instead",
+				"outcome": "{subject} cranks until the small hours and hears mostly weather."
+			},
+			{
+				"effects": [],
+				"id": "leave",
+				"label": "Leave it alone",
+				"outcome": "The radio stays in one piece. So does the argument."
+			}
+		],
+		"setup": "{subject} wants to take the back off the radio to pull in a stronger station.",
+		"title": "Static Hour",
+		"type": "discovery",
+		"weight": 0.8
+	},
+	"station_freezer": {
+		"conditions": {
+			"trip_place": [
+				"auto"
+			]
+		},
+		"file": "visitors_trips.json",
+		"id": "station_freezer",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "searched the walk-in"
+					},
+					{
+						"do": "trip_loot",
+						"item": "water",
+						"n": 2
+					}
+				],
+				"id": "torch",
+				"item": "flashlight",
+				"label": "Search the back with the light",
+				"outcome": "A shrink-wrapped pallet of water, forgotten behind the ice cream."
+			},
+			{
+				"cinematic": "attack",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.3,
+						"then": [
+							{
+								"do": "injure",
+								"who": "explorer",
+								"why": "a shelf edge in the dark"
+							}
+						]
+					},
+					{
+						"do": "trip_loot",
+						"item": "water",
+						"n": 1
+					}
+				],
+				"id": "feel",
+				"label": "Feel around in the dark",
+				"outcome": "One bottle, found by touch."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [],
+				"id": "skip",
+				"label": "Leave it",
+				"outcome": "The freezer keeps its secrets."
+			}
+		],
+		"setup": "The gas station's walk-in freezer is dark and silent. Something inside is still sealed.",
+		"title": "The Walk-In",
+		"type": "trip",
+		"weight": 2
+	},
+	"stranger_returns": {
+		"file": "followups.json",
+		"id": "stranger_returns",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "add",
+						"item": "food",
+						"n": 1
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 1
+					}
+				],
+				"id": "take",
+				"label": "Take the sack",
+				"outcome": "A can and a bottle. They're gone before anyone can say thanks."
+			},
+			{
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "add",
+						"item": "food",
+						"n": 1
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 1
+					},
+					{
+						"do": "rations",
+						"kind": "food",
+						"n": -2
+					},
+					{
+						"do": "morale",
+						"n": 2,
+						"who": "all"
+					}
+				],
+				"id": "share",
+				"label": "Invite them to eat",
+				"outcome": "The shelter is loud for an hour. It's a good loud."
+			}
+		],
+		"setup": "The teenager is back with a friend and a sack. \"For the water,\" they say.",
+		"system": true,
+		"title": "Paid Back",
+		"type": "chain_followup"
+	},
+	"stray_cat": {
+		"conditions": {
+			"min_day": 3,
+			"no_pet": true
+		},
+		"file": "shelter_life.json",
+		"id": "stray_cat",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "pet",
+				"effects": [
+					{
+						"do": "use",
+						"item": "food",
+						"what": "won over a cat"
+					},
+					{
+						"do": "pet",
+						"kind": "cat"
+					},
+					{
+						"do": "morale",
+						"n": 2,
+						"who": "all"
+					}
+				],
+				"id": "feed",
+				"item": "food",
+				"label": "Open a can of {food_label} for her",
+				"outcome": "She eats, inspects everyone, and takes the warmest spot. She lives here now."
+			},
+			{
+				"cinematic": "pet",
+				"effects": [
+					{
+						"do": "pet",
+						"kind": "cat"
+					},
+					{
+						"do": "rations",
+						"kind": "food",
+						"n": -1
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "all"
+					}
+				],
+				"id": "in",
+				"label": "Let her in",
+				"outcome": "She finds the food shelf before anyone shows her where it is."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "shoo",
+				"label": "Shoo her off",
+				"outcome": "She leaves slowly, so everyone can watch."
+			}
+		],
+		"setup": "A thin cat is sitting on the hatch, watching the vent like it owes her money.",
+		"title": "Whiskers at the Vent",
+		"type": "pet",
+		"weight": 1
+	},
+	"swap_meet": {
+		"conditions": {
+			"min_day": 10,
+			"needs_fallout_clear": true
+		},
+		"file": "visitors_trips.json",
+		"id": "swap_meet",
+		"mood": "good",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "give",
+						"item": "ammo",
+						"what": "traded for two bottles"
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 2
+					}
+				],
+				"id": "ammo",
+				"item": "ammo",
+				"label": "Trade rounds for water",
+				"outcome": "Ammunition is the local currency. Two bottles, no change given."
+			},
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "use",
+						"item": "suitcase",
+						"what": "hauled the trades home"
+					},
+					{
+						"do": "add",
+						"item": "food",
+						"n": 2
+					},
+					{
+						"do": "followed",
+						"p": 0.15,
+						"why": "someone noticed the full suitcase"
+					}
+				],
+				"id": "haul",
+				"item": "suitcase",
+				"label": "Haul a load home",
+				"outcome": "Two cans, rolled home on squeaky wheels."
+			},
+			{
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"do": "followed",
+						"p": 0.2,
+						"why": "someone noticed the hatch"
+					}
+				],
+				"id": "watch",
+				"label": "Watch from the hatch",
+				"outcome": "Somebody waves. Somebody else notices."
+			}
+		],
+		"setup": "People have set up tables at the corner, trading under umbrellas. Someone is selling water by the cup.",
+		"title": "Swap Meet",
+		"type": "trade",
+		"weight": 1
+	},
+	"sweating_it_out": {
+		"conditions": {
+			"min_day": 3,
+			"needs_sick": true
+		},
+		"file": "shelter_life.json",
+		"id": "sweating_it_out",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "use",
+						"item": "water",
+						"what": "helped break the fever"
+					},
+					{
+						"do": "chance",
+						"else": [
+							{
+								"do": "say",
+								"text": "The fever holds on."
+							}
+						],
+						"p": 0.6,
+						"then": [
+							{
+								"do": "cure",
+								"who": "subject"
+							},
+							{
+								"do": "say",
+								"kind": "good",
+								"text": "The fever broke by evening."
+							}
+						]
+					}
+				],
+				"id": "water",
+				"item": "water",
+				"label": "Give extra water all day",
+				"outcome": "A bottle, a sip at a time, all day."
+			},
+			{
+				"cinematic": "medical",
+				"effects": [
+					{
+						"do": "use",
+						"item": "medkit",
+						"what": "cured {subject}"
+					},
+					{
+						"do": "cure",
+						"who": "subject"
+					}
+				],
+				"id": "medkit",
+				"item": "medkit",
+				"label": "Treat it properly",
+				"outcome": "Antibiotics, a cold cloth, and sleep. {subject} is through the worst."
+			},
+			{
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "subject",
+						"why": "a bad night"
+					}
+				],
+				"id": "wait",
+				"label": "Let the fever run",
+				"outcome": "A long night. The fever is still there in the morning."
+			}
+		],
+		"setup": "{subject}'s fever spiked overnight. The sheets are soaked, and they keep asking for water.",
+		"title": "Sweating It Out",
+		"type": "sickness",
+		"weight": 1.2
+	},
+	"the_collector": {
+		"conditions": {
+			"min_day": 8
+		},
+		"file": "visitors_trips.json",
+		"id": "the_collector",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "give",
+						"item": "console",
+						"what": "traded for two cans"
+					},
+					{
+						"do": "add",
+						"item": "food",
+						"n": 2
+					}
+				],
+				"id": "console",
+				"item": "console",
+				"label": "Trade the game console",
+				"outcome": "She checks the battery, nods, and leaves two cans. Somebody's save file goes with her."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "give",
+						"item": "flashlight",
+						"what": "traded for a can"
+					},
+					{
+						"do": "add",
+						"item": "food",
+						"n": 1
+					}
+				],
+				"id": "torch",
+				"item": "flashlight",
+				"label": "Trade the flashlight",
+				"outcome": "One can for one flashlight. She seems to have a lot of flashlights."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "decline",
+				"label": "Decline",
+				"outcome": "She shrugs and moves on. The cans move on with her."
+			}
+		],
+		"setup": "A woman in a clean coat is trading food for \"things that still turn on\".",
+		"title": "The Collector",
+		"type": "trade",
+		"weight": 1
+	},
+	"the_deputy": {
+		"conditions": {
+			"min_day": 7
+		},
+		"file": "visitors_trips.json",
+		"id": "the_deputy",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "give",
+						"item": "ammo",
+						"what": "armed the street's self-appointed deputy"
+					},
+					{
+						"do": "add",
+						"item": "medkit",
+						"n": 1
+					}
+				],
+				"id": "ammo",
+				"item": "ammo",
+				"label": "Give him a box",
+				"outcome": "He leaves a medkit from his truck and a promise to keep an eye out."
+			},
+			{
+				"effects": [],
+				"id": "luck",
+				"label": "Wish him luck",
+				"outcome": "He tips an imaginary hat and walks on."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "followed",
+						"p": 0.25,
+						"why": "the deputy told everyone about the hatch"
+					}
+				],
+				"id": "move",
+				"label": "Tell him to move along",
+				"outcome": "He mutters about it to anyone who'll listen."
+			}
+		],
+		"setup": "A neighbour in an old sheriff's jacket has a rifle and no rounds. He says he's keeping the street safe.",
+		"title": "The Deputy",
+		"type": "visitor",
+		"weight": 1
+	},
+	"the_tag": {
+		"conditions": {
+			"min_day": 6,
+			"needs_followed": true
+		},
+		"file": "visitors_trips.json",
+		"id": "the_tag",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.3,
+						"then": [
+							{
+								"do": "unfollow"
+							}
+						]
+					}
+				],
+				"id": "chain",
+				"item": "padlock",
+				"label": "Chain the hatch from inside",
+				"outcome": "The chain rattles every time the wind blows. That's the point."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"msv": 10,
+						"who": "actor"
+					},
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "unfollow"
+							}
+						]
+					}
+				],
+				"id": "paint",
+				"label": "Paint over it",
+				"outcome": "Grey paint over red paint. The hatch looks abandoned again."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "leave",
+				"label": "Leave it",
+				"outcome": "Everyone knows it's there. Nobody looks at the hatch."
+			}
+		],
+		"setup": "Someone spray-painted a symbol on the hatch overnight. It isn't a friendly symbol.",
+		"title": "The Tag",
+		"type": "raid",
+		"weight": 1.2
+	},
+	"thirsty": {
+		"conditions": {
+			"min_day": 4
+		},
+		"file": "visitors_trips.json",
+		"id": "thirsty",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "use",
+						"item": "water",
+						"what": "a thirsty teenager"
+					},
+					{
+						"do": "morale",
+						"n": 2,
+						"who": "all"
+					},
+					{
+						"do": "schedule",
+						"event": "stranger_returns",
+						"in": 5
+					}
+				],
+				"id": "water",
+				"item": "water",
+				"label": "Give them a bottle",
+				"outcome": "They drink half and save half, very carefully."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "use",
+						"item": "food",
+						"what": "a hungry teenager"
+					},
+					{
+						"do": "morale",
+						"n": 1,
+						"who": "all"
+					}
+				],
+				"id": "food",
+				"item": "food",
+				"label": "Give them a can instead",
+				"outcome": "It isn't what they asked for. They eat it anyway, sitting on the step."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "refuse",
+				"label": "Say there's nothing to spare",
+				"outcome": "They nod and walk on. Nobody mentions them again, which says enough."
+			}
+		],
+		"setup": "A teenager is sitting by the hatch, very still. They ask, politely, for water.",
+		"title": "Thirsty",
+		"type": "stranger",
+		"weight": 1
+	},
+	"unexpected_item": {
+		"conditions": {
+			"trip_place": [
+				"grocery"
+			]
+		},
+		"file": "seed_vignettes.json",
+		"id": "unexpected_item",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "use",
+						"item": "map",
+						"what": "found the stockroom door"
+					},
+					{
+						"do": "trip_loot",
+						"item": "food",
+						"n": 1
+					},
+					{
+						"do": "trip_loot",
+						"item": "water",
+						"n": 1
+					}
+				],
+				"id": "stockroom",
+				"item": "map",
+				"label": "Go through the stockroom",
+				"outcome": "The floor plan shows a stockroom door. One can and one bottle, quietly."
+			},
+			{
+				"cinematic": "attack",
+				"effects": [
+					{
+						"do": "injure",
+						"who": "explorer",
+						"why": "two scavengers heard the alarms"
+					},
+					{
+						"do": "trip_loot",
+						"item": "food",
+						"n": 1
+					}
+				],
+				"id": "run",
+				"label": "Grab and run",
+				"loud": true,
+				"outcome": "The noise draws two scavengers. {name} gets out, but not cleanly."
+			},
+			{
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "trip_loot",
+						"item": "food",
+						"n": 1
+					},
+					{
+						"do": "dose",
+						"msv": 30,
+						"who": "explorer"
+					}
+				],
+				"id": "scan",
+				"label": "Scan everything politely",
+				"outcome": "Forty minutes later: one can and a receipt nobody asked for."
+			}
+		],
+		"setup": "At {place}, the self-checkouts are on backup power and complain every time {name} moves.",
+		"title": "Unexpected Item",
+		"type": "trip",
+		"weight": 2
+	},
+	"uninvited": {
+		"conditions": {
+			"min_day": 5
+		},
+		"file": "shelter_life.json",
+		"id": "uninvited",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "bug_spray",
+						"what": "the food shelf is clear"
+					}
+				],
+				"id": "spray",
+				"item": "bug_spray",
+				"label": "Spray the shelf",
+				"outcome": "The shelf is clear. The smell lingers longer than the bugs did."
+			},
+			{
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "manual",
+						"what": "swatted the pests"
+					}
+				],
+				"id": "swat",
+				"item": "manual",
+				"label": "Swat them with the manual",
+				"outcome": "Chapter four is about pests. It's also heavy."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "lose",
+						"item": "food",
+						"n": 1
+					}
+				],
+				"id": "live",
+				"label": "Live with them",
+				"outcome": "They share the food. They do not share well."
+			}
+		],
+		"setup": "Something small and numerous has found the food shelf.",
+		"title": "Uninvited",
+		"type": "pests",
+		"weight": 1
+	},
+	"update_complete": {
+		"file": "followups.json",
+		"id": "update_complete",
+		"mood": "bad",
+		"options": [
+			{
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "food",
+						"n": 2
+					},
+					{
+						"do": "sick",
+						"who": "actor",
+						"why": "ate from the fridge"
+					}
+				],
+				"id": "eat",
+				"label": "Eat the least spoiled can",
+				"outcome": "Two rations of something. {name} regrets it by evening."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "bin",
+				"label": "Leave it all up there",
+				"outcome": "The fridge plays a little song of thanks."
+			}
+		],
+		"setup": "The fridge upstairs chimes. The update finished. Everything inside has spoiled.",
+		"system": true,
+		"title": "Update Complete!",
+		"type": "chain_followup"
+	},
+	"water_man": {
+		"conditions": {
+			"min_day": 6
+		},
+		"file": "visitors_trips.json",
+		"id": "water_man",
+		"mood": "neutral",
+		"options": [
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "give",
+						"item": "ammo",
+						"what": "traded for a bottle of water"
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 1
+					}
+				],
+				"id": "ammo",
+				"item": "ammo",
+				"label": "Trade a box of rounds",
+				"outcome": "He counts the rounds twice and hands over a bottle."
+			},
+			{
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "give",
+						"item": "cards",
+						"what": "traded for a bottle of water"
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 1
+					}
+				],
+				"id": "cards",
+				"item": "cards",
+				"label": "Trade the cards",
+				"outcome": "\"Haven't played in years,\" he says, already shuffling."
+			},
+			{
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"n": -1,
+						"who": "all"
+					}
+				],
+				"id": "send",
+				"label": "Send him away",
+				"outcome": "He wheels off, bottles clinking. Everyone watches them go."
+			}
+		],
+		"setup": "A man with a shopping cart of bottled water knocks. He doesn't take cash, but he's open to offers.",
+		"title": "The Water Man",
+		"type": "trade",
+		"weight": 1
+	}
+}

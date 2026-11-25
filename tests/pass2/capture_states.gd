@@ -54,19 +54,22 @@ func _run() -> void:
 	for m in gs.get("family_members"):
 		m["in_bunker"] = true
 		m["alive"] = true
-	for pair in [["soup", 5], ["water", 6], ["medkit", 1], ["gas_mask", 1], ["radio", 1], ["rifle", 1], ["toolbox", 1], ["map", 1]]:
+	for pair in [["food", 5], ["water", 6], ["medkit", 1], ["gas_mask", 1], ["radio", 1], ["rifle", 1], ["manual", 1], ["map", 1]]:
 		gs.call("add_scavenged_item", pair[0], pair[1])
 	gs.call("request_screen", "bunker")
 	await _frames(30)
 	await _snap("40_bunker_open")
 	var bk: Node = _main.get("_active_node")
-	if bk.has_method("set_active_tab"):
-		bk.call("set_active_tab", 2)
-		await _frames(8)
-		await _snap("41_bunker_dilemma_tab")
-		bk.call("set_active_tab", 3)
-		await _frames(8)
-		await _snap("42_bunker_expedition_map")
+	# M1: one screen per day (receipt, dilemma card, ration row, jobs) and the trip planner.
+	await _snap("41_bunker_day_screen")
+	var sh: ShelterState = gs.get("shelter")
+	bk.call("_open_planner", str((sh.members[1] as Dictionary)["id"]), false)
+	await _frames(15)
+	var tp: Node = bk.get("_planner")
+	if tp != null:
+		tp.call("_select", 0)
+	await _frames(8)
+	await _snap("42_bunker_trip_planner")
 	print("CAPTURE_DONE ", _out)
 	quit(0)
 

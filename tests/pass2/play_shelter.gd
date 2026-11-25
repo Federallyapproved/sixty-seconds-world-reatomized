@@ -1,19 +1,19 @@
 extends SceneTree
 
-## Plays the shelter phase like a player: keyboard input (number keys pick a dilemma answer,
-## SPACE continues), schedules a real expedition, watches the return, opens the garage,
-## installs salvaged parts by hand and drives out. Screenshots every beat and writes a JSON
-## report of what it verified. Needs a display (xvfb-run) for screenshots; runs headless too.
-##   xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 \
-##       --audio-driver Dummy -s res://tests/pass2/play_shelter.gd -- --out=/tmp/play [--seed=7]
+## Plays the M1 shelter phase like a player, through the real screen and real input events:
+## number keys answer the day's dilemma, SPACE finishes the outcome animation, mouse clicks toggle
+## the ration row and plan an expedition in the trip planner (risk preview, gear), ENTER ends the
+## day. Screenshots every day and writes a JSON report of what it verified.
+## Needs a display for screenshots (run in a normal no-focus window via override.cfg).
+##   godot --path . --rendering-driver opengl3 -s res://tests/pass2/play_shelter.gd -- --out=<dir> [--seed=7] [--days=12]
+## (The pre-M1 version drove the old notebook tabs and the garage; both were replaced by the
+## one-screen day and the disabled car escape. Its checks map to the ones below.)
 
-var _out: String = "/tmp/play"
+var _out: String = "user://play_shelter"
 var _main: Control
 var _gs: Node
 var _bk: Node
-var _shots: int = 0
-var _report: Dictionary = {"checks": [], "days": [], "returns": [], "installs": []}
-var _snap_every: bool = true
+var _report: Dictionary = {"checks": [], "days": []}
 
 
 func _init() -> void:
@@ -32,16 +32,85 @@ func _check(name: String, ok: bool, detail: String = "") -> void:
 	print(("PASS " if ok else "FAIL ") + name + ("" if detail == "" else "  — " + detail))
 
 
+func _frames(n: int) -> void:
+	for _i in range(n):
+		await process_frame
+
+
+func _snap(name: String) -> void:
+	await _frames(2)
+	if DisplayServer.get_name() == "headless":
+		return
+	var img: Image = root.get_texture().get_image()
+	if img != null:
+		img.save_png("%s/%s.png" % [_out, name])
+
+
+func _key(code: int) -> void:
+	var ev := InputEventKey.new()
+	ev.keycode = code
+	ev.physical_keycode = code
+	ev.pressed = true
+	root.push_input(ev)
+	await _frames(1)
+	var up := InputEventKey.new()
+	up.keycode = code
+	up.physical_keycode = code
+	up.pressed = false
+	root.push_input(up)
+	await _frames(2)
+
+
+func _click(c: Control) -> void:
+	var p: Vector2 = c.get_global_rect().get_center()
+	var mv := InputEventMouseMotion.new()
+	mv.position = p
+	mv.global_position = p
+	root.push_input(mv)
+	await _frames(1)
+	for pressed in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.position = p
+		ev.global_position = p
+		ev.pressed = pressed
+		root.push_input(ev)
+		await _frames(1)
+	await _frames(2)
+
+
+func _buttons(n: Node, prefix: String, out: Array) -> void:
+	if n is Button and (n as Button).is_visible_in_tree() and str((n as Button).text).begins_with(prefix):
+		out.append(n)
+	for c in n.get_children():
+		_buttons(c, prefix, out)
+
+
+func _find(prefix: String) -> Array:
+	var out: Array = []
+	_buttons(_bk, prefix, out)
+	return out
+
+
+func _finish_cinematic() -> void:
+	var cine: Node = _bk.get("_cinematic")
+	var guard: int = 0
+	while (bool(_bk.get("_busy")) or bool(cine.get("visible"))) and guard < 400:
+		if bool(cine.get("visible")):
+			await _key(KEY_SPACE)
+		await _frames(4)
+		guard += 1
+
+
 func _run() -> void:
-	_out = _arg("out", "/tmp/play")
-	_snap_every = _arg("snaps", "1") == "1"
+	_out = _arg("out", "user://play_shelter")
 	DirAccess.make_dir_recursive_absolute(_out)
+	var days: int = int(_arg("days", "12"))
 	_main = (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(_main)
 	_gs = root.get_node("GameState")
-	_gs.get("rng").seed = int(_arg("seed", "7"))
+	(_gs.get("rng") as RandomNumberGenerator).seed = int(_arg("seed", "7"))
 	await _frames(8)
-
 	# Choose the real default house through the actual house-select screen.
 	_gs.call("request_screen", "osm_house")
 	await _frames(30)
@@ -53,238 +122,141 @@ func _run() -> void:
 			picked = true
 			break
 	_check("house_select_real_osm_way", picked, "way 206082403")
-	_check("map_roads_stored", (_gs.get("map_roads") as Array).size() > 20, "%d roads" % (_gs.get("map_roads") as Array).size())
-
+	_gs.call("reset_to_defaults")
 	for m in _gs.get("family_members"):
 		m["in_bunker"] = true
 		m["alive"] = true
-	for pair in [["soup", 6], ["water", 7], ["medkit", 1], ["gas_mask", 1], ["radio", 1], ["rifle", 1], ["toolbox", 1], ["map", 1], ["flashlight", 1], ["suitcase", 1]]:
+	for pair in [["food", 4], ["water", 5], ["medkit", 1], ["gas_mask", 1], ["radio", 1], ["rifle", 1], ["ammo", 1], ["map", 1], ["flashlight", 1], ["suitcase", 1]]:
 		_gs.call("add_scavenged_item", pair[0], pair[1])
 	_gs.call("request_screen", "bunker")
 	await _frames(40)
 	_bk = _main.get("_active_node")
-	var cine: Control = _bk.get("_cinematic")
-	_check("cinematic_present", cine != null)
-	_check("dilemma_shown_directly_day1", cine.visible and str(cine.get("_mode")) == "dilemma")
-	var first_day: Dictionary = await _play_day_cinematics(1)
-	(_report["days"] as Array).append(first_day)
-	_check("day1_resolved_by_player", not bool(_bk.get("_has_unresolved_dilemma")))
-	await _snap("p00_shelter_day1")
-
-	# Day 1: plan an expedition to a real place (prefer one that can yield vehicle parts)
-	var targets: Array = _bk.get("_available_targets")
-	var best: int = 0
-	for i in range(targets.size()):
-		var cat: String = str(targets[i].get("category", ""))
-		if cat in ["auto", "hardware"] and not bool(targets[i].get("depleted", false)):
-			best = i
+	var s: ShelterState = _gs.get("shelter")
+	_check("shelter_run_started", s != null and s.day == 1)
+	_check("one_screen_day_panel", _bk.get("_panel") != null and _bk.get("_receipt_box") != null and _bk.get("_family_box") != null)
+	await _snap("p00_day1")
+	var planned_trip: bool = false
+	var trip_member: String = ""
+	var saw_away: bool = false
+	var saw_return: bool = false
+	var saw_used: bool = false
+	var saw_end_locked: bool = false
+	var saw_needs: bool = false
+	for d in range(days):
+		if s.is_over():
 			break
-	_bk.set("_selected_poi_index", best)
-	_bk.call("set_active_tab", 3)
-	await _frames(10)
-	await _snap("p01_expedition_planner_real_map")
-	var tgt: Dictionary = targets[best] if not targets.is_empty() else {}
-	_check("expedition_target_real", not tgt.is_empty() and int(tgt.get("osm_id", 0)) != 0, "%s (%s, OSM %d, %dm walk)" % [str(tgt.get("name", "")), str(tgt.get("kind_label", "")), int(tgt.get("osm_id", 0)), int(tgt.get("walk_m", 0))])
-
-	# Big neighbourhood map
-	(_bk.get("_next_page_btn") as Button).emit_signal("pressed")
-	await _frames(12)
-	await _snap("p02_big_map_nearby")
-	var bm: Control = _bk.get("_big_map")
-	bm.set("view_mode", "extended")
-	bm.call("queue_redraw")
-	await _frames(6)
-	await _snap("p03_big_map_extended")
-	(_bk.get("_map_overlay") as Control).visible = false
-
-	var day_cap: int = int(_arg("days", "9"))
-	var scheduled: bool = false
-	var actors: Array = []
-	var silent_default_seen: bool = false
-	actors.append(first_day)
-	var first: bool = true
-	while int(_gs.get("day")) <= day_cap and not bool(_gs.get("game_over")):
-		var d: int = int(_gs.get("day"))
-		if not first:
-			var rec: Dictionary = await _play_day_cinematics(d)
-			(_report["days"] as Array).append(rec)
-			if rec.has("actor"):
-				actors.append(rec)
-		first = false
-		if bool(_bk.get("_has_unresolved_dilemma")):
-			silent_default_seen = true
-		# schedule the expedition once someone is free
-		if not scheduled and (_gs.get("active_expedition") as Dictionary).is_empty():
-			_bk.call("_ensure_valid_explorer_selected")
-			_bk.set("_selected_gear_ids", ["gas_mask", "map", "suitcase"])
-			_bk.set("_expedition_scheduled", true)
-			scheduled = true
-		# rations: 1 water each day, soup every other day
-		var plan: Dictionary = _bk.get("_planned_rations")
-		for mid in plan.keys():
-			plan[mid] = {"soup_q": 1 if d % 2 == 0 else 0, "water_q": 1}
-		_bk.call("_on_end_day_pressed")
-		await _wait_transition()
-		# vehicle parts: on day 5 pretend the expedition found a battery if none was found
-		if int(_gs.get("day")) >= 4 and not _report.has("garage_done") and (_gs.get("active_expedition") as Dictionary).is_empty():
-			var rec_g: Dictionary = await _play_day_cinematics(int(_gs.get("day")))
-			(_report["days"] as Array).append(rec_g)
-			if rec_g.has("actor"):
-				actors.append(rec_g)
-			await _garage_sequence()
-			_report["garage_done"] = true
-			break
-	_check("no_silent_default", not silent_default_seen)
-	_check("summary_reached", str(_gs.get("current_screen")) == "summary", str(_gs.get("current_screen")))
-	var all_actor_ok: bool = true
-	for rec2 in actors:
-		if not bool(rec2.get("actor_ok", false)):
-			all_actor_ok = false
-	_check("actor_always_present_and_capable", all_actor_ok, "%d dilemmas" % actors.size())
-	_check("returns_animated", (_report["returns"] as Array).size() >= 1, "%d returns" % (_report["returns"] as Array).size())
-	var f := FileAccess.open(_out + "/play_report.json", FileAccess.WRITE)
-	f.store_string(JSON.stringify(_report, "  "))
-	f.close()
-	var fails: int = 0
-	for c in _report["checks"]:
-		if not bool(c["ok"]):
-			fails += 1
-	print("PLAY_DONE fails=%d shots=%d" % [fails, _shots])
-	quit(0 if fails == 0 else 1)
-
-
-func _play_day_cinematics(d: int) -> Dictionary:
-	var rec: Dictionary = {"day": d}
-	var cine: Control = _bk.get("_cinematic")
-	var guard: int = 0
-	await _frames(4)
-	while is_instance_valid(cine) and (cine.visible or not (_bk.get("_day_queue") as Array).is_empty()) and guard < 3000:
-		guard += 1
-		var mode: String = str(cine.get("_mode"))
-		var kind: String = str(cine.get("_kind"))
-		if mode == "dilemma":
-			var ev: Dictionary = _bk.get("_current_event")
-			var actor: Dictionary = cine.get("_actor")
-			rec["event"] = str(ev.get("id", ev.get("title", "")))
-			rec["actor"] = str(actor.get("name", ""))
-			rec["actor_ok"] = bool(actor.get("alive", false)) and bool(actor.get("in_bunker", false)) and not bool(actor.get("on_expedition", false))
-			await _snap("d%02d_a_dilemma" % d)
-			var btns: Array = cine.call("_option_buttons")
-			var pick: int = 0
-			for i in range(btns.size()):
-				if not (btns[i] as Button).disabled:
+		var day_rec: Dictionary = {"day": s.day, "event": str(s.today_event.get("id", ""))}
+		# The End Day button is locked until the dilemma is answered.
+		if not s.today_event.is_empty() and not s.today_resolved:
+			saw_end_locked = saw_end_locked or bool((_bk.get("_end_btn") as Button).disabled)
+			for o_v in s.today_options:
+				if str((o_v as Dictionary).get("needs", "")) != "":
+					saw_needs = true
+			var pick: int = -1
+			for i in range(s.today_options.size()):
+				var o: Dictionary = s.today_options[i]
+				if bool(o.get("available", false)) and (pick < 0 or str(o.get("item", "")) != ""):
 					pick = i
-					if i > 0:
+			if d == 1:
+				await _snap("p10_dilemma")
+			await _key(KEY_1 + pick)
+			day_rec["choice"] = str((s.today_options[pick] as Dictionary)["id"])
+			await _frames(20)
+			await _finish_cinematic()
+			day_rec["outcome"] = str((_bk.get("_outcome") as Dictionary).get("text", ""))
+			for l_v in (_bk.get("_outcome") as Dictionary).get("lines", []):
+				if str((l_v as Dictionary).get("text", "")).begins_with("Used:"):
+					saw_used = true
+		# Water anyone who would be thirsty tomorrow, by clicking their ration toggles.
+		var plan: Dictionary = _bk.get("_plan")
+		for m_v in s.home():
+			var m: Dictionary = m_v
+			var idx: int = s.members.find(m)
+			var want: bool = int(m.get("dww", 0)) >= 2 and s.water() > 0
+			var have: bool = bool(((plan["rations"] as Dictionary).get(str(m["id"]), {}) as Dictionary).get("water", false))
+			if want != have:
+				var rows: Array = (_bk.get("_family_box") as Node).get_children()
+				if idx >= 0 and idx < rows.size():
+					var row_btns: Array = []
+					_buttons(rows[idx], "", row_btns)
+					# [food toggle, water toggle, treat, job]
+					if row_btns.size() >= 2:
+						await _click(row_btns[1])
+			var want_f: bool = int(m.get("dwf", 0)) >= 5 and s.food() > 0
+			var have_f: bool = bool(((plan["rations"] as Dictionary).get(str(m["id"]), {}) as Dictionary).get("food", false))
+			if want_f != have_f:
+				var rows2: Array = (_bk.get("_family_box") as Node).get_children()
+				if idx >= 0 and idx < rows2.size():
+					var fb: Array = []
+					_buttons(rows2[idx], "", fb)
+					if not fb.is_empty():
+						await _click(fb[0])
+		# Day 2 onwards: plan an expedition through the planner with the mouse.
+		if not planned_trip and s.day >= 2:
+			var trip_btns: Array = _find("Rest · Trip")
+			for tb in trip_btns:
+				if (tb as Button).disabled:
+					continue
+				await _click(tb)
+				await _frames(15)
+				var tp: Node = _bk.get("_planner")
+				if tp == null:
+					break
+				var list: Array = []
+				_buttons(tp, "", list)
+				var place_btn: Button = null
+				for b2 in list:
+					if str((b2 as Button).text).find(" min walk · risk ") != -1:
+						place_btn = b2
 						break
-			_key(KEY_1 + pick)
-			await _frames(50)
-			rec["scenario"] = str(cine.get("_scenario"))
-			await _snap("d%02d_b_outcome_%s" % [d, rec["scenario"]])
-		elif mode == "playing":
-			if kind == "return":
-				if not rec.has("return_snapped"):
-					await _frames(150)
-					await _snap("d%02d_c_return" % d)
-					rec["return_snapped"] = true
-					(_report["returns"] as Array).append({"day": d, "items": cine.get("_params").get("items", [])})
-			await _frames(5)
-		elif mode == "caption":
-			await _frames(4)
-			_key(KEY_SPACE)
-			await _frames(6)
-		else:
-			await _frames(2)
-	rec["outcome"] = str((_bk.get("_resolved_outcome") as Dictionary).get("outcome_text", ""))
-	return rec
-
-
-func _garage_sequence() -> void:
-	var parts: Dictionary = _gs.get("parts")
-	var veh: Dictionary = _gs.get("vehicle")
-	_check("vehicle_initialised", veh.has("battery_installed"), str(veh))
-	if int(parts.get("car_battery", 0)) <= 0:
-		parts["car_battery"] = 1
-		_report["battery_injected"] = true
-	(_bk.get("_prev_page_btn") as Button).emit_signal("pressed")
-	await _frames(12)
-	await _snap("g00_garage_before")
-	var gv: Control = _bk.get("_garage")
-	var cine: Control = _bk.get("_cinematic")
-	var dose_before: float = 0.0
-	gv.emit_signal("install_requested", "car_battery")
-	await _frames(130)
-	await _snap("g01_install_battery_mid")
-	while cine.visible and str(cine.get("_mode")) != "caption":
-		await _frames(5)
-	await _snap("g02_install_battery_done")
-	_key(KEY_SPACE)
-	await _frames(10)
-	_check("battery_installed_by_player", bool(veh.get("battery_installed", false)) and int(parts.get("car_battery", 0)) == 0)
-	(_report["installs"] as Array).append("car_battery")
-	await _snap("g03_garage_after_battery")
-	# give the rest so the escape can be shown end to end
-	parts["spark_plugs"] = maxi(1, int(parts.get("spark_plugs", 0)))
-	parts["fan_belt"] = maxi(1, int(parts.get("fan_belt", 0)))
-	parts["tire_patch"] = maxi(1, int(parts.get("tire_patch", 0)))
-	parts["fuel_l"] = maxf(30.0, float(parts.get("fuel_l", 0.0)))
-	var vs: GDScript = load("res://scripts/bunker/vehicle_system.gd")
-	for part in ["spark_plugs", "fan_belt", "tire_patch", "fuel_can", "fuel_can", "fuel_can"]:
-		if not (vs.call("missing_parts") as Array).has(part):
-			continue
-		gv.emit_signal("install_requested", part)
-		await _frames(10)
-		while cine.visible:
-			if str(cine.get("_mode")) == "caption":
-				_key(KEY_SPACE)
-			await _frames(5)
-		(_report["installs"] as Array).append(part)
-	await _frames(10)
-	await _snap("g04_garage_ready")
-	_check("car_ready_after_installs", bool(vs.call("is_ready")), str(vs.call("missing_parts")))
-	gv.emit_signal("drive_requested")
-	await _frames(170)
-	await _snap("g05_drive_out")
-	while is_instance_valid(cine) and cine.visible:
-		if str(cine.get("_mode")) == "caption":
-			_key(KEY_SPACE)
-		await _frames(5)
-	await _frames(30)
-	await _snap("g06_summary")
-	_check("drive_out_victory", bool(_gs.get("victory")) and str(_gs.get("ending_title")).begins_with("VICTORY: DROVE OUT"), str(_gs.get("ending_title")))
-
-
-func _wait_transition() -> void:
-	var g: int = 0
-	await _frames(2)
-	while bool(_bk.get("_in_day_transition")) and g < 600:
-		g += 1
-		await _frames(2)
-	await _frames(6)
-
-
-func _key(kc: int) -> void:
-	var ev := InputEventKey.new()
-	ev.keycode = kc
-	ev.physical_keycode = kc
-	ev.pressed = true
-	Input.parse_input_event(ev)
-	var up := InputEventKey.new()
-	up.keycode = kc
-	up.physical_keycode = kc
-	up.pressed = false
-	Input.parse_input_event(up)
-
-
-func _frames(n: int) -> void:
-	for _i in range(n):
-		await process_frame
-
-
-func _snap(name: String) -> void:
-	if not _snap_every or DisplayServer.get_name() == "headless":
-		return
-	await RenderingServer.frame_post_draw
-	var img: Image = root.get_texture().get_image()
-	if img != null:
-		img.save_png(_out + "/" + name + ".png")
-		_shots += 1
+				if place_btn != null:
+					await _click(place_btn)
+					await _frames(8)
+					await _snap("p20_trip_preview")
+					var preview_txt: String = ""
+					for c in (tp.get("_preview") as Node).get_children():
+						if c is Label:
+							preview_txt += str((c as Label).text) + " | "
+					_check("risk_preview_shows_days_risk_dose_loot", preview_txt.find("Trip:") != -1 and preview_txt.find("Chance of not coming back:") != -1 and preview_txt.find("Dose:") != -1 and preview_txt.find("Last stocked:") != -1, preview_txt.substr(0, 200))
+					var send: Array = []
+					_buttons(tp, "Send them tonight", send)
+					if not send.is_empty() and not (send[0] as Button).disabled:
+						await _click(send[0])
+						for k in ((_bk.get("_plan") as Dictionary)["jobs"] as Dictionary).keys():
+							trip_member = str(k)
+						planned_trip = trip_member != ""
+				break
+			if planned_trip:
+				await _snap("p30_trip_planned")
+		await _snap("p40_day%02d" % s.day)
+		var day_before: int = s.day
+		await _key(KEY_ENTER)
+		await _frames(50)
+		await _finish_cinematic()
+		_check("day_%d_advanced" % day_before, s.day == day_before + 1 or s.is_over())
+		for m_v in s.members:
+			if str((m_v as Dictionary).get("loc", "")) == "away":
+				saw_away = true
+		for l_v in (_bk.get("_morning") as Dictionary).get("morning", []):
+			if str((l_v as Dictionary).get("kind", "")) == "trip":
+				saw_away = true
+			if str((l_v as Dictionary).get("kind", "")) == "return":
+				saw_return = true
+			if str((l_v as Dictionary).get("text", "")).begins_with("Used:"):
+				saw_used = true
+		(_report["days"] as Array).append(day_rec)
+	_check("end_day_locked_until_dilemma_answered", saw_end_locked)
+	_check("trip_planned_with_mouse_in_planner", planned_trip, trip_member)
+	_check("explorer_left_the_shelter", saw_away)
+	_check("explorer_came_back_with_a_receipt", saw_return or s.is_over())
+	_check("receipts_name_what_items_did", saw_used)
+	_check("item_options_show_needs_when_missing", saw_needs)
+	await _snap("p90_last")
+	var f := FileAccess.open("%s/play_shelter_report.json" % _out, FileAccess.WRITE)
+	f.store_string(JSON.stringify(_report, "\t"))
+	var fails: int = 0
+	for c_v in _report["checks"]:
+		if not bool((c_v as Dictionary)["ok"]):
+			fails += 1
+	print("PLAY_SHELTER checks=%d fails=%d" % [(_report["checks"] as Array).size(), fails])
+	quit(0 if fails == 0 else 1)

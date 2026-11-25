@@ -7,7 +7,7 @@ extends SceneTree
 const CASES: Array = [
 	["combat", {"tags": ["raid"], "item_used": "rifle", "choice_id": "use_rifle", "outcome_text": "Raiders forced the hatch; the rifle drove them back up the ladder."}],
 	["attack", {"tags": ["raid", "injured"], "item_used": "", "choice_id": "hide", "outcome_text": "Two raiders dropped in, hurt Dolores and took a crate of soup."}],
-	["repair", {"tags": ["item_repaired"], "item_used": "toolbox", "outcome_text": "The vent fan is turning again."}],
+	["repair", {"tags": ["item_repaired"], "item_used": "manual", "outcome_text": "The manual had a diagram. The radio works again."}],
 	["radio", {"tags": ["rescue_progress"], "item_used": "radio", "outcome_text": "A National Guard operator answered on 640 kc."}],
 	["give", {"tags": ["item_lost"], "item_used": "water", "choice_id": "give_water", "outcome_text": "We passed a bottle of water up to the stranger."}],
 	["gain", {"tags": ["item_gained"], "item_used": "", "outcome_text": "The condensation still gave three quarters of a bottle of water."}],
@@ -15,7 +15,7 @@ const CASES: Array = [
 	["sickness", {"tags": ["sick"], "item_used": "", "outcome_text": "Timmy is running a fever."}],
 	["hazard", {"tags": ["hazard_return"], "item_used": "gas_mask", "outcome_text": "Dust poured from the vent; the gas mask kept the sweeper breathing clean air."}],
 	["signal", {"tags": ["rescue_progress"], "item_used": "flashlight", "outcome_text": "Morse flashes from the hatch were answered."}],
-	["celebrate", {"tags": ["morale_up"], "item_used": "harmonica", "outcome_text": "A harmonica tune lifted everyone's spirits."}],
+	["celebrate", {"tags": ["morale_up"], "item_used": "cards", "outcome_text": "A long game of cards. Nobody remembers who won."}],
 	["gloom", {"tags": ["morale_down"], "item_used": "", "outcome_text": "Nobody spoke for hours."}],
 	["pet", {"tags": ["companion"], "item_used": "dog", "outcome_text": "The dog curled up between the kids."}],
 	["victory", {"tags": ["victory"], "item_used": "radio", "outcome_text": "Rescuers opened the hatch."}],
@@ -39,17 +39,15 @@ func _run() -> void:
 	for m in gs.get("family_members"):
 		m["in_bunker"] = true
 		m["alive"] = true
-	for pair in [["soup", 5], ["water", 6], ["medkit", 1], ["gas_mask", 1], ["radio", 1], ["rifle", 1], ["toolbox", 1]]:
+	for pair in [["food", 5], ["water", 6], ["medkit", 1], ["gas_mask", 1], ["radio", 1], ["rifle", 1], ["manual", 1]]:
 		gs.call("add_scavenged_item", pair[0], pair[1])
-	gs.set("has_dog_pancake", true)
 	gs.call("request_screen", "bunker")
 	await _frames(30)
+	(gs.get("shelter") as ShelterState).pets["dog"] = {"since": 1}
 	var bk: Node = main.get("_active_node")
 	var cine: Control = bk.get("_cinematic")
-	# dismiss today's dilemma
+	# M1: the dilemma is a card on the day screen; the cinematic only plays outcomes and returns.
 	while cine.visible:
-		if str(cine.get("_mode")) == "dilemma":
-			bk.call("_on_dilemma_choice", bk.call("_auto_choice_id"))
 		cine.set("_t", 99.0)
 		await _frames(2)
 		if str(cine.get("_mode")) == "caption":

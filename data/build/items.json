@@ -1,0 +1,527 @@
+{
+	"ammo": {
+		"almanac": "A box of reasons the rifle still works.",
+		"breaks_on": {
+
+		},
+		"category": "core",
+		"effects": {
+			"trade_value": 1
+		},
+		"grab_rooms": [
+			"Master Bedroom",
+			"Study",
+			"Storage"
+		],
+		"icon": "res://assets/icons/items/ammo.svg",
+		"icon_author": "Sbed",
+		"icon_color": "#ffd166",
+		"icon_source": "sbed/ammo-box",
+		"id": "ammo",
+		"name": "Ammo",
+		"narration_ids": [],
+		"purpose": "Feeds the rifle; trades for about 1 water",
+		"repair": "",
+		"scrap": {
+
+		},
+		"short_name": "Ammo",
+		"slots": 1,
+		"variants": []
+	},
+	"axe": {
+		"almanac": "Opens doors, fridges and arguments. Usually only once.",
+		"breaks_on": {
+			"trip": 0.1
+		},
+		"category": "core",
+		"effects": {
+			"breaks_on_stop": 1,
+			"raid_stop": 1,
+			"trip_risk_raiders": 0.7
+		},
+		"grab_rooms": [
+			"Utility Room",
+			"Garage Bay",
+			"Storage"
+		],
+		"icon": "res://assets/icons/items/axe.svg",
+		"icon_author": "Lorc",
+		"icon_color": "#d8dde3",
+		"icon_source": "lorc/wood-axe",
+		"id": "axe",
+		"name": "Axe",
+		"narration_ids": [],
+		"purpose": "Stops one raid or indoor threat; then it breaks",
+		"repair": "manual:0.85",
+		"scrap": {
+			"metal": 2
+		},
+		"short_name": "Axe",
+		"slots": 2,
+		"variants": []
+	},
+	"bug_spray": {
+		"almanac": "Smells like a summer evening. The bugs disagree.",
+		"breaks_on": {
+			"use": true
+		},
+		"category": "core",
+		"effects": {
+			"pests": 1
+		},
+		"grab_rooms": [
+			"Utility Room",
+			"Bathroom",
+			"Garage Bay"
+		],
+		"icon": "res://assets/icons/items/bug_spray.svg",
+		"icon_author": "Lorc",
+		"icon_color": "#8fd694",
+		"icon_source": "lorc/aerosol",
+		"id": "bug_spray",
+		"name": "Bug spray",
+		"narration_ids": [],
+		"purpose": "Kills indoor pests; used up",
+		"repair": "none",
+		"scrap": {
+			"chemicals": 1
+		},
+		"short_name": "Spray",
+		"slots": 1,
+		"variants": []
+	},
+	"cards": {
+		"almanac": "Fifty-two cards and one rulebook nobody agrees on.",
+		"breaks_on": {
+
+		},
+		"category": "core",
+		"effects": {
+			"morale": 1,
+			"trade_value": 1
+		},
+		"grab_rooms": [
+			"Living Room",
+			"Dining Room",
+			"Kids Bedroom"
+		],
+		"icon": "res://assets/icons/items/cards.svg",
+		"icon_author": "Lorc",
+		"icon_color": "#b388ff",
+		"icon_source": "lorc/poker-hand",
+		"id": "cards",
+		"name": "Cards",
+		"narration_ids": [],
+		"purpose": "Restores morale; a gift or trade good",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Cards",
+		"slots": 1,
+		"variants": []
+	},
+	"console": {
+		"almanac": "Battery at 61%. Somebody's save file is at stake.",
+		"breaks_on": {
+
+		},
+		"category": "core",
+		"effects": {
+			"kids_sleep": 1,
+			"morale": 1,
+			"trade_value": 1
+		},
+		"grab_rooms": [
+			"Living Room",
+			"Kids Bedroom",
+			"Bedroom"
+		],
+		"icon": "res://assets/icons/items/console.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#b388ff",
+		"icon_source": "delapouite/game-console",
+		"id": "console",
+		"name": "Game console",
+		"narration_ids": [],
+		"purpose": "Restores morale; helps the kids sleep",
+		"repair": "none",
+		"scrap": {
+			"electronics": 1,
+			"plastic": 1
+		},
+		"short_name": "Console",
+		"slots": 1,
+		"variants": []
+	},
+	"flashlight": {
+		"almanac": "Two batteries of courage.",
+		"breaks_on": {
+			"quake": 0.4,
+			"trip": 0.1
+		},
+		"category": "core",
+		"effects": {
+			"dark": 1,
+			"signal": 1
+		},
+		"grab_rooms": [
+			"Utility Room",
+			"Kitchen",
+			"Garage Bay",
+			"Hallway"
+		],
+		"icon": "res://assets/icons/items/flashlight.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#ffd166",
+		"icon_source": "delapouite/flashlight",
+		"id": "flashlight",
+		"name": "Flashlight",
+		"narration_ids": [],
+		"purpose": "Signals rescue; saves you in dark events",
+		"repair": "manual:0.85",
+		"scrap": {
+			"electronics": 1,
+			"plastic": 1
+		},
+		"short_name": "Torch",
+		"slots": 1,
+		"variants": []
+	},
+	"food": {
+		"almanac": "Four meals in a tin. The label promises flavour; the can promises nothing.",
+		"breaks_on": {
+
+		},
+		"category": "core",
+		"effects": {
+			"rations": 4
+		},
+		"grab_rooms": [
+			"Kitchen",
+			"Pantry",
+			"Dining Room",
+			"Utility Room"
+		],
+		"icon": "res://assets/icons/items/food.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#f0a35e",
+		"icon_source": "delapouite/opened-food-can",
+		"id": "food",
+		"name": "Canned food",
+		"narration_ids": [],
+		"purpose": "4 rations of food",
+		"repair": "",
+		"scrap": {
+
+		},
+		"short_name": "Food",
+		"slots": 1,
+		"variants": [
+			"beans",
+			"chili",
+			"ravioli",
+			"soup",
+			"tuna",
+			"peaches",
+			"corn",
+			"chickpeas"
+		]
+	},
+	"gas_mask": {
+		"almanac": "Keeps fallout dust out of the lungs and conversation to a minimum.",
+		"breaks_on": {
+			"quake": 0.4,
+			"trip": 0.1
+		},
+		"category": "core",
+		"effects": {
+			"contamination": 1,
+			"trip_risk_heavy": 1,
+			"trip_sick_heavy": 0.2
+		},
+		"grab_rooms": [
+			"Utility Room",
+			"Hallway",
+			"Master Bedroom",
+			"Storage"
+		],
+		"icon": "res://assets/icons/items/gas_mask.svg",
+		"icon_author": "Lorc",
+		"icon_color": "#8fd694",
+		"icon_source": "lorc/gas-mask",
+		"id": "gas_mask",
+		"name": "Gas mask",
+		"narration_ids": [],
+		"purpose": "Trips in heavy fallout: sick 20% instead of 70%",
+		"repair": "manual:0.85",
+		"scrap": {
+			"cloth": 1,
+			"plastic": 1
+		},
+		"short_name": "Mask",
+		"slots": 1,
+		"variants": []
+	},
+	"manual": {
+		"almanac": "Three hundred pages of advice written by someone with a garage.",
+		"breaks_on": {
+
+		},
+		"category": "core",
+		"effects": {
+			"craft_fail": 0.05,
+			"map_repair": 0.5,
+			"repair": 0.85
+		},
+		"grab_rooms": [
+			"Study",
+			"Living Room",
+			"Bedroom",
+			"Garage Bay"
+		],
+		"icon": "res://assets/icons/items/manual.svg",
+		"icon_author": "Lorc",
+		"icon_color": "#ffd166",
+		"icon_source": "lorc/open-book",
+		"id": "manual",
+		"name": "Survival manual",
+		"narration_ids": [],
+		"purpose": "Repairs gear (85%); study it to learn crafting",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Manual",
+		"slots": 1,
+		"variants": []
+	},
+	"map": {
+		"almanac": "A paper map. It does not need a signal or an update.",
+		"breaks_on": {
+			"trip": 0.1
+		},
+		"category": "core",
+		"effects": {
+			"followed_mult": 0.5,
+			"meetup": 1,
+			"trip_days": -1,
+			"trip_risk": 0.6
+		},
+		"grab_rooms": [
+			"Study",
+			"Living Room",
+			"Hallway",
+			"Garage Bay"
+		],
+		"icon": "res://assets/icons/items/map.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#7fc8f8",
+		"icon_source": "delapouite/atlas",
+		"id": "map",
+		"name": "Map",
+		"narration_ids": [],
+		"purpose": "Trips 1 day shorter and safer; needed for meet-ups",
+		"repair": "manual:0.5",
+		"scrap": {
+
+		},
+		"short_name": "Map",
+		"slots": 1,
+		"variants": []
+	},
+	"medkit": {
+		"almanac": "Gauze, antiseptic, and the confidence of a professional.",
+		"breaks_on": {
+			"use": true
+		},
+		"category": "core",
+		"effects": {
+			"cure": 1,
+			"trip_no_injury": 1
+		},
+		"grab_rooms": [
+			"Bathroom",
+			"Master Bedroom",
+			"Utility Room"
+		],
+		"icon": "res://assets/icons/items/medkit.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#ff6b6b",
+		"icon_source": "delapouite/first-aid-kit",
+		"id": "medkit",
+		"name": "Medkit",
+		"narration_ids": [],
+		"purpose": "Cures one sick or injured person",
+		"repair": "none",
+		"scrap": {
+
+		},
+		"short_name": "Medkit",
+		"slots": 2,
+		"variants": []
+	},
+	"padlock": {
+		"almanac": "Holds the hatch shut once. After that it is jewellery.",
+		"breaks_on": {
+			"raid": true
+		},
+		"category": "core",
+		"effects": {
+			"auto_on_empty": 1,
+			"breaks_on_stop": 1,
+			"raid_stop": 1
+		},
+		"grab_rooms": [
+			"Utility Room",
+			"Garage Bay",
+			"Storage"
+		],
+		"icon": "res://assets/icons/items/padlock.svg",
+		"icon_author": "Lorc",
+		"icon_color": "#d8dde3",
+		"icon_source": "lorc/padlock",
+		"id": "padlock",
+		"name": "Padlock",
+		"narration_ids": [],
+		"purpose": "Stops one raid; locks the hatch when everyone is out",
+		"repair": "none",
+		"scrap": {
+			"metal": 1
+		},
+		"short_name": "Padlock",
+		"slots": 1,
+		"variants": []
+	},
+	"radio": {
+		"almanac": "Hand-cranked. Mostly static, occasionally hope, once a mattress commercial.",
+		"breaks_on": {
+			"quake": 0.4,
+			"tinker": 0.6,
+			"trip": 0.1
+		},
+		"category": "core",
+		"effects": {
+			"fallout_news": 1,
+			"rescue": "convoy"
+		},
+		"grab_rooms": [
+			"Living Room",
+			"Kitchen",
+			"Study"
+		],
+		"icon": "res://assets/icons/items/radio.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#ffb020",
+		"icon_source": "delapouite/pocket-radio",
+		"id": "radio",
+		"name": "Radio",
+		"narration_ids": [],
+		"purpose": "Hears rescue broadcasts and the all-clear",
+		"repair": "manual:0.85",
+		"scrap": {
+			"electronics": 2
+		},
+		"short_name": "Radio",
+		"slots": 1,
+		"variants": []
+	},
+	"rifle": {
+		"almanac": "Settles disputes. Without ammo it is a very persuasive stick, half the time.",
+		"breaks_on": {
+			"no_ammo": 0.5,
+			"trip": 0.1
+		},
+		"category": "core",
+		"effects": {
+			"ammo_per_use": 1,
+			"hunting": 1,
+			"no_ammo_break": 0.5,
+			"raid_stop": 1,
+			"trip_risk_raiders": 0.7
+		},
+		"grab_rooms": [
+			"Master Bedroom",
+			"Study",
+			"Storage"
+		],
+		"icon": "res://assets/icons/items/rifle.svg",
+		"icon_author": "Sbed",
+		"icon_color": "#d8dde3",
+		"icon_source": "sbed/rifle",
+		"id": "rifle",
+		"name": "Rifle",
+		"narration_ids": [],
+		"purpose": "Stops raids; each use costs 1 ammo",
+		"repair": "manual:0.85",
+		"scrap": {
+			"metal": 2
+		},
+		"short_name": "Rifle",
+		"slots": 2,
+		"variants": []
+	},
+	"suitcase": {
+		"almanac": "Wheels, a handle, and room for three more reasons to come home.",
+		"breaks_on": {
+			"trip": 0.1
+		},
+		"category": "core",
+		"effects": {
+			"carry": 3
+		},
+		"grab_rooms": [
+			"Master Bedroom",
+			"Bedroom",
+			"Storage"
+		],
+		"icon": "res://assets/icons/items/suitcase.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#c49a6c",
+		"icon_source": "delapouite/suitcase",
+		"id": "suitcase",
+		"name": "Suitcase",
+		"narration_ids": [],
+		"purpose": "+3 carry slots on expeditions",
+		"repair": "none",
+		"scrap": {
+			"cloth": 1,
+			"plastic": 1
+		},
+		"short_name": "Suitcase",
+		"slots": 3,
+		"variants": []
+	},
+	"water": {
+		"almanac": "Four days of not dying of thirst, if you share it the way the label suggests.",
+		"breaks_on": {
+
+		},
+		"category": "core",
+		"effects": {
+			"rations": 4
+		},
+		"grab_rooms": [
+			"Kitchen",
+			"Pantry",
+			"Bathroom",
+			"Utility Room"
+		],
+		"icon": "res://assets/icons/items/water.svg",
+		"icon_author": "Delapouite",
+		"icon_color": "#4aa3ff",
+		"icon_source": "delapouite/water-bottle",
+		"id": "water",
+		"name": "Water",
+		"narration_ids": [],
+		"purpose": "4 rations of water",
+		"repair": "",
+		"scrap": {
+
+		},
+		"short_name": "Water",
+		"slots": 1,
+		"variants": []
+	}
+}

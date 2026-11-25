@@ -1,0 +1,149 @@
+{
+	"group": "rural",
+	"h1_home_msv": 11500,
+	"house": {
+		"area_sqm": 116,
+		"lat": 42.301,
+		"lon": -93.755,
+		"osm_id": -1
+	},
+	"id": "rural_iowa_0",
+	"location": "rural_iowa",
+	"nearest_essential_m": 4829,
+	"nuke": {
+		"bunker_temp_c": 32.1,
+		"distance_km": 4.00000000000025,
+		"yield_kt": 250,
+		"zone": "ground_zero_edge"
+	},
+	"rad_factors": [
+		0.300824436786181,
+		0.191573417400134,
+		0.178641861462992,
+		0.17229761886459,
+		0.162369826156862,
+		0.15,
+		0.187854631471401,
+		0.192621426845232,
+		0.189234159501074
+	],
+	"targets": [
+		{
+			"area_sqm": 0,
+			"category": "church",
+			"distance_m": 3364,
+			"fictional": false,
+			"lat": 42.2887191772461,
+			"lon": -93.7923812866211,
+			"name": "Our Savior's Lutheran Church",
+			"osm_id": 895747317,
+			"subkind": "church",
+			"walk_m": 4541,
+			"walk_source": "estimate"
+		},
+		{
+			"area_sqm": 0,
+			"category": "grocery",
+			"distance_m": 3577,
+			"fictional": false,
+			"lat": 42.2897300720215,
+			"lon": -93.7957153320313,
+			"name": "Sparky's One Stop",
+			"osm_id": 895747311,
+			"subkind": "convenience",
+			"walk_m": 4829,
+			"walk_source": "estimate"
+		},
+		{
+			"area_sqm": 0,
+			"category": "pharmacy",
+			"distance_m": 3611,
+			"fictional": false,
+			"lat": 42.2900085449219,
+			"lon": -93.7962951660156,
+			"name": "Stanhope Community Medical Center",
+			"osm_id": 895747314,
+			"subkind": "clinic",
+			"walk_m": 4875,
+			"walk_source": "estimate"
+		},
+		{
+			"area_sqm": 0,
+			"category": "grocery",
+			"distance_m": 3676,
+			"fictional": false,
+			"lat": 42.2885818481445,
+			"lon": -93.7964172363281,
+			"name": "Stanhope Locker & Market",
+			"osm_id": 895747309,
+			"subkind": "butcher",
+			"walk_m": 4963,
+			"walk_source": "estimate"
+		},
+		{
+			"area_sqm": 0,
+			"category": "civic",
+			"distance_m": 3685,
+			"fictional": false,
+			"lat": 42.2895202636719,
+			"lon": -93.7970123291016,
+			"name": "Stanhope Fire Department",
+			"osm_id": 895747315,
+			"subkind": "fire_station",
+			"walk_m": 4975,
+			"walk_source": "estimate"
+		},
+		{
+			"area_sqm": 0,
+			"category": "church",
+			"distance_m": 3876,
+			"fictional": false,
+			"lat": 42.2887840270996,
+			"lon": -93.7991180419922,
+			"name": "Stanhope Parish Church",
+			"osm_id": 895747316,
+			"subkind": "church",
+			"walk_m": 5233,
+			"walk_source": "estimate"
+		},
+		{
+			"area_sqm": 0,
+			"category": "auto",
+			"distance_m": 3589,
+			"fictional": false,
+			"lat": 42.2897186279297,
+			"lon": -93.7958679199219,
+			"name": "Sinclair",
+			"osm_id": 895747312,
+			"subkind": "fuel",
+			"walk_m": 4845,
+			"walk_source": "estimate"
+		},
+		{
+			"area_sqm": 0,
+			"category": "school",
+			"distance_m": 3593,
+			"fictional": false,
+			"lat": 42.2891324,
+			"lon": -93.7956267,
+			"name": "Stanhope Community Center",
+			"osm_id": 8326334194,
+			"subkind": "community_centre",
+			"walk_m": 4851,
+			"walk_source": "estimate"
+		},
+		{
+			"area_sqm": 0,
+			"category": "school",
+			"distance_m": 3603,
+			"fictional": false,
+			"lat": 42.2891661,
+			"lon": -93.7957643,
+			"name": "Stanhope Library",
+			"osm_id": 367083982,
+			"subkind": "library",
+			"walk_m": 4864,
+			"walk_source": "estimate"
+		}
+	]
+}

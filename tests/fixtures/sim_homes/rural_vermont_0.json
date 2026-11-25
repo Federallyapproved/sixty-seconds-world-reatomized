@@ -1,0 +1,65 @@
+{
+	"group": "rural",
+	"h1_home_msv": 11500,
+	"house": {
+		"area_sqm": 116,
+		"lat": 44.305,
+		"lon": -72.915,
+		"osm_id": -1
+	},
+	"id": "rural_vermont_0",
+	"location": "rural_vermont",
+	"nearest_essential_m": 99999,
+	"nuke": {
+		"bunker_temp_c": 32.1,
+		"distance_km": 4.0000000000001,
+		"yield_kt": 250,
+		"zone": "ground_zero_edge"
+	},
+	"rad_factors": [
+		0.15,
+		0.15,
+		0.15
+	],
+	"targets": [
+		{
+			"area_sqm": 0,
+			"category": "civic",
+			"distance_m": 4226,
+			"fictional": false,
+			"lat": 44.2949464,
+			"lon": -72.9661707,
+			"name": "Huntington Volunteer Fire Department",
+			"osm_id": 366666456,
+			"subkind": "fire_station",
+			"walk_m": 5705,
+			"walk_source": "estimate"
+		},
+		{
+			"area_sqm": 0,
+			"category": "church",
+			"distance_m": 4247,
+			"fictional": false,
+			"lat": 44.2955096,
+			"lon": -72.9666601,
+			"name": "Huntington Baptist Church",
+			"osm_id": 356556216,
+			"subkind": "church",
+			"walk_m": 5733,
+			"walk_source": "estimate"
+		},
+		{
+			"area_sqm": 0,
+			"category": "school",
+			"distance_m": 4042,
+			"fictional": false,
+			"lat": 44.2954635620117,
+			"lon": -72.963981628418,
+			"name": "Brewster Pierce Memorial School",
+			"osm_id": 569968181,
+			"subkind": "school",
+			"walk_m": 5457,
+			"walk_source": "estimate"
+		}
+	]
+}

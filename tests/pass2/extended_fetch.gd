@@ -117,13 +117,22 @@ func run() -> int:
 	_ok(f.state == "loaded" and f.message.contains("No stores") and f.message.contains("6.0 km"), "nothing within 6 km -> says so: '%s'" % f.message)
 
 	# 4) Guards: an expedition under way keeps its target list; a stale result for another area is ignored.
+	# M1: once the hatch has closed the run refers to places by index, so late results may only add
+	# places at the end, never reshuffle the existing ones.
 	f.test_responses = [{"code": 200, "body": stage1}]
-	GameState.active_expedition = {"poi_index": 0}
-	var before: int = GameState.nearby_pois.size()
+	BunkerSim.start_bunker_run()
+	var ids_before: Array = []
+	for t0 in GameState.nearby_pois:
+		ids_before.append(int((t0 as Dictionary).get("osm_id", 0)))
+	var places_before: int = GameState.shelter.places.size()
 	f.start(h_lat, h_lon)
 	await _wait(f)
-	_ok(GameState.nearby_pois.size() == before, "results arriving mid-expedition do not reshuffle targets")
-	GameState.active_expedition = {}
+	var ids_after: Array = []
+	for t1 in GameState.nearby_pois:
+		ids_after.append(int((t1 as Dictionary).get("osm_id", 0)))
+	_ok(ids_after.slice(0, ids_before.size()) == ids_before and GameState.shelter.places.size() == GameState.nearby_pois.size() and GameState.shelter.places.size() >= places_before, "results arriving mid-run never reshuffle targets (new stores are appended to the run)")
+	GameState.shelter = null
+	var before: int = GameState.nearby_pois.size()
 	f.test_responses = [{"code": 200, "body": stage1}]
 	f.start(h_lat + 0.2, h_lon)
 	await _wait(f)

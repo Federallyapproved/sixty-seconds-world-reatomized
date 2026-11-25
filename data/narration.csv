@@ -1,0 +1,16 @@
+id,trigger,voice,text,audio,status
+day_start_01,day_start,narrator,"Day {n}. The sun came up on schedule. It's the only thing that did.",res://assets/voice/day_start_01.ogg,pending
+day_start_02,day_start,narrator,"No new notifications. There won't be.",res://assets/voice/day_start_02.ogg,pending
+day_start_03,day_start,narrator,"The shelter smells of canned peaches and unresolved arguments.",res://assets/voice/day_start_03.ogg,pending
+day_start_04,day_start,narrator,"Somewhere, a calendar app is still reminding someone about the dentist.",res://assets/voice/day_start_04.ogg,pending
+death_01,death,narrator,"They're gone. The shelter got quieter, and nobody wanted that.",res://assets/voice/death_01.ogg,pending
+death_02,death,narrator,"They didn't come back. Their spot by the radio stays empty a while.",res://assets/voice/death_02.ogg,pending
+death_03,death,narrator,"Their phone is still at four percent, waiting.",res://assets/voice/death_03.ogg,pending
+death_04,death,narrator,"We lost one today. The jokes can wait until tomorrow.",res://assets/voice/death_04.ogg,pending
+break_axe_01,item_break_axe,narrator,"The axe handle snapped. It went down swinging, as advertised.",res://assets/voice/break_axe_01.ogg,pending
+break_flashlight_01,item_break_flashlight,narrator,"The flashlight flickered, weighed its options, and chose darkness.",res://assets/voice/break_flashlight_01.ogg,pending
+break_padlock_01,item_break_padlock,narrator,"The padlock gave out. It's just door jewellery now.",res://assets/voice/break_padlock_01.ogg,pending
+break_radio_01,item_break_radio,narrator,"The radio's last words were a mattress commercial.",res://assets/voice/break_radio_01.ogg,pending
+success_01,success,narrator,"Back with supplies, and only a mild glow.",res://assets/voice/success_01.ogg,pending
+success_02,success,narrator,"Everyone ate today. Write it down; it may be a record.",res://assets/voice/success_02.ogg,pending
+success_03,success,narrator,"The plan worked. Nobody knows what to do with this feeling.",res://assets/voice/success_03.ogg,pending

@@ -4,7 +4,7 @@ extends Control
 ## Interactive Web Mercator OpenStreetMap slippy tile + vector parcel tactical map.
 ## Streams & caches 256x256 PNG tiles from tile.openstreetmap.org via 4 async HTTP workers,
 ## renders crisp vector streets/parks/buildings even offline or on frame 1,
-## highlights hovered/selected houses, and displays Civil Defense range rings & POI badges.
+## highlights hovered/selected houses, and displays distance rings & POI badges.
 
 signal house_clicked(building_dict: Dictionary)
 signal house_hovered(building_dict: Dictionary)
@@ -20,25 +20,25 @@ const TILE_CACHE_DIR := "user://osm_tiles"
 const WORKER_COUNT := 4
 const MAX_MEM_TILES := 280
 
-# Mid-century 1950s CONELRAD cartographic palette
-const COL_PAPER_BASE := Color("#dfd3b8")
-const COL_GRID_LINE := Color(0.18, 0.17, 0.14, 0.08)
-const COL_PARK_FILL := Color(0.44, 0.62, 0.38, 0.42)
-const COL_WATER_FILL := Color(0.26, 0.54, 0.72, 0.48)
-const COL_ROAD_CASE := Color(0.17, 0.15, 0.13, 0.78)
-const COL_ROAD_MAIN := Color("#f5e4b3")
-const COL_ROAD_LOCAL := Color("#f4ecda")
-const COL_BLDG_RES := Color(0.82, 0.63, 0.41, 0.56)
-const COL_BLDG_COMM := Color(0.43, 0.51, 0.55, 0.50)
-const COL_BLDG_NEIGHBOR := Color(0.92, 0.73, 0.28, 0.62)
-const COL_BLDG_OUTLINE := Color(0.13, 0.12, 0.10, 0.85)
-const COL_HOVER_FILL := Color(0.96, 0.75, 0.18, 0.72)
-const COL_SELECT_FILL := Color(0.88, 0.35, 0.17, 0.82)
-const COL_HAZARD_YELLOW := Color("#f5be2e")
-const COL_ATOMIC_ORANGE := Color("#e05a2b")
-const COL_INK_DARK := Color("#1b1917")
-const COL_PARCHMENT := Color("#f2e6ce")
-const COL_SAFE_GREEN := Color("#7ec850")
+# Modern map-app palette: cool light basemap, dark chrome, amber/red alert accents
+const COL_PAPER_BASE := Color("#e4e7eb")
+const COL_GRID_LINE := Color(0.06, 0.07, 0.08, 0.06)
+const COL_PARK_FILL := Color(0.30, 0.76, 0.54, 0.36)
+const COL_WATER_FILL := Color(0.29, 0.64, 1.0, 0.40)
+const COL_ROAD_CASE := Color(0.22, 0.25, 0.29, 0.70)
+const COL_ROAD_MAIN := Color("#ffffff")
+const COL_ROAD_LOCAL := Color("#f4f5f7")
+const COL_BLDG_RES := Color(0.60, 0.64, 0.68, 0.50)
+const COL_BLDG_COMM := Color(0.42, 0.48, 0.56, 0.50)
+const COL_BLDG_NEIGHBOR := Color(1.0, 0.69, 0.13, 0.55)
+const COL_BLDG_OUTLINE := Color(0.06, 0.07, 0.08, 0.80)
+const COL_HOVER_FILL := Color(1.0, 0.69, 0.13, 0.70)
+const COL_SELECT_FILL := Color(1.0, 0.30, 0.31, 0.80)
+const COL_HAZARD_YELLOW := Color("#ffb020")
+const COL_ALERT_RED := Color("#ff4d4f")
+const COL_INK_DARK := Color("#0f1115")
+const COL_TEXT_LIGHT := Color("#e8eaed")
+const COL_SAFE_GREEN := Color("#4cc38a")
 
 var center_lat: float = 47.6240
 var center_lon: float = -122.3195
@@ -136,24 +136,24 @@ func _build_zoom_buttons() -> void:
 
 func _style_map_button(btn: Button) -> void:
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.13, 0.15, 0.13, 0.94)
+	normal.bg_color = Color(0.10, 0.12, 0.14, 0.94)
 	normal.border_color = COL_HAZARD_YELLOW
 	normal.set_border_width_all(2)
 	normal.set_corner_radius_all(4)
 
 	var hover := normal.duplicate() as StyleBoxFlat
-	hover.bg_color = Color(0.24, 0.27, 0.23, 0.98)
-	hover.border_color = Color("#ffe074")
+	hover.bg_color = Color(0.15, 0.17, 0.20, 0.98)
+	hover.border_color = Color("#ffc45c")
 
 	var pressed_sb := normal.duplicate() as StyleBoxFlat
-	pressed_sb.bg_color = COL_ATOMIC_ORANGE
-	pressed_sb.border_color = COL_PARCHMENT
+	pressed_sb.bg_color = COL_ALERT_RED
+	pressed_sb.border_color = COL_TEXT_LIGHT
 
 	btn.add_theme_stylebox_override("normal", normal)
 	btn.add_theme_stylebox_override("hover", hover)
 	btn.add_theme_stylebox_override("pressed", pressed_sb)
 	btn.add_theme_color_override("font_color", COL_HAZARD_YELLOW)
-	btn.add_theme_color_override("font_hover_color", Color("#fff4cf"))
+	btn.add_theme_color_override("font_hover_color", Color("#ffffff"))
 	btn.add_theme_color_override("font_pressed_color", COL_INK_DARK)
 	btn.add_theme_font_size_override("font_size", 20)
 
@@ -528,7 +528,7 @@ func _draw() -> void:
 	if font == null:
 		font = ThemeDB.fallback_font
 
-	# 1. Warm Civil Defense survey drafting paper background + grid
+	# 1. Cool light basemap background + grid
 	draw_rect(vp_rect, COL_PAPER_BASE, true)
 	_draw_survey_grid(vp_rect)
 
@@ -717,7 +717,7 @@ func _draw_roads_vector(vp_rect: Rect2, font: Font, draw_labels: bool) -> void:
 					labeled_names[rname] = true
 					var label_pos: Vector2 = (p_a + p_b) * 0.5 + Vector2(-float(rname.length()) * 2.8, 4.0)
 					draw_string_outline(font, label_pos, rname, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, 3, Color(0.96, 0.92, 0.82, 0.92))
-					draw_string(font, label_pos, rname, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.18, 0.16, 0.13, 0.92))
+					draw_string(font, label_pos, rname, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.15, 0.17, 0.20, 0.92))
 
 func _road_base_width(kind: String) -> float:
 	match kind:
@@ -807,17 +807,17 @@ func _draw_building_parcels(vp_rect: Rect2) -> void:
 		_safe_draw_filled_polygon(scr, fill_col)
 		_draw_closed_outline(scr, COL_BLDG_OUTLINE, 1.4 if is_neighbor else 1.1)
 
-	# Draw hovered house on top in bright translucent CONELRAD hazard yellow
+	# Draw hovered house on top in translucent alert amber
 	if not hovered_draw_entry.is_empty():
 		var h_poly: PackedVector2Array = hovered_draw_entry.get("poly", PackedVector2Array())
 		_safe_draw_filled_polygon(h_poly, COL_HOVER_FILL)
 		_draw_closed_outline(h_poly, COL_INK_DARK, 3.4)
 		_draw_closed_outline(h_poly, COL_HAZARD_YELLOW, 2.0)
 
-	# Draw selected house ("YOUR HOUSE") with bold pulsing orange/yellow Civil Defense highlight
+	# Draw selected house ("YOUR HOUSE") with a bold pulsing red/amber highlight
 	if not selected_draw_entry.is_empty():
 		var s_poly: PackedVector2Array = selected_draw_entry.get("poly", PackedVector2Array())
-		var glow_col := Color(0.96, 0.75, 0.18, 0.35 + 0.30 * pulse)
+		var glow_col := Color(1.0, 0.69, 0.13, 0.35 + 0.30 * pulse)
 		_draw_closed_outline(s_poly, glow_col, 7.5 + 2.5 * pulse)
 		_safe_draw_filled_polygon(s_poly, COL_SELECT_FILL)
 		_draw_closed_outline(s_poly, COL_INK_DARK, 4.0)
@@ -828,14 +828,14 @@ func _draw_range_rings_and_links(sel_screen: Vector2, font: Font) -> void:
 	var r_150: float = 150.0 / mpp
 	var r_300: float = 300.0 / mpp
 
-	_draw_dashed_circle(sel_screen, r_150, Color(0.32, 0.62, 0.24, 0.72), 1.8, 44)
-	_draw_dashed_circle(sel_screen, r_300, Color(0.86, 0.34, 0.16, 0.65), 1.8, 64)
+	_draw_dashed_circle(sel_screen, r_150, Color(0.30, 0.76, 0.54, 0.72), 1.8, 44)
+	_draw_dashed_circle(sel_screen, r_300, Color(1.0, 0.30, 0.31, 0.65), 1.8, 64)
 
 	# Range ring pill tags
 	if r_150 > 38.0:
-		_draw_micro_pill(font, sel_screen + Vector2(r_150 * 0.707 - 26.0, -r_150 * 0.707 - 8.0), "150m", Color(0.14, 0.22, 0.13, 0.88), COL_SAFE_GREEN)
+		_draw_micro_pill(font, sel_screen + Vector2(r_150 * 0.707 - 26.0, -r_150 * 0.707 - 8.0), "150m", Color(0.09, 0.19, 0.15, 0.88), COL_SAFE_GREEN)
 	if r_300 > 70.0:
-		_draw_micro_pill(font, sel_screen + Vector2(r_300 * 0.707 - 26.0, -r_300 * 0.707 - 8.0), "300m", Color(0.24, 0.13, 0.10, 0.88), COL_ATOMIC_ORANGE)
+		_draw_micro_pill(font, sel_screen + Vector2(r_300 * 0.707 - 26.0, -r_300 * 0.707 - 8.0), "300m", Color(0.20, 0.10, 0.11, 0.88), COL_ALERT_RED)
 
 	# Dashed tactical bearing lines to key POIs (Churches, Groceries, Pharmacies, Hardware, Schools)
 	var drawn_links: int = 0
@@ -1002,9 +1002,9 @@ func _draw_poi_markers(vp_rect: Rect2, font: Font, has_selected: bool = false, s
 		if not found:
 			continue
 
-		var bg_col: Color = Color(0.13, 0.14, 0.11, 0.95) if is_hi else Color(0.09, 0.10, 0.09, 0.84)
+		var bg_col: Color = Color(0.10, 0.12, 0.14, 0.95) if is_hi else Color(0.06, 0.07, 0.08, 0.84)
 		var border_col: Color = COL_HAZARD_YELLOW if is_hi else Color(0.92, 0.86, 0.72, 0.42)
-		var text_col: Color = COL_HAZARD_YELLOW if is_hi else COL_PARCHMENT
+		var text_col: Color = COL_HAZARD_YELLOW if is_hi else COL_TEXT_LIGHT
 		draw_rect(chosen_rect, bg_col, true)
 		draw_rect(chosen_rect, border_col, false, 1.4 if is_hi else 1.0)
 
@@ -1027,7 +1027,7 @@ func _draw_selected_house_reticle(sel_screen: Vector2, vp_rect: Rect2, font: Fon
 		var ang: float = float(spoke) * TAU / 3.0 + _anim_time * 0.9
 		var dir := Vector2(cos(ang), sin(ang))
 		draw_line(sel_screen - dir * 5.5, sel_screen + dir * 5.5, COL_HAZARD_YELLOW, 1.8, true)
-	draw_circle(sel_screen, 2.2, COL_ATOMIC_ORANGE)
+	draw_circle(sel_screen, 2.2, COL_ALERT_RED)
 	draw_arc(sel_screen, ring_r, 0.0, TAU, 32, COL_HAZARD_YELLOW, 2.0, true)
 
 	# Bold "★ YOUR HOUSE" callout tag prominently on top
@@ -1043,11 +1043,11 @@ func _draw_selected_house_reticle(sel_screen: Vector2, vp_rect: Rect2, font: Fon
 func _draw_map_hud_chrome(vp_rect: Rect2, font: Font) -> void:
 	# Outer tactical map bezel
 	draw_rect(vp_rect, COL_INK_DARK, false, 3.0)
-	draw_rect(vp_rect.grow(-2.0), Color(0.95, 0.74, 0.18, 0.55), false, 1.0)
+	draw_rect(vp_rect.grow(-2.0), Color(1.0, 0.69, 0.13, 0.55), false, 1.0)
 
 	# Top-left North Compass Rose badge
 	var comp_c := Vector2(30.0, 32.0)
-	draw_circle(comp_c, 19.0, Color(0.11, 0.12, 0.11, 0.90))
+	draw_circle(comp_c, 19.0, Color(0.10, 0.12, 0.14, 0.90))
 	draw_arc(comp_c, 19.0, 0.0, TAU, 28, COL_HAZARD_YELLOW, 1.6, true)
 	var north_tri := PackedVector2Array([
 		comp_c + Vector2(0.0, -14.0),
@@ -1059,15 +1059,15 @@ func _draw_map_hud_chrome(vp_rect: Rect2, font: Font) -> void:
 		comp_c + Vector2(4.5, 2.0),
 		comp_c + Vector2(-4.5, 2.0)
 	])
-	draw_colored_polygon(north_tri, COL_ATOMIC_ORANGE)
-	draw_colored_polygon(south_tri, COL_PARCHMENT)
+	draw_colored_polygon(north_tri, COL_ALERT_RED)
+	draw_colored_polygon(south_tri, COL_TEXT_LIGHT)
 	draw_string(font, comp_c + Vector2(-4.0, -3.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_HAZARD_YELLOW)
 
 	# Zoom badge above +/- buttons
 	var z_box := Rect2(vp_rect.size.x - 48.0, vp_rect.size.y - 134.0, 36.0, 22.0)
-	draw_rect(z_box, Color(0.11, 0.12, 0.11, 0.92), true)
+	draw_rect(z_box, Color(0.10, 0.12, 0.14, 0.92), true)
 	draw_rect(z_box, COL_HAZARD_YELLOW, false, 1.2)
-	draw_string(font, z_box.position + Vector2(6.0, 15.0), "Z%d" % zoom, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_PARCHMENT)
+	draw_string(font, z_box.position + Vector2(6.0, 15.0), "Z%d" % zoom, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_TEXT_LIGHT)
 
 	# Bottom-left Metric Scale Bar
 	var mpp: float = maxf(0.1, get_meters_per_pixel())
@@ -1075,17 +1075,17 @@ func _draw_map_hud_chrome(vp_rect: Rect2, font: Font) -> void:
 	var bar_px: float = float(scale_meters) / mpp
 	var bar_origin := Vector2(14.0, vp_rect.size.y - 26.0)
 	var scale_bg := Rect2(10.0, vp_rect.size.y - 44.0, bar_px + 54.0, 24.0)
-	draw_rect(scale_bg, Color(0.11, 0.12, 0.11, 0.86), true)
+	draw_rect(scale_bg, Color(0.10, 0.12, 0.14, 0.86), true)
 	draw_line(bar_origin, bar_origin + Vector2(bar_px, 0.0), COL_HAZARD_YELLOW, 2.2)
 	draw_line(bar_origin + Vector2(0.0, -5.0), bar_origin + Vector2(0.0, 3.0), COL_HAZARD_YELLOW, 2.0)
 	draw_line(bar_origin + Vector2(bar_px, -5.0), bar_origin + Vector2(bar_px, 3.0), COL_HAZARD_YELLOW, 2.0)
-	draw_string(font, bar_origin + Vector2(bar_px + 6.0, 2.0), "%dm" % scale_meters, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_PARCHMENT)
+	draw_string(font, bar_origin + Vector2(bar_px + 6.0, 2.0), "%dm" % scale_meters, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_TEXT_LIGHT)
 
 	# Bottom-right OpenStreetMap attribution strip
 	var attr_text := "© OpenStreetMap contributors"
 	var attr_w: float = 176.0
 	var attr_rect := Rect2(vp_rect.size.x - attr_w - 8.0, vp_rect.size.y - 22.0, attr_w, 16.0)
-	draw_rect(attr_rect, Color(0.10, 0.11, 0.10, 0.82), true)
+	draw_rect(attr_rect, Color(0.06, 0.07, 0.08, 0.82), true)
 	draw_string(font, attr_rect.position + Vector2(6.0, 12.0), attr_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.85, 0.80, 0.68, 0.90))
 
 func _draw_hover_tooltip(vp_rect: Rect2, font: Font) -> void:
@@ -1104,14 +1104,14 @@ func _draw_hover_tooltip(vp_rect: Rect2, font: Font) -> void:
 
 	var r := Rect2(pos, Vector2(box_w, box_h))
 	draw_rect(r.grow(1.5), COL_INK_DARK, true)
-	draw_rect(r, Color(0.14, 0.15, 0.13, 0.96), true)
+	draw_rect(r, Color(0.10, 0.12, 0.14, 0.96), true)
 	draw_rect(r, COL_HAZARD_YELLOW, false, 1.8)
-	draw_string(font, pos + Vector2(9.0, 16.0), line1, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COL_PARCHMENT)
+	draw_string(font, pos + Vector2(9.0, 16.0), line1, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, COL_TEXT_LIGHT)
 	draw_string(font, pos + Vector2(9.0, 32.0), line2, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_SAFE_GREEN if is_sel else COL_HAZARD_YELLOW)
 
 static func draw_poi_badge(canvas: CanvasItem, center: Vector2, radius: float, category: String, highlighted: bool = false) -> void:
 	var bg_col: Color = _category_accent_color(category)
-	var rim_col: Color = COL_HAZARD_YELLOW if highlighted else COL_PARCHMENT
+	var rim_col: Color = COL_HAZARD_YELLOW if highlighted else COL_TEXT_LIGHT
 
 	if category == "neighbor_house":
 		var pts := PackedVector2Array([
@@ -1125,17 +1125,17 @@ static func draw_poi_badge(canvas: CanvasItem, center: Vector2, radius: float, c
 		var inner_pts := PackedVector2Array()
 		for p in pts:
 			inner_pts.append(center + (p - center) * 0.76)
-		canvas.draw_colored_polygon(inner_pts, Color("#e8c872") if not highlighted else COL_HAZARD_YELLOW)
+		canvas.draw_colored_polygon(inner_pts, Color("#ffc45c") if not highlighted else COL_HAZARD_YELLOW)
 		return
 
 	if highlighted:
-		canvas.draw_circle(center, radius + 3.5, Color(0.96, 0.75, 0.18, 0.42))
+		canvas.draw_circle(center, radius + 3.5, Color(1.0, 0.69, 0.13, 0.42))
 	canvas.draw_circle(center, radius + 1.6, COL_INK_DARK)
 	canvas.draw_circle(center, radius, bg_col)
 	canvas.draw_arc(center, radius, 0.0, TAU, 24, rim_col, 1.5, true)
 
 	var s: float = radius * 0.56
-	var icon_col := Color("#fff8e8")
+	var icon_col := Color("#ffffff")
 
 	match category:
 		"church":

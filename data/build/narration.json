@@ -1,0 +1,122 @@
+{
+	"break_axe_01": {
+		"audio": "res://assets/voice/break_axe_01.ogg",
+		"id": "break_axe_01",
+		"status": "pending",
+		"text": "The axe handle snapped. It went down swinging, as advertised.",
+		"trigger": "item_break_axe",
+		"voice": "narrator"
+	},
+	"break_flashlight_01": {
+		"audio": "res://assets/voice/break_flashlight_01.ogg",
+		"id": "break_flashlight_01",
+		"status": "pending",
+		"text": "The flashlight flickered, weighed its options, and chose darkness.",
+		"trigger": "item_break_flashlight",
+		"voice": "narrator"
+	},
+	"break_padlock_01": {
+		"audio": "res://assets/voice/break_padlock_01.ogg",
+		"id": "break_padlock_01",
+		"status": "pending",
+		"text": "The padlock gave out. It's just door jewellery now.",
+		"trigger": "item_break_padlock",
+		"voice": "narrator"
+	},
+	"break_radio_01": {
+		"audio": "res://assets/voice/break_radio_01.ogg",
+		"id": "break_radio_01",
+		"status": "pending",
+		"text": "The radio's last words were a mattress commercial.",
+		"trigger": "item_break_radio",
+		"voice": "narrator"
+	},
+	"day_start_01": {
+		"audio": "res://assets/voice/day_start_01.ogg",
+		"id": "day_start_01",
+		"status": "pending",
+		"text": "Day {n}. The sun came up on schedule. It's the only thing that did.",
+		"trigger": "day_start",
+		"voice": "narrator"
+	},
+	"day_start_02": {
+		"audio": "res://assets/voice/day_start_02.ogg",
+		"id": "day_start_02",
+		"status": "pending",
+		"text": "No new notifications. There won't be.",
+		"trigger": "day_start",
+		"voice": "narrator"
+	},
+	"day_start_03": {
+		"audio": "res://assets/voice/day_start_03.ogg",
+		"id": "day_start_03",
+		"status": "pending",
+		"text": "The shelter smells of canned peaches and unresolved arguments.",
+		"trigger": "day_start",
+		"voice": "narrator"
+	},
+	"day_start_04": {
+		"audio": "res://assets/voice/day_start_04.ogg",
+		"id": "day_start_04",
+		"status": "pending",
+		"text": "Somewhere, a calendar app is still reminding someone about the dentist.",
+		"trigger": "day_start",
+		"voice": "narrator"
+	},
+	"death_01": {
+		"audio": "res://assets/voice/death_01.ogg",
+		"id": "death_01",
+		"status": "pending",
+		"text": "They're gone. The shelter got quieter, and nobody wanted that.",
+		"trigger": "death",
+		"voice": "narrator"
+	},
+	"death_02": {
+		"audio": "res://assets/voice/death_02.ogg",
+		"id": "death_02",
+		"status": "pending",
+		"text": "They didn't come back. Their spot by the radio stays empty a while.",
+		"trigger": "death",
+		"voice": "narrator"
+	},
+	"death_03": {
+		"audio": "res://assets/voice/death_03.ogg",
+		"id": "death_03",
+		"status": "pending",
+		"text": "Their phone is still at four percent, waiting.",
+		"trigger": "death",
+		"voice": "narrator"
+	},
+	"death_04": {
+		"audio": "res://assets/voice/death_04.ogg",
+		"id": "death_04",
+		"status": "pending",
+		"text": "We lost one today. The jokes can wait until tomorrow.",
+		"trigger": "death",
+		"voice": "narrator"
+	},
+	"success_01": {
+		"audio": "res://assets/voice/success_01.ogg",
+		"id": "success_01",
+		"status": "pending",
+		"text": "Back with supplies, and only a mild glow.",
+		"trigger": "success",
+		"voice": "narrator"
+	},
+	"success_02": {
+		"audio": "res://assets/voice/success_02.ogg",
+		"id": "success_02",
+		"status": "pending",
+		"text": "Everyone ate today. Write it down; it may be a record.",
+		"trigger": "success",
+		"voice": "narrator"
+	},
+	"success_03": {
+		"audio": "res://assets/voice/success_03.ogg",
+		"id": "success_03",
+		"status": "pending",
+		"text": "The plan worked. Nobody knows what to do with this feeling.",
+		"trigger": "success",
+		"voice": "narrator"
+	}
+}

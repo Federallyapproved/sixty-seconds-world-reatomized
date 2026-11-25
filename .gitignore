@@ -7,3 +7,9 @@ serve_web.py
 screenshots/
 *.avi
 /demo_showcase.mp4
+
+# Raw OSM extracts for the balance fixtures (rebuild with tools/fetch_sim_osm.py)
+tests/fixtures/osm_raw/
+
+# Local window settings (no-focus test windows)
+override.cfg

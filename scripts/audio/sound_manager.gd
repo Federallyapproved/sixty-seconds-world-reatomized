@@ -1,9 +1,9 @@
 extends Node
 
-## Procedural 1950s Civil Defense CONELRAD Audio Synthesizer & Sound Manager.
+## Procedural audio synthesizer and sound manager (outdoor warning sirens, emergency-alert tones).
 ## Generates crisp 16-bit mono 22050 Hz PCM AudioStreamWAV assets at startup so
 ## there are zero external audio dependencies and Godot --write-movie captures
-## authentic retro SFX and continuous atmospheric background audio.
+## its SFX and continuous atmospheric background audio.
 
 const MIX_RATE: int = 22050
 const SFX_POOL_SIZE: int = 6
@@ -170,7 +170,7 @@ func _generate_all_ambience() -> void:
 	_ambient_streams["scavenge"] = _synth_ambience_scavenge()
 	_ambient_streams["bunker"] = _synth_ambience_bunker()
 
-# 1. "siren": Rising-and-falling 1950s dual-tone Civil Defense air-raid siren (2.2s)
+# 1. "siren": Rising-and-falling dual-tone outdoor warning siren (2.2s)
 func _synth_siren() -> AudioStreamWAV:
 	var dur: float = 2.2
 	var n: int = int(dur * MIX_RATE)
@@ -188,7 +188,7 @@ func _synth_siren() -> AudioStreamWAV:
 		else:
 			curve = 1.0 - 0.58 * smoothstep(0.52, 1.0, u)
 		var f1: float = lerpf(285.0, 690.0, curve)
-		var f2: float = f1 * 1.20 # Classic 5:6 dual-rotor Civil Defense portamento
+		var f2: float = f1 * 1.20 # 5:6 dual-rotor siren portamento
 		p1 += TAU * f1 * inv_sr
 		p2 += TAU * f2 * inv_sr
 		var horn_a: float = sin(p1) + 0.42 * sin(2.0 * p1) + 0.20 * sin(3.0 * p1)
@@ -231,14 +231,14 @@ func _synth_urgent_tick() -> AudioStreamWAV:
 		if t >= 0.048:
 			var dt: float = t - 0.048
 			s += (sin(TAU * 2650.0 * dt) * 0.55 + _next_noise() * 0.35) * exp(-dt * 130.0)
-		# Urgent CONELRAD 1040 Hz + 1560 Hz alert pip
+		# Emergency Alert System two-tone pip (853 Hz + 960 Hz)
 		var beep_env: float = sin(PI * clampf(t / 0.105, 0.0, 1.0))
-		var beep: float = (sin(TAU * 1040.0 * t) * 0.65 + sin(TAU * 2080.0 * t) * 0.25) * beep_env * 0.48
+		var beep: float = (sin(TAU * 853.0 * t) * 0.48 + sin(TAU * 960.0 * t) * 0.42) * beep_env * 0.48
 		var fade_out: float = minf(1.0, (dur - t) / 0.01)
 		buf[i] = clampf((s + beep) * fade_out * 0.85, -0.95, 0.95)
 	return _build_wav(buf, false)
 
-# 4. "pickup": Snappy upward retro chime/pop (0.14s)
+# 4. "pickup": Snappy upward chime/pop (0.14s)
 func _synth_pickup() -> AudioStreamWAV:
 	var dur: float = 0.14
 	var n: int = int(dur * MIX_RATE)
@@ -384,7 +384,7 @@ func _synth_page_turn() -> AudioStreamWAV:
 		buf[i] = clampf((lp * env * 0.85 + flick) * 0.68, -0.9, 0.9)
 	return _build_wav(buf, false)
 
-# 9. "button_click": Tactile bakelite switch click (0.05s)
+# 9. "button_click": Tactile plastic switch click (0.05s)
 func _synth_button_click() -> AudioStreamWAV:
 	var dur: float = 0.05
 	var n: int = int(dur * MIX_RATE)
@@ -399,7 +399,7 @@ func _synth_button_click() -> AudioStreamWAV:
 			+ sin(TAU * 2420.0 * t) * 0.35
 			+ _next_noise() * 0.40 * exp(-t * 320.0)
 		) * exp(-t * 170.0)
-		# Stage 2: bakelite housing settle at t=0.015s
+		# Stage 2: housing settle at t=0.015s
 		var snap2: float = 0.0
 		if t >= 0.015:
 			var dt: float = t - 0.015
@@ -451,7 +451,7 @@ func _synth_knock() -> AudioStreamWAV:
 		buf[i] = tanh(s * 1.1) * fade_out * 0.82
 	return _build_wav(buf, false)
 
-# 12. "victory": Warm brassy 4-note major Civil Defense fanfare (1.4s)
+# 12. "victory": Warm brassy 4-note major fanfare (1.4s)
 func _synth_victory() -> AudioStreamWAV:
 	var dur: float = 1.4
 	var n: int = int(dur * MIX_RATE)
@@ -495,7 +495,7 @@ func _brass_voice(freq: float, local_t: float, note_dur: float) -> float:
 	)
 	return wave * attack * release * sustain_decay
 
-# 13. "gameover": Somber descending minor tube chord (1.5s)
+# 13. "gameover": Somber descending minor chord (1.5s)
 func _synth_gameover() -> AudioStreamWAV:
 	var dur: float = 1.5
 	var n: int = int(dur * MIX_RATE)
@@ -520,7 +520,7 @@ func _synth_gameover() -> AudioStreamWAV:
 			lead_env = minf(1.0, lt2 / 0.03) * exp(-lt2 * 1.8)
 
 		var lead: float = (sin(TAU * lead_f * vib * t) * 0.6 + sin(TAU * 2.0 * lead_f * vib * t) * 0.22) * lead_env * 0.42
-		# Underlying warm vacuum-tube D-minor chord (D3, F3, A3)
+		# Underlying warm D-minor pad (D3, F3, A3)
 		var pad_env: float = minf(1.0, t / 0.08) * exp(-t * 1.15) * minf(1.0, (dur - t) / 0.18)
 		var pad: float = (
 			sin(TAU * 146.83 * t) * 0.42
@@ -531,7 +531,7 @@ func _synth_gameover() -> AudioStreamWAV:
 		buf[i] = tanh((lead + pad) * 1.05) * 0.78
 	return _build_wav(buf, false)
 
-# Looping Ambience 1: "menu" — CONELRAD tube radio hum & subtle carrier tone (2.0s seamless loop)
+# Looping Ambience 1: "menu" — mains hum & a faint emergency-broadcast carrier tone (2.0s seamless loop)
 func _synth_ambience_menu() -> AudioStreamWAV:
 	var dur: float = 2.0
 	var n: int = int(dur * MIX_RATE)
@@ -547,7 +547,7 @@ func _synth_ambience_menu() -> AudioStreamWAV:
 		buf[i] = (hum + carrier + lp * 0.16) * 0.55
 	return _build_wav(buf, true)
 
-# Looping Ambience 2: "scavenge" — Urgent Civil Defense dynamo drone & subtle pulse (2.0s seamless loop)
+# Looping Ambience 2: "scavenge" — Urgent siren-backed drone & subtle pulse (2.0s seamless loop)
 func _synth_ambience_scavenge() -> AudioStreamWAV:
 	var dur: float = 2.0
 	var n: int = int(dur * MIX_RATE)

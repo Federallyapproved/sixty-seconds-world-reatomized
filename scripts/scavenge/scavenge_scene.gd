@@ -1,11 +1,10 @@
 class_name ScavengeScene
 extends Node2D
 
-## 60-Second Real-World OSM House Scavenge Sequence for "The End Is Near".
-## Runs the Recon/Scout phase + frantic 60.0-second CONELRAD countdown inside the
-## player's chosen OpenStreetMap house footprint, with sliding physics, furniture bump
-## juice, multi-slot carry management, automatic Bunker Hatch chute drops, and a smart
-## pathfinding Auto-Pilot for GameState.demo_mode.
+## The grab: a look-around (recon) phase, then the timed scramble inside the player's chosen
+## OpenStreetMap house footprint, with sliding physics, furniture bumps, multi-slot carrying,
+## drops down the shelter hatch, and a pathfinding autopilot for GameState.demo_mode.
+## Both timers come from the difficulty: GameState.recon_seconds() / GameState.grab_seconds().
 
 signal item_picked_up(item_id: String, slots: int)
 signal family_picked_up(member_id: String, slots: int)
@@ -18,26 +17,27 @@ enum Phase {
 	OUTRO
 }
 
-# Mid-Century 1950s CONELRAD Civil Defense Palette
-const COL_BG_NIGHT := Color("#161916")
-const COL_YARD_GRASS := Color("#2c3827")
-const COL_YARD_STRIPE := Color("#263122")
-const COL_SIDEWALK := Color("#9b9484")
-const COL_FLOOR_BASE := Color("#e4d5b7")
-const COL_PARCHMENT := Color("#f2e6ce")
-const COL_PARCHMENT_DARK := Color("#dccba6")
-const COL_INK := Color("#1b1917")
-const COL_SLATE := Color("#232824")
-const COL_SLATE_DARK := Color("#181c19")
-const COL_WALL_EXT := Color("#25211d")
-const COL_WALL_INT := Color("#3f372f")
-const COL_WALL_TRIM := Color("#cbbba0")
-const COL_HAZARD_YELLOW := Color("#f5be2e")
-const COL_HAZARD_GOLD := Color("#c98f18")
-const COL_ATOMIC_ORANGE := Color("#e05a2b")
-const COL_ALERT_RED := Color("#d94c2a")
-const COL_TOXIC_GREEN := Color("#7ec850")
-const COL_WATER_BLUE := Color("#3b8ec2")
+# Present-day palette: a night yard, light modern floors, dark phone-style HUD chrome
+const COL_BG_NIGHT := Color("#0f1115")
+const COL_YARD_GRASS := Color("#2a3a2c")
+const COL_YARD_STRIPE := Color("#26352a")
+const COL_SIDEWALK := Color("#9ba1a6")
+const COL_FLOOR_BASE := Color("#dcd7cf")
+const COL_TEXT := Color("#e8eaed")
+const COL_TEXT_MUTED := Color("#9aa3ad")
+const COL_INK := Color("#0f1115")
+const COL_SLATE := Color("#262c34")
+const COL_SLATE_DARK := Color("#1a1e24")
+const COL_BORDER := Color("#39414b")
+const COL_WALL_EXT := Color("#2b2f35")
+const COL_WALL_INT := Color("#4a4f57")
+const COL_WALL_TRIM := Color("#c9ccd1")
+const COL_AMBER := Color("#ffb020")
+const COL_AMBER_DARK := Color("#e09600")
+const COL_ALERT_RED := Color("#ff4d4f")
+const COL_OK_GREEN := Color("#4cc38a")
+const COL_WATER_BLUE := Color("#4aa3ff")
+const COL_FOOD := Color("#f0a35e")
 
 # Gameplay & Physics Constants
 const BASE_MOVE_SPEED: float = 165.0
@@ -51,7 +51,7 @@ const HATCH_DROP_MARGIN: float = 18.0
 const HATCH_END_MARGIN: float = 42.0
 const OUTRO_DURATION: float = 1.8
 const BASE_CARRY_SLOTS: int = 4
-const SUITCASE_EXTRA_SLOTS: int = 3      # only while the suitcase is in your hands (it uses 2 itself)
+const SUITCASE_EXTRA_SLOTS: int = 4      # only while the suitcase is in your hands (it uses 3 itself: net +1)
 const GRAB_TIME_ITEM: float = 0.45
 const GRAB_TIME_HEAVY: float = 0.7
 const GRAB_TIME_FAMILY: float = 0.95
@@ -119,8 +119,8 @@ var _room_patterns: Array = []            # precomputed clipped floor pattern li
 # Phase & Timers
 var _phase: int = Phase.SCOUT
 var _anim_time: float = 0.0
-var _scout_total: float = 8.0
-var _scout_time_left: float = 8.0
+var _scout_total: float = 10.0
+var _scout_time_left: float = 10.0
 var _scavenge_total: float = 60.0
 var _scavenge_time_left: float = 60.0
 var _outro_elapsed: float = 0.0
@@ -138,7 +138,7 @@ var _shake_strength: float = 0.0
 var _hands_full_timer: float = 0.0
 var _suitcase_flash_timer: float = 0.0
 var _tally_pop_timer: float = 0.0
-var _atomic_flash_alpha: float = 0.0
+var _blast_flash_alpha: float = 0.0
 var _floating_popups: Array = []
 var _falling_chute_fx: Array = []
 
@@ -177,13 +177,13 @@ func _ready() -> void:
 	_build_room_patterns()
 	_build_local_fallback_grid()
 
-	# Normal = 60 s of active scavenging, Hard = 30 s. Recon (scout) time is separate.
-	_scavenge_total = 30.0 if GameState.difficulty == "hard" else 60.0
+	# Look-around and grab timers come from the difficulty (Story 20 s/60 s, Normal 10 s/60 s,
+	# Hard 3 s/30 s). The autopilot demo keeps its look-around short.
+	_scavenge_total = GameState.grab_seconds()
 	_scavenge_time_left = _scavenge_total
+	_scout_total = GameState.recon_seconds()
 	if GameState.demo_mode:
-		_scout_total = 2.5
-	else:
-		_scout_total = clampf(float(GameState.nuke_config.get("scout_seconds", 8.0)), 1.5, 20.0)
+		_scout_total = minf(_scout_total, 2.5)
 	_scout_time_left = _scout_total
 	_last_whole_sec = int(ceil(_scout_time_left))
 
@@ -394,7 +394,7 @@ func _parse_house_layout(layout: Dictionary) -> void:
 		for it_var in raw_items:
 			if it_var is Dictionary:
 				var idict: Dictionary = it_var
-				var item_id: String = str(idict.get("item_id", idict.get("id", "soup"))).strip_edges().to_lower()
+				var item_id: String = str(idict.get("item_id", idict.get("id", "food"))).strip_edges().to_lower()
 				var raw_ipos: Variant = idict.get("pos", idict.get("position", _hatch_pos + Vector2(60.0, 0.0)))
 				var ipos: Vector2 = raw_ipos if raw_ipos is Vector2 else (_hatch_pos + Vector2(60.0, 0.0))
 				var info: Dictionary = ItemDB.get_item_info(item_id)
@@ -402,7 +402,7 @@ func _parse_house_layout(layout: Dictionary) -> void:
 				var short_name: String = str(info.get("short_name", item_name))
 				var slots: int = clampi(int(info.get("slots", 1)), 1, 2)
 				var cat: String = str(info.get("category", "gear"))
-				var icol: Color = info.get("color", COL_HAZARD_YELLOW) if info.get("color") is Color else COL_HAZARD_YELLOW
+				var icol: Color = info.get("color", COL_AMBER) if info.get("color") is Color else COL_AMBER
 				_world_items.append({
 					"uid": uid_counter,
 					"item_id": item_id,
@@ -641,7 +641,7 @@ func _process_scout_phase(dt: float) -> void:
 		SoundManager.play_sfx("tick")
 
 	if GameState.demo_mode:
-		# Smoothly scan around the hatch during the 2.5s recon preview
+		# Smoothly scan around the hatch during the short demo look-around
 		var scan_angle: float = _anim_time * 2.4
 		_player_facing = Vector2(cos(scan_angle), sin(scan_angle))
 		var gentle_orbit: Vector2 = _leader_start_pos + Vector2(cos(scan_angle), sin(scan_angle)) * 18.0
@@ -679,7 +679,7 @@ func _start_scavenge_phase() -> void:
 	_has_click_target = false
 	_shake_strength = 7.5
 	SoundManager.play_sfx("siren")
-	_spawn_popup(_player_pos + Vector2(0.0, -34.0), "CONELRAD ALERT! %d SECONDS!" % int(round(_scavenge_total)), COL_HAZARD_YELLOW, 1.55)
+	_spawn_popup(_player_pos + Vector2(0.0, -34.0), "GO! %d SECONDS!" % int(round(_scavenge_total)), COL_AMBER, 1.55)
 
 
 func _process_scavenge_phase(dt: float) -> void:
@@ -773,8 +773,8 @@ func _has_capable_guardian_in_bunker() -> bool:
 func _process_outro_phase(dt: float) -> void:
 	_outro_elapsed += dt
 	_apply_player_movement(Vector2.ZERO, dt, false)
-	if _atomic_flash_alpha > 0.0:
-		_atomic_flash_alpha = maxf(0.0, _atomic_flash_alpha - dt * 0.72)
+	if _blast_flash_alpha > 0.0:
+		_blast_flash_alpha = maxf(0.0, _blast_flash_alpha - dt * 0.72)
 
 	if _outro_elapsed >= OUTRO_DURATION and not _outro_transitioned:
 		_outro_transitioned = true
@@ -784,15 +784,15 @@ func _process_outro_phase(dt: float) -> void:
 			GameState.game_over = true
 			GameState.victory = false
 			if GameState.ending_title.is_empty():
-				GameState.ending_title = "CAUGHT IN THE ATOMIC BLAST"
+				GameState.ending_title = "CAUGHT OUTSIDE"
 			if GameState.ending_description.is_empty():
-				GameState.ending_description = "Nobody made it inside the fallout shelter before the CONELRAD countdown hit zero."
+				GameState.ending_description = "Nobody made it into the shelter before the time ran out."
 			GameState.request_screen(GameState.SCREEN_SUMMARY)
 		elif not _has_capable_guardian_in_bunker():
 			GameState.game_over = true
 			GameState.victory = false
-			GameState.ending_title = "NO ADULT GUARDIAN IN SHELTER"
-			GameState.ending_description = "Though young family members tumbled safely down the chute, no adult or teenager made it inside to operate the blast seal and survival systems before Civil Defense rescue arrived."
+			GameState.ending_title = "NO ADULT IN THE SHELTER"
+			GameState.ending_description = "The youngest made it down the hatch, but no adult or teenager got in to seal it and keep the shelter running."
 			GameState.request_screen(GameState.SCREEN_SUMMARY)
 		else:
 			GameState.request_screen(GameState.SCREEN_BUNKER)
@@ -1062,7 +1062,7 @@ func _attempt_pickup_target(target: Dictionary) -> bool:
 	if _get_used_slots() + needed_slots > _max_slots:
 		if _hands_full_timer <= 0.45:
 			SoundManager.play_sfx("button_click", -2.0, 0.72)
-			_spawn_popup(_player_pos + Vector2(0.0, -32.0), "HANDS FULL! DROP AT HATCH (SPACE)", COL_ATOMIC_ORANGE, 1.35)
+			_spawn_popup(_player_pos + Vector2(0.0, -32.0), "HANDS FULL — DROP AT THE HATCH (SPACE)", COL_ALERT_RED, 1.35)
 		_hands_full_timer = 1.55
 		return false
 	var entity_ref: Dictionary = target.get("ref", {})
@@ -1101,10 +1101,10 @@ func _complete_pickup(target: Dictionary) -> bool:
 			"slots": needed_slots,
 			"ref": entity_ref
 		})
-		_spawn_popup(entity_ref["pos"] + Vector2(0.0, -24.0), "+%s [%d SLOTS]" % [fname.to_upper(), needed_slots], COL_HAZARD_YELLOW, 1.25)
+		_spawn_popup(entity_ref["pos"] + Vector2(0.0, -24.0), "+%s [%d SLOTS]" % [fname.to_upper(), needed_slots], COL_AMBER, 1.25)
 		family_picked_up.emit(str(m.get("id", "")), needed_slots)
 	else:
-		var iid: String = str(entity_ref.get("item_id", "soup"))
+		var iid: String = str(entity_ref.get("item_id", "food"))
 		var sname: String = str(entity_ref.get("short_name", entity_ref.get("name", iid)))
 		_carried_entries.append({
 			"kind": "item",
@@ -1116,7 +1116,7 @@ func _complete_pickup(target: Dictionary) -> bool:
 		})
 		if iid == "suitcase":
 			_suitcase_flash_timer = 2.6
-		_spawn_popup(entity_ref["pos"] + Vector2(0.0, -20.0), "+%s" % sname.to_upper(), COL_PARCHMENT, 1.1)
+		_spawn_popup(entity_ref["pos"] + Vector2(0.0, -20.0), "+%s" % sname.to_upper(), COL_TEXT, 1.1)
 		item_picked_up.emit(iid, needed_slots)
 
 	_selected_slot = _carried_entries.size() - 1
@@ -1227,7 +1227,7 @@ func _drop_selected_entry() -> bool:
 		return true
 	var is_case: bool = str(entry.get("item_id", "")) == "suitcase"
 	if is_case and _get_used_slots() - 2 > BASE_CARRY_SLOTS:
-		_spawn_popup(_player_pos + Vector2(0.0, -32.0), "UNPACK THE SUITCASE FIRST", COL_ATOMIC_ORANGE, 1.2)
+		_spawn_popup(_player_pos + Vector2(0.0, -32.0), "UNPACK THE SUITCASE FIRST", COL_ALERT_RED, 1.2)
 		SoundManager.play_sfx("button_click", -2.0, 0.72)
 		return false
 	_carried_entries.remove_at(_selected_slot)
@@ -1237,7 +1237,7 @@ func _drop_selected_entry() -> bool:
 		ref["collected"] = false
 		ref["pos"] = drop_pos
 	SoundManager.play_sfx("pickup", -6.0, 0.7)
-	_spawn_popup(drop_pos + Vector2(0.0, -20.0), "DROPPED %s" % str(entry.get("short_name", entry.get("name", "ITEM"))).to_upper(), COL_PARCHMENT_DARK, 1.0)
+	_spawn_popup(drop_pos + Vector2(0.0, -20.0), "DROPPED %s" % str(entry.get("short_name", entry.get("name", "ITEM"))).to_upper(), COL_TEXT_MUTED, 1.0)
 	_refresh_capacity()
 	return true
 
@@ -1271,7 +1271,7 @@ func _deposit_carried_into_hatch(keep_suitcase: bool = false) -> void:
 			var m: Dictionary = entry["member"]
 			m["in_bunker"] = true
 			m["alive"] = true
-			m["status_note"] = "Dropped safely into the fallout shelter."
+			m["status_note"] = "Made it down into the shelter."
 			_family_deposited_count += 1
 			dropped_family_batch += 1
 			_falling_chute_fx.append({
@@ -1281,15 +1281,15 @@ func _deposit_carried_into_hatch(keep_suitcase: bool = false) -> void:
 				"t": 0.0,
 				"dur": 0.46
 			})
-			_spawn_popup(_hatch_pos + Vector2(0.0, -34.0 - float(idx_offset) * 18.0), "%s SAFE IN BUNKER!" % str(m.get("name", "Family")).to_upper(), COL_TOXIC_GREEN, 1.55)
+			_spawn_popup(_hatch_pos + Vector2(0.0, -34.0 - float(idx_offset) * 18.0), "%s IS SAFE" % str(m.get("name", "Family")).to_upper(), COL_OK_GREEN, 1.55)
 		else:
-			var iid: String = str(entry.get("item_id", "soup"))
+			var iid: String = str(entry.get("item_id", "food"))
 			GameState.add_scavenged_item(iid, 1)
 			_items_deposited_count += 1
 			dropped_items_batch += 1
 			_deposited_by_id[iid] = int(_deposited_by_id.get(iid, 0)) + 1
 
-			if iid != "soup" and iid != "water":
+			if iid != "food" and iid != "water":
 				_gear_deposited_count += 1
 				if not _secured_gear_order.has(iid):
 					_secured_gear_order.append(iid)
@@ -1320,7 +1320,7 @@ func _deposit_carried_into_hatch(keep_suitcase: bool = false) -> void:
 	}
 
 	if dropped_items_batch > 0 and dropped_family_batch == 0:
-		_spawn_popup(_hatch_pos + Vector2(0.0, -28.0), "CHUTE +%d SUPPLIES!" % dropped_items_batch, COL_TOXIC_GREEN, 1.25)
+		_spawn_popup(_hatch_pos + Vector2(0.0, -28.0), "+%d DOWN THE HATCH" % dropped_items_batch, COL_OK_GREEN, 1.25)
 
 	if GameState.demo_mode:
 		_ai_pause_timer = 0.26
@@ -1348,7 +1348,7 @@ func _dive_into_bunker() -> void:
 
 	_leader_member["in_bunker"] = true
 	_leader_member["alive"] = true
-	_leader_member["status_note"] = "Dived through the fallout hatch in time!"
+	_leader_member["status_note"] = "Made it through the hatch in time."
 	_leader_caught_outside = false
 	_shake_strength = 6.5
 	SoundManager.play_sfx("hatch_slam")
@@ -1365,22 +1365,22 @@ func _resolve_timer_expired() -> void:
 			_deposit_carried_into_hatch()
 		_leader_member["in_bunker"] = true
 		_leader_member["alive"] = true
-		_leader_member["status_note"] = "Tumbled into the bunker just as the blast wave struck!"
+		_leader_member["status_note"] = "Got through the hatch as the blast hit."
 		_leader_caught_outside = false
 		_shake_strength = 12.0
 		SoundManager.play_sfx("hatch_slam")
 		SoundManager.play_sfx("nuke_boom")
-		_atomic_flash_alpha = 0.55
+		_blast_flash_alpha = 0.55
 		_finalize_scavenge_and_enter_outro(false)
 	else:
 		_carried_entries.clear()
 		_leader_member["in_bunker"] = false
 		_leader_member["alive"] = false
-		_leader_member["death_reason"] = "Caught upstairs when the nuclear shockwave vaporized the neighborhood."
-		_leader_member["status_note"] = "Perished outside the shelter."
+		_leader_member["death_reason"] = "Was still upstairs when the blast hit."
+		_leader_member["status_note"] = "Did not make it to the shelter."
 		_leader_caught_outside = true
 		_shake_strength = 18.0
-		_atomic_flash_alpha = 1.0
+		_blast_flash_alpha = 1.0
 		SoundManager.play_sfx("nuke_boom")
 		_finalize_scavenge_and_enter_outro(true)
 
@@ -1396,8 +1396,8 @@ func _finalize_scavenge_and_enter_outro(caught_outside: bool) -> void:
 			m["alive"] = false
 			m["in_bunker"] = false
 			if str(m.get("death_reason", "")).is_empty():
-				m["death_reason"] = "Left behind upstairs when the CONELRAD siren ended."
-			m["status_note"] = "Did not reach the fallout bunker."
+				m["death_reason"] = "Was still upstairs when the time ran out."
+			m["status_note"] = "Did not make it to the shelter."
 
 	var survivors: Array = GameState.get_all_living_members()
 	var leader_safe: bool = (not caught_outside) and bool(_leader_member.get("in_bunker", false)) and bool(_leader_member.get("alive", false))
@@ -1415,22 +1415,31 @@ func _finalize_scavenge_and_enter_outro(caught_outside: bool) -> void:
 		GameState.game_over = true
 		GameState.victory = false
 		if GameState.ending_title.is_empty():
-			GameState.ending_title = "CAUGHT IN THE ATOMIC BLAST"
+			GameState.ending_title = "CAUGHT OUTSIDE"
 		if GameState.ending_description.is_empty():
-			GameState.ending_description = "Nobody made it inside the fallout shelter before the CONELRAD countdown hit zero."
+			GameState.ending_description = "Nobody made it into the shelter before the time ran out."
 	elif not _has_capable_guardian_in_bunker():
 		GameState.game_over = true
 		GameState.victory = false
-		GameState.ending_title = "NO ADULT GUARDIAN IN SHELTER"
-		GameState.ending_description = "Though young family members tumbled safely down the chute, no adult or teenager made it inside to operate the blast seal and survival systems before Civil Defense rescue arrived."
+		GameState.ending_title = "NO ADULT IN THE SHELTER"
+		GameState.ending_description = "The youngest made it down the hatch, but no adult or teenager got in to seal it and keep the shelter running."
 
 	scavenge_finished.emit(leader_safe, survivors.size())
+
+
+## What the HUD tooltip describes: the target in reach, otherwise whatever the mouse is aiming at.
+func _tooltip_target() -> Dictionary:
+	if not _hovered_target.is_empty():
+		return _hovered_target
+	if GameState.demo_mode or not is_inside_tree():
+		return {}
+	return _find_target_near_point(get_global_mouse_position(), 30.0)
 
 
 func _toggle_auto_pickup() -> void:
 	# Automatic grabbing was removed in pass 2: SPACE picks up and drops items.
 	_auto_pickup = false
-	_spawn_popup(_player_pos + Vector2(0.0, -32.0), "PRESS SPACE TO GRAB", COL_HAZARD_YELLOW, 1.0)
+	_spawn_popup(_player_pos + Vector2(0.0, -32.0), "PRESS SPACE TO GRAB", COL_AMBER, 1.0)
 
 
 func trigger_hud_skip_scout() -> void:
@@ -1590,7 +1599,7 @@ func _pick_best_demo_target(free_slots: int) -> Dictionary:
 			best_target = {"kind": "family", "uid": uid, "pos": fpos, "slots": f_slots, "name": str(fam["name"]), "ref": fam}
 
 	# Evaluate remaining items
-	var soup_total: int = _count_total_secured_or_carried("soup")
+	var soup_total: int = _count_total_secured_or_carried("food")
 	var water_total: int = _count_total_secured_or_carried("water")
 	var has_weapon: bool = _count_total_secured_or_carried("rifle") > 0 or _count_total_secured_or_carried("axe") > 0
 
@@ -1617,15 +1626,15 @@ func _pick_best_demo_target(free_slots: int) -> Dictionary:
 				base_priority = 198.0 if owned_n == 0 else 132.0
 			"radio":
 				base_priority = 194.0 if owned_n == 0 else 90.0
-			"soup":
+			"food":
 				base_priority = (190.0 - float(soup_total) * 7.0) if soup_total < 4 else 128.0
 			"water":
 				base_priority = (190.0 - float(water_total) * 7.0) if water_total < 4 else 128.0
 			"rifle", "axe":
 				base_priority = 176.0 if not has_weapon else 108.0
-			"book":
+			"manual":
 				base_priority = 168.0 if owned_n == 0 else 92.0
-			"flashlight", "map", "toolbox", "padlock":
+			"flashlight", "map", "padlock", "console", "cards":
 				base_priority = 146.0 if owned_n == 0 else 90.0
 			"ammo", "bug_spray":
 				base_priority = 136.0
@@ -2032,7 +2041,7 @@ func _update_camera(dt: float) -> void:
 
 
 # ==============================================================================
-# PROCEDURAL MID-CENTURY 1950s TOP-DOWN HOUSE RENDERING (_draw)
+# PROCEDURAL TOP-DOWN HOUSE RENDERING (_draw)
 # ==============================================================================
 
 func _draw() -> void:
@@ -2102,20 +2111,20 @@ func _draw_house_floors_and_rooms(font: Font) -> void:
 		elif r_rect.size.x > 1.0 and r_rect.size.y > 1.0:
 			draw_rect(r_rect, r_col, true)
 
-		# Mid-century patterned tile / plank textures inside rectangular bounds
+		# Floor textures (large tiles / laminate planks) inside rectangular bounds
 		var pat_rect: Rect2 = r_rect
 		if (pat_rect.size.x <= 1.0 or pat_rect.size.y <= 1.0) and r_poly.size() >= 3:
 			pat_rect = _poly_bounds(r_poly)
 
 		if pat_rect.size.x > 24.0 and pat_rect.size.y > 24.0 and (not poly_ok or r_rect.size.x > 1.0):
 			if kind.find("kitchen") >= 0:
-				_draw_checker_floor(pat_rect, 24.0, Color(1.0, 0.98, 0.92, 0.24), Color(0.74, 0.36, 0.24, 0.14))
+				_draw_grid_floor(pat_rect, 30.0, Color(0.30, 0.32, 0.36, 0.16))
 			elif kind.find("bath") >= 0:
 				_draw_grid_floor(pat_rect, 18.0, Color(0.24, 0.52, 0.56, 0.18))
 			elif kind.find("garage") >= 0 or kind.find("study") >= 0:
 				_draw_grid_floor(pat_rect, 46.0, Color(0.12, 0.13, 0.12, 0.14))
 			else:
-				_draw_plank_floor(pat_rect, 16.0, Color(0.32, 0.22, 0.12, 0.13))
+				_draw_plank_floor(pat_rect, 16.0, Color(0.30, 0.26, 0.20, 0.12))
 
 		# Architectural floor stencil label
 		var r_title: String = str(room.get("name", "")).to_upper()
@@ -2123,7 +2132,7 @@ func _draw_house_floors_and_rooms(font: Font) -> void:
 			var cpos: Vector2 = room["center"]
 			if cpos.distance_to(_hatch_pos) < _hatch_radius + 26.0:
 				cpos += Vector2(0.0, _hatch_radius + 28.0)
-			_draw_text_centered(self, font, cpos, r_title, 12, Color(0.22, 0.19, 0.15, 0.52))
+			_draw_text_centered(self, font, cpos, r_title, 12, Color(0.16, 0.18, 0.21, 0.50))
 
 
 ## Pre-clips floor pattern lines (planks / tiles) to each non-rectangular room polygon once,
@@ -2138,11 +2147,11 @@ func _build_room_patterns() -> void:
 			var kind: String = str(room.get("kind", ""))
 			var b: Rect2 = _poly_bounds(poly)
 			var step: float = 16.0
-			var col := Color(0.32, 0.22, 0.12, 0.13)
+			var col := Color(0.30, 0.26, 0.20, 0.12)
 			var both: bool = false
 			if kind.find("kitchen") >= 0 or kind.find("pantry") >= 0:
-				step = 24.0
-				col = Color(0.74, 0.36, 0.24, 0.16)
+				step = 30.0
+				col = Color(0.30, 0.32, 0.36, 0.16)
 				both = true
 			elif kind.find("bath") >= 0:
 				step = 18.0
@@ -2177,12 +2186,12 @@ func _draw_entrances(font: Font) -> void:
 		var half: float = float(e.get("width", 56.0)) * 0.5
 		var a: Vector2 = c - d * half
 		var b: Vector2 = c + d * half
-		draw_line(a, b, Color("#6b4426"), 13.0)
-		draw_line(a + n * 3.0, b + n * 3.0, Color("#8c5a32"), 5.0)
-		draw_circle(c + d * (half - 9.0) + n * 2.0, 3.0, COL_HAZARD_GOLD)
+		draw_line(a, b, Color("#3d4450"), 13.0)
+		draw_line(a + n * 3.0, b + n * 3.0, Color("#5d6671"), 5.0)
+		draw_circle(c + d * (half - 9.0) + n * 2.0, 3.0, COL_AMBER_DARK)
 		draw_line(a - n * 9.0, b - n * 9.0, Color(0.1, 0.1, 0.1, 0.25), 2.0)
 		var lbl_pos: Vector2 = c + n * 26.0
-		_draw_text_centered_outlined(self, font, lbl_pos, "%s (BARRICADED)" % str(e.get("label", "DOOR")), 10, COL_PARCHMENT, COL_INK)
+		_draw_text_centered_outlined(self, font, lbl_pos, "%s (BARRICADED)" % str(e.get("label", "DOOR")), 10, COL_TEXT, COL_INK)
 
 
 func _draw_checker_floor(rect: Rect2, tile: float, col_a: Color, col_b: Color) -> void:
@@ -2220,13 +2229,13 @@ func _draw_bunker_hatch(font: Font) -> void:
 	# Pulsing drop-chute zone halo
 	var pulse: float = 0.5 + 0.5 * sin(_anim_time * 5.2)
 	var urgent: bool = (_phase == Phase.SCAVENGE and _scavenge_time_left <= 15.0)
-	var zone_col: Color = COL_ALERT_RED if urgent else (COL_TOXIC_GREEN if not _carried_entries.is_empty() else COL_HAZARD_YELLOW)
+	var zone_col: Color = COL_ALERT_RED if urgent else (COL_OK_GREEN if not _carried_entries.is_empty() else COL_AMBER)
 	draw_circle(hp, drop_r, Color(zone_col.r, zone_col.g, zone_col.b, 0.09 + 0.09 * pulse))
 	draw_arc(hp, drop_r, 0.0, TAU, 48, Color(zone_col.r, zone_col.g, zone_col.b, 0.55 + 0.35 * pulse), 2.2, true)
 
 	# Concrete blast pad + hazard ring
 	draw_circle(hp + Vector2(3.0, 4.0), hr + 8.0, Color(0.06, 0.06, 0.05, 0.42))
-	draw_circle(hp, hr + 7.0, COL_HAZARD_YELLOW)
+	draw_circle(hp, hr + 7.0, COL_AMBER)
 	var seg_count: int = 16
 	for i in range(seg_count):
 		if i % 2 == 0:
@@ -2236,17 +2245,17 @@ func _draw_bunker_hatch(font: Font) -> void:
 	draw_arc(hp, hr + 7.0, 0.0, TAU, 40, COL_INK, 2.5, true)
 
 	# Heavy steel collar
-	draw_circle(hp, hr - 2.0, Color("#5a635e"))
+	draw_circle(hp, hr - 2.0, Color("#5d6671"))
 	draw_arc(hp, hr - 2.0, 0.0, TAU, 36, COL_INK, 2.5, true)
 	for i in range(8):
 		var ra: float = float(i) * TAU / 8.0
 		var rpos: Vector2 = hp + Vector2(cos(ra), sin(ra)) * (hr - 7.5)
 		draw_circle(rpos, 2.6, COL_INK)
-		draw_circle(rpos + Vector2(-0.5, -0.5), 1.5, Color("#b7c0ba"))
+		draw_circle(rpos + Vector2(-0.5, -0.5), 1.5, Color("#c9ced4"))
 
-	# Deep stairwell shaft & warm amber bunker glow + ladder rungs
+	# Shaft, the shelter's lamp glowing below, ladder rungs
 	var shaft_r: float = hr - 13.0
-	draw_circle(hp, shaft_r, Color("#111412"))
+	draw_circle(hp, shaft_r, Color("#0b0d10"))
 	draw_circle(hp + Vector2(0.0, 4.0), shaft_r * 0.68, Color(0.88, 0.56, 0.18, 0.22 + 0.08 * pulse))
 	var ladder_x: float = shaft_r * 0.36
 	draw_line(hp + Vector2(-ladder_x, -shaft_r * 0.72), hp + Vector2(-ladder_x, shaft_r * 0.78), Color("#8e9892"), 3.0)
@@ -2258,19 +2267,19 @@ func _draw_bunker_hatch(font: Font) -> void:
 
 	# Swung-open heavy steel hatch lid (unless sealed in outro!)
 	if _phase == Phase.OUTRO and not _leader_caught_outside:
-		draw_circle(hp, hr - 4.0, Color("#49524d"))
+		draw_circle(hp, hr - 4.0, Color("#4a5260"))
 		draw_arc(hp, hr - 4.0, 0.0, TAU, 36, COL_INK, 3.0, true)
 		_draw_hatch_wheel(hp, 15.0)
 	else:
 		var lid_center: Vector2 = hp + Vector2(hr * 0.96, -hr * 0.42)
 		var lid_r: float = hr * 0.62
 		draw_circle(lid_center + Vector2(3.0, 4.0), lid_r, Color(0.05, 0.05, 0.05, 0.38))
-		draw_circle(lid_center, lid_r, Color("#4a534e"))
+		draw_circle(lid_center, lid_r, Color("#4a5260"))
 		draw_arc(lid_center, lid_r, 0.0, TAU, 28, COL_INK, 2.5, true)
 		_draw_hatch_wheel(lid_center, 11.0)
 
-	# Stenciled label below hatch
-	var hatch_tag: String = "BUNKER HATCH"
+	# Label below the hatch
+	var hatch_tag: String = "SHELTER HATCH"
 	if not _carried_entries.is_empty():
 		hatch_tag = "STEP HERE TO DROP LOOT!"
 	elif _can_dive_into_bunker() and _scavenge_time_left <= 20.0:
@@ -2283,9 +2292,9 @@ func _draw_hatch_wheel(center: Vector2, wheel_r: float) -> void:
 		var a: float = float(i) * PI * 0.25
 		var d := Vector2(cos(a), sin(a)) * wheel_r
 		draw_line(center - d, center + d, COL_INK, 3.2)
-		draw_line(center - d, center + d, COL_HAZARD_YELLOW, 1.6)
+		draw_line(center - d, center + d, COL_AMBER, 1.6)
 	draw_arc(center, wheel_r, 0.0, TAU, 20, COL_INK, 3.4, true)
-	draw_arc(center, wheel_r, 0.0, TAU, 20, COL_ATOMIC_ORANGE, 1.8, true)
+	draw_arc(center, wheel_r, 0.0, TAU, 20, COL_ALERT_RED, 1.8, true)
 	draw_circle(center, 3.5, COL_INK)
 
 
@@ -2304,7 +2313,7 @@ func _draw_furniture_layer() -> void:
 		var local_r := Rect2(-base_rect.size * 0.5, base_rect.size)
 
 		if not solid:
-			# Decorative woven mid-century rug
+			# Rug
 			draw_rect(local_r, col, true)
 			draw_rect(local_r.grow(-4.0), col.lightened(0.16), false, 2.0)
 			draw_rect(local_r, Color(0.12, 0.1, 0.08, 0.45), false, 1.5)
@@ -2315,14 +2324,14 @@ func _draw_furniture_layer() -> void:
 		draw_rect(Rect2(local_r.position + Vector2(3.5, 4.5), local_r.size), Color(0.06, 0.06, 0.05, 0.34), true)
 		draw_rect(local_r, col, true)
 
-		# Prop-specific 1950s architectural detail
+		# Prop-specific detail
 		if kind.find("bed") >= 0:
 			var blanket_r := Rect2(local_r.position.x + 3.0, local_r.position.y + local_r.size.y * 0.32, local_r.size.x - 6.0, local_r.size.y * 0.64)
 			draw_rect(blanket_r, col.darkened(0.16), true)
-			draw_rect(Rect2(local_r.position.x + 6.0, local_r.position.y + 6.0, local_r.size.x * 0.38, local_r.size.y * 0.2), COL_PARCHMENT, true)
+			draw_rect(Rect2(local_r.position.x + 6.0, local_r.position.y + 6.0, local_r.size.x * 0.38, local_r.size.y * 0.2), COL_TEXT, true)
 			if local_r.size.x > 54.0:
-				draw_rect(Rect2(local_r.end.x - 6.0 - local_r.size.x * 0.38, local_r.position.y + 6.0, local_r.size.x * 0.38, local_r.size.y * 0.2), COL_PARCHMENT, true)
-			draw_rect(Rect2(local_r.position.x, local_r.position.y, local_r.size.x, 6.0), Color("#4f311c"), true)
+				draw_rect(Rect2(local_r.end.x - 6.0 - local_r.size.x * 0.38, local_r.position.y + 6.0, local_r.size.x * 0.38, local_r.size.y * 0.2), COL_TEXT, true)
+			draw_rect(Rect2(local_r.position.x, local_r.position.y, local_r.size.x, 6.0), Color("#3d4450"), true)
 		elif kind.find("sofa") >= 0 or kind.find("couch") >= 0:
 			draw_rect(local_r.grow(-5.0), col.lightened(0.12), true)
 			draw_rect(Rect2(local_r.position.x, local_r.position.y, local_r.size.x, 8.0), col.darkened(0.22), true)
@@ -2334,12 +2343,12 @@ func _draw_furniture_layer() -> void:
 			for sx in [-1.0, 1.0]:
 				for sy in [-1.0, 1.0]:
 					draw_circle(Vector2(sx * bx, sy * by), b_rad, COL_SLATE)
-					draw_circle(Vector2(sx * bx, sy * by), b_rad * 0.45, COL_ATOMIC_ORANGE)
+					draw_circle(Vector2(sx * bx, sy * by), b_rad * 0.45, COL_ALERT_RED)
 		elif kind.find("sink") >= 0 or kind.find("tub") >= 0 or kind.find("toilet") >= 0:
 			draw_rect(local_r.grow(-5.0), Color("#d7e5e8"), true)
 			draw_circle(Vector2.ZERO, 3.0, COL_SLATE)
 		elif kind.find("book") >= 0 or kind.find("shelf") >= 0:
-			var stripe_cols: Array[Color] = [COL_ATOMIC_ORANGE, COL_HAZARD_YELLOW, COL_WATER_BLUE, COL_TOXIC_GREEN, COL_PARCHMENT]
+			var stripe_cols: Array[Color] = [COL_ALERT_RED, COL_AMBER, COL_WATER_BLUE, COL_OK_GREEN, COL_TEXT]
 			var cur_x: float = local_r.position.x + 4.0
 			var sc_i: int = 0
 			while cur_x < local_r.end.x - 6.0:
@@ -2386,7 +2395,7 @@ func _draw_falling_chute_items() -> void:
 			var m: Dictionary = fx["member"]
 			CharacterArtist.draw_topdown_character(self, Vector2.ZERO, Vector2(0.0, 1.0), m, 0.0, 0.9)
 		else:
-			ItemDB.draw_item_icon(self, str(fx.get("item_id", "soup")), Vector2.ZERO, 28.0, false)
+			ItemDB.draw_item_icon(self, str(fx.get("item_id", "food")), Vector2.ZERO, 28.0, false)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
@@ -2407,31 +2416,31 @@ func _draw_world_items_and_family(font: Font) -> void:
 		var slots: int = int(it["slots"])
 		var icol: Color = it["color"]
 
-		# Ground shadow & crisp parchment token disc
+		# Ground shadow & light token disc
 		draw_circle(ipos + Vector2(1.5, 3.5), 16.5, Color(0.06, 0.06, 0.05, 0.36))
-		draw_circle(draw_p, 16.5, COL_PARCHMENT)
+		draw_circle(draw_p, 16.5, COL_TEXT)
 		draw_arc(draw_p, 16.5, 0.0, TAU, 24, icol if slots == 2 else COL_INK, 2.2, true)
 
 		if _phase == Phase.SCOUT:
 			var shimmer: float = 0.45 + 0.45 * sin(_anim_time * 6.0 + float(it["bob_phase"]))
-			draw_arc(draw_p, 21.0, 0.0, TAU, 24, Color(COL_HAZARD_YELLOW.r, COL_HAZARD_YELLOW.g, COL_HAZARD_YELLOW.b, shimmer), 2.0, true)
+			draw_arc(draw_p, 21.0, 0.0, TAU, 24, Color(COL_AMBER.r, COL_AMBER.g, COL_AMBER.b, shimmer), 2.0, true)
 
 		if is_hovered:
 			var hr_pulse: float = 23.0 + 2.5 * sin(_anim_time * 9.0)
-			draw_circle(draw_p, hr_pulse, Color(COL_HAZARD_YELLOW.r, COL_HAZARD_YELLOW.g, COL_HAZARD_YELLOW.b, 0.25))
-			draw_arc(draw_p, hr_pulse, 0.0, TAU, 28, COL_HAZARD_YELLOW, 3.0, true)
+			draw_circle(draw_p, hr_pulse, Color(COL_AMBER.r, COL_AMBER.g, COL_AMBER.b, 0.25))
+			draw_arc(draw_p, hr_pulse, 0.0, TAU, 28, COL_AMBER, 3.0, true)
 
 		ItemDB.draw_item_icon(self, str(it["item_id"]), draw_p, 28.0, false)
 
 		# 2-slot indicator pips
 		if slots == 2:
-			draw_circle(draw_p + Vector2(-4.5, 16.5), 3.0, COL_HAZARD_YELLOW)
+			draw_circle(draw_p + Vector2(-4.5, 16.5), 3.0, COL_AMBER)
 			draw_arc(draw_p + Vector2(-4.5, 16.5), 3.0, 0.0, TAU, 10, COL_INK, 1.2)
-			draw_circle(draw_p + Vector2(4.5, 16.5), 3.0, COL_HAZARD_YELLOW)
+			draw_circle(draw_p + Vector2(4.5, 16.5), 3.0, COL_AMBER)
 			draw_arc(draw_p + Vector2(4.5, 16.5), 3.0, 0.0, TAU, 10, COL_INK, 1.2)
 
 		if _phase == Phase.SCOUT and not is_hovered:
-			_draw_text_centered_outlined(self, font, draw_p + Vector2(0.0, -22.0), str(it["short_name"]), 11, COL_PARCHMENT, COL_INK)
+			_draw_text_centered_outlined(self, font, draw_p + Vector2(0.0, -22.0), str(it["short_name"]), 11, COL_TEXT, COL_INK)
 
 	# Draw non-leader family members waiting for rescue
 	for f_var in _world_family:
@@ -2447,13 +2456,13 @@ func _draw_world_items_and_family(font: Font) -> void:
 
 		var ring_r: float = 22.0 + 2.0 * sin(_anim_time * 5.0 + float(fam["bob_phase"]))
 		draw_circle(fpos, ring_r, Color(0.25, 0.72, 0.95, 0.18))
-		draw_arc(fpos, ring_r, 0.0, TAU, 28, COL_HAZARD_YELLOW if is_hovered_f else COL_WATER_BLUE, 3.0 if is_hovered_f else 2.0, true)
+		draw_arc(fpos, ring_r, 0.0, TAU, 28, COL_AMBER if is_hovered_f else COL_WATER_BLUE, 3.0 if is_hovered_f else 2.0, true)
 
 		CharacterArtist.draw_topdown_character(self, fpos, look_dir, m, nervous_wiggle, 1.05)
 
 		if not is_hovered_f:
 			var tag: String = "%s [%d]" % [str(fam["name"]), int(fam["slots"])]
-			_draw_badge_pill(self, font, fpos + Vector2(0.0, -28.0), tag, 11, COL_SLATE_DARK, COL_HAZARD_YELLOW)
+			_draw_badge_pill(self, font, fpos + Vector2(0.0, -28.0), tag, 11, COL_SLATE_DARK, COL_AMBER)
 
 	# Bright highlighted target tooltip callout (closest within 52 px)
 	if not _hovered_target.is_empty():
@@ -2462,8 +2471,8 @@ func _draw_world_items_and_family(font: Font) -> void:
 		var fits: bool = (_get_used_slots() + hslots <= _max_slots)
 		var label_str: String = str(_hovered_target.get("label", "Item"))
 		if _phase == Phase.SCAVENGE:
-			label_str = ("[E] " + label_str) if fits else ("FULL! " + label_str)
-		var pill_fg: Color = COL_HAZARD_YELLOW if fits else COL_ATOMIC_ORANGE
+			label_str = ("SPACE: " + label_str) if fits else ("HANDS FULL: " + label_str)
+		var pill_fg: Color = COL_AMBER if fits else COL_ALERT_RED
 		_draw_badge_pill(self, font, hpos + Vector2(0.0, -34.0), label_str, 12, COL_INK, pill_fg)
 
 
@@ -2472,22 +2481,22 @@ func _draw_player_and_navigation(font: Font) -> void:
 	for puff_var in _dust_puffs:
 		var puff: Dictionary = puff_var
 		var ratio: float = clampf(float(puff["life"]) / float(puff["max_life"]), 0.0, 1.0)
-		draw_circle(puff["pos"], float(puff["radius"]) * (1.3 - 0.3 * ratio), Color(0.88, 0.82, 0.7, 0.36 * ratio))
+		draw_circle(puff["pos"], float(puff["radius"]) * (1.3 - 0.3 * ratio), Color(0.85, 0.85, 0.82, 0.32 * ratio))
 
 	# Click target marker (manual mode) or clean tactical path preview (demo mode)
 	if GameState.demo_mode and _phase == Phase.SCAVENGE and _ai_waypoints.size() > 0:
 		var prev_p: Vector2 = _player_pos
 		for wi in range(_ai_wp_index, mini(_ai_waypoints.size(), _ai_wp_index + 8)):
 			var wp: Vector2 = _ai_waypoints[wi]
-			draw_line(prev_p, wp, Color(COL_HAZARD_YELLOW.r, COL_HAZARD_YELLOW.g, COL_HAZARD_YELLOW.b, 0.32), 2.2)
+			draw_line(prev_p, wp, Color(COL_AMBER.r, COL_AMBER.g, COL_AMBER.b, 0.32), 2.2)
 			prev_p = wp
 	elif _has_click_target and not GameState.demo_mode:
 		var r_pulse: float = 10.0 + 3.0 * sin(_anim_time * 8.0)
-		draw_arc(_click_target_pos, r_pulse, 0.0, TAU, 20, COL_HAZARD_YELLOW, 2.0, true)
+		draw_arc(_click_target_pos, r_pulse, 0.0, TAU, 20, COL_AMBER, 2.0, true)
 
 	# Player ground ring & character
 	draw_circle(_player_pos + Vector2(1.5, 3.0), 15.0, Color(0.05, 0.05, 0.05, 0.38))
-	draw_arc(_player_pos, 17.5, 0.0, TAU, 28, Color(COL_TOXIC_GREEN.r, COL_TOXIC_GREEN.g, COL_TOXIC_GREEN.b, 0.72), 2.2, true)
+	draw_arc(_player_pos, 17.5, 0.0, TAU, 28, Color(COL_OK_GREEN.r, COL_OK_GREEN.g, COL_OK_GREEN.b, 0.72), 2.2, true)
 
 	if not (_phase == Phase.OUTRO and not _leader_caught_outside):
 		CharacterArtist.draw_topdown_character(self, _player_pos, _player_facing, _leader_member, _walk_phase, 1.12)
@@ -2495,7 +2504,7 @@ func _draw_player_and_navigation(font: Font) -> void:
 		var used_slots: int = _get_used_slots()
 		if used_slots > 0:
 			var carry_tag: String = "%d/%d" % [used_slots, _max_slots]
-			var tag_col: Color = COL_ATOMIC_ORANGE if used_slots >= _max_slots else COL_PARCHMENT
+			var tag_col: Color = COL_ALERT_RED if used_slots >= _max_slots else COL_TEXT
 			_draw_badge_pill(self, font, _player_pos + Vector2(0.0, -30.0), carry_tag, 11, COL_SLATE_DARK, tag_col)
 
 
@@ -2585,16 +2594,16 @@ func _resolve_room_color(room_name: String, raw_col: Variant) -> Color:
 		return Color.from_string(raw_col, COL_FLOOR_BASE)
 	var low: String = room_name.to_lower()
 	if low.find("kitchen") >= 0:
-		return Color("#eadbc0")
+		return Color("#e4e2dd")
 	if low.find("bath") >= 0:
-		return Color("#cde0dc")
+		return Color("#d3dfe2")
 	if low.find("living") >= 0:
-		return Color("#dfc69e")
+		return Color("#d6c8b2")
 	if low.find("master") >= 0 or low.find("bed") >= 0:
-		return Color("#d9ccb8")
+		return Color("#d4cfc6")
 	if low.find("garage") >= 0 or low.find("study") >= 0:
-		return Color("#c2c0b6")
-	return Color("#dfd0b2")
+		return Color("#bfc2c6")
+	return Color("#d8d1c4")
 
 
 func _resolve_furniture_color(kind: String, raw_col: Variant) -> Color:
@@ -2632,14 +2641,19 @@ static func _draw_badge_pill(canvas: CanvasItem, font: Font, center: Vector2, te
 	var sz: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize)
 	var pad := Vector2(10.0, 5.0)
 	var rect := Rect2(center.x - sz.x * 0.5 - pad.x, center.y - sz.y * 0.5 - pad.y * 0.5, sz.x + pad.x * 2.0, sz.y + pad.y)
-	canvas.draw_rect(rect, bg_col, true)
-	canvas.draw_rect(rect, fg_col, false, 1.5)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg_col
+	sb.border_color = fg_col
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(int(rect.size.y * 0.5))
+	sb.anti_aliasing = true
+	canvas.draw_style_box(sb, rect)
 	var draw_p := Vector2(center.x - sz.x * 0.5, rect.position.y + rect.size.y * 0.72)
 	canvas.draw_string(font, draw_p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, fg_col)
 
 
 # ==============================================================================
-# 1280x720 CIVIL DEFENSE CONELRAD HUD OVERLAY (_ScavengeHUD)
+# 1280x720 HUD OVERLAY (_ScavengeHUD), phone / emergency-alert style
 # ==============================================================================
 
 class _ScavengeHUD extends Control:
@@ -2652,20 +2666,20 @@ class _ScavengeHUD extends Control:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 		_skip_btn = Button.new()
-		_skip_btn.text = "SKIP RECON — SOUND SIREN [TAB]"
+		_skip_btn.text = "START THE GRAB NOW  [TAB]"
 		_skip_btn.position = Vector2(495.0, 582.0)
 		_skip_btn.size = Vector2(290.0, 34.0)
 		_skip_btn.focus_mode = Control.FOCUS_NONE
-		_style_hud_button(_skip_btn, ScavengeScene.COL_HAZARD_YELLOW, ScavengeScene.COL_INK)
+		_style_hud_button(_skip_btn, ScavengeScene.COL_AMBER, ScavengeScene.COL_INK)
 		_skip_btn.pressed.connect(_on_skip_pressed)
 		add_child(_skip_btn)
 
 		_dive_btn = Button.new()
-		_dive_btn.text = "[ DIVE INTO BUNKER NOW (F) ]"
+		_dive_btn.text = "CLIMB DOWN THE HATCH NOW  (F)"
 		_dive_btn.position = Vector2(485.0, 580.0)
 		_dive_btn.size = Vector2(310.0, 36.0)
 		_dive_btn.focus_mode = Control.FOCUS_NONE
-		_style_hud_button(_dive_btn, ScavengeScene.COL_ATOMIC_ORANGE, ScavengeScene.COL_PARCHMENT)
+		_style_hud_button(_dive_btn, ScavengeScene.COL_ALERT_RED, Color("#ffffff"))
 		_dive_btn.pressed.connect(_on_dive_pressed)
 		_dive_btn.visible = false
 		add_child(_dive_btn)
@@ -2675,16 +2689,16 @@ class _ScavengeHUD extends Control:
 		_auto_btn.position = Vector2(246.0, 650.0)
 		_auto_btn.size = Vector2(138.0, 26.0)
 		_auto_btn.focus_mode = Control.FOCUS_NONE
-		_style_hud_button(_auto_btn, ScavengeScene.COL_SLATE, ScavengeScene.COL_PARCHMENT)
+		_style_hud_button(_auto_btn, ScavengeScene.COL_SLATE, ScavengeScene.COL_TEXT)
 		_auto_btn.pressed.connect(_on_auto_pressed)
 		add_child(_auto_btn)
 
 	func _style_hud_button(btn: Button, bg: Color, fg: Color) -> void:
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = bg
-		sb.border_color = ScavengeScene.COL_INK
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(4)
+		sb.border_color = bg.darkened(0.25)
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(10)
 		sb.content_margin_left = 8.0
 		sb.content_margin_right = 8.0
 		var sb_hover: StyleBoxFlat = sb.duplicate()
@@ -2722,7 +2736,7 @@ class _ScavengeHUD extends Control:
 			return
 		var font: Font = ThemeDB.fallback_font
 
-		# Urgent final-15s Civil Defense red siren vignette
+		# Final 15 seconds: pulsing red alert edges
 		if scene_ref._phase == ScavengeScene.Phase.SCAVENGE and scene_ref._scavenge_time_left <= 15.0:
 			var klaxon: float = 0.5 + 0.5 * sin(scene_ref._anim_time * 9.5)
 			var edge_col := Color(0.86, 0.16, 0.08, 0.06 + 0.13 * klaxon)
@@ -2735,6 +2749,7 @@ class _ScavengeHUD extends Control:
 		_draw_stopwatch_and_banner(font)
 		_draw_chute_tally_panel(font)
 		_draw_carry_capacity_bar(font)
+		_draw_item_tooltip(font)
 		_draw_controls_and_compass(font)
 
 		if scene_ref._phase == ScavengeScene.Phase.OUTRO:
@@ -2743,12 +2758,12 @@ class _ScavengeHUD extends Control:
 	func _draw_minimap_panel(font: Font) -> void:
 		var panel_r := Rect2(14.0, 12.0, 224.0, 154.0)
 		draw_rect(Rect2(panel_r.position + Vector2(3.0, 4.0), panel_r.size), Color(0.0, 0.0, 0.0, 0.45), true)
-		draw_rect(panel_r, Color(0.11, 0.14, 0.12, 0.93), true)
+		draw_rect(panel_r, Color(0.10, 0.12, 0.14, 0.93), true)
 		draw_rect(Rect2(panel_r.position.x, panel_r.position.y, panel_r.size.x, 22.0), ScavengeScene.COL_SLATE, true)
-		draw_rect(panel_r, ScavengeScene.COL_HAZARD_YELLOW, false, 2.0)
+		draw_rect(panel_r, ScavengeScene.COL_BORDER, false, 1.0)
 
-		draw_string(font, panel_r.position + Vector2(8.0, 16.0), "REAL OSM FOOTPRINT", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_HAZARD_YELLOW)
-		draw_circle(panel_r.position + Vector2(panel_r.size.x - 12.0, 11.0), 4.0, ScavengeScene.COL_TOXIC_GREEN)
+		draw_string(font, panel_r.position + Vector2(8.0, 16.0), "REAL OSM FOOTPRINT", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_TEXT)
+		draw_circle(panel_r.position + Vector2(panel_r.size.x - 12.0, 11.0), 4.0, ScavengeScene.COL_OK_GREEN)
 
 		var map_area := Rect2(panel_r.position.x + 10.0, panel_r.position.y + 28.0, panel_r.size.x - 20.0, panel_r.size.y - 46.0)
 		var hb: Rect2 = scene_ref._house_bounds
@@ -2762,9 +2777,9 @@ class _ScavengeHUD extends Control:
 			for pt in scene_ref._outer_polygon:
 				mini_poly.append(map_center + (pt - world_center) * scale_f)
 			if scene_ref._outer_poly_valid:
-				draw_colored_polygon(mini_poly, Color("#263029"))
+				draw_colored_polygon(mini_poly, Color("#232a33"))
 			mini_poly.append(mini_poly[0])
-			draw_polyline(mini_poly, ScavengeScene.COL_HAZARD_YELLOW, 1.5, true)
+			draw_polyline(mini_poly, ScavengeScene.COL_AMBER, 1.5, true)
 
 		# Room dividers & short codes
 		for r_var in scene_ref._rooms:
@@ -2776,13 +2791,13 @@ class _ScavengeHUD extends Control:
 				for rpt in rpoly:
 					mp_poly.append(map_center + (rpt - world_center) * scale_f)
 				mp_poly.append(mp_poly[0])
-				draw_polyline(mp_poly, Color(0.55, 0.62, 0.55, 0.45), 1.0)
+				draw_polyline(mp_poly, Color(0.60, 0.64, 0.68, 0.45), 1.0)
 			elif rr.size.x > 1.0 and rr.size.y > 1.0:
 				var mr := Rect2(map_center + (rr.position - world_center) * scale_f, rr.size * scale_f)
-				draw_rect(mr, Color(0.55, 0.62, 0.55, 0.35), false, 1.0)
+				draw_rect(mr, Color(0.60, 0.64, 0.68, 0.35), false, 1.0)
 			var rc: Vector2 = map_center + ((rm["center"] as Vector2) - world_center) * scale_f
 			var short_lbl: String = str(rm.get("name", "")).substr(0, 3).to_upper()
-			ScavengeScene._draw_text_centered(self, font, rc, short_lbl, 8, Color(0.85, 0.84, 0.75, 0.55))
+			ScavengeScene._draw_text_centered(self, font, rc, short_lbl, 8, Color(0.91, 0.92, 0.93, 0.55))
 
 		# Remaining items
 		for it_var in scene_ref._world_items:
@@ -2791,13 +2806,13 @@ class _ScavengeHUD extends Control:
 				continue
 			var mp: Vector2 = map_center + ((it["pos"] as Vector2) - world_center) * scale_f
 			var iid: String = str(it["item_id"])
-			var dot_c: Color = ScavengeScene.COL_PARCHMENT
-			if iid == "soup":
-				dot_c = ScavengeScene.COL_ATOMIC_ORANGE
+			var dot_c: Color = ScavengeScene.COL_TEXT
+			if iid == "food":
+				dot_c = ScavengeScene.COL_FOOD
 			elif iid == "water":
 				dot_c = ScavengeScene.COL_WATER_BLUE
 			elif iid == "suitcase":
-				dot_c = ScavengeScene.COL_HAZARD_YELLOW
+				dot_c = ScavengeScene.COL_AMBER
 			draw_circle(mp, 2.3, dot_c)
 
 		# Remaining family members
@@ -2807,24 +2822,24 @@ class _ScavengeHUD extends Control:
 				continue
 			var fp: Vector2 = map_center + ((fam["pos"] as Vector2) - world_center) * scale_f
 			draw_circle(fp, 4.0, Color("#ff6670"))
-			draw_arc(fp, 5.5, 0.0, TAU, 12, ScavengeScene.COL_HAZARD_YELLOW, 1.2)
+			draw_arc(fp, 5.5, 0.0, TAU, 12, ScavengeScene.COL_AMBER, 1.2)
 
 		# Bunker Hatch bullseye
 		var hp_mini: Vector2 = map_center + (scene_ref._hatch_pos - world_center) * scale_f
-		draw_circle(hp_mini, 4.5, ScavengeScene.COL_HAZARD_YELLOW)
+		draw_circle(hp_mini, 4.5, ScavengeScene.COL_AMBER)
 		draw_circle(hp_mini, 2.2, ScavengeScene.COL_INK)
 
 		# Player dot + facing line
 		var pp_mini: Vector2 = map_center + (scene_ref._player_pos - world_center) * scale_f
-		draw_line(pp_mini, pp_mini + scene_ref._player_facing * 7.5, ScavengeScene.COL_TOXIC_GREEN, 2.0)
+		draw_line(pp_mini, pp_mini + scene_ref._player_facing * 7.5, ScavengeScene.COL_OK_GREEN, 2.0)
 		draw_circle(pp_mini, 3.6, Color.WHITE)
 		draw_arc(pp_mini, 3.6, 0.0, TAU, 12, ScavengeScene.COL_INK, 1.2)
 
 		var meta: Dictionary = scene_ref._floorplan_meta
 		var foot_lbl: String = "%d m² · %d rooms · layout fictional" % [int(round(float(meta.get("real_area_m2", 0.0)))), int(meta.get("room_count", scene_ref._rooms.size()))]
-		draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y - 5.0), foot_lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_PARCHMENT_DARK)
+		draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y - 5.0), foot_lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_TEXT_MUTED)
 		if float(meta.get("scale", 1.0)) < 0.99 or float(meta.get("scale", 1.0)) > 1.01:
-			draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y + 12.0), "scaled ×%.2f to fit play time" % float(meta.get("scale", 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_HAZARD_YELLOW)
+			draw_string(font, Vector2(panel_r.position.x + 8.0, panel_r.end.y + 12.0), "scaled ×%.2f to fit play time" % float(meta.get("scale", 1.0)), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, ScavengeScene.COL_AMBER)
 
 	func _draw_stopwatch_and_banner(font: Font) -> void:
 		var is_scout: bool = (scene_ref._phase == ScavengeScene.Phase.SCOUT)
@@ -2835,116 +2850,81 @@ class _ScavengeHUD extends Control:
 		if urgent and t_left > 0.0 and fmod(t_left, 1.0) > 0.86:
 			jitter = Vector2(sin(scene_ref._anim_time * 55.0) * 2.5, cos(scene_ref._anim_time * 48.0) * 2.0)
 
-		# Status plaque behind banner + digital clock
+		# Status card behind the banner + readout
 		var plaque := Rect2(506.0, 14.0, 482.0, 84.0)
-		draw_rect(Rect2(plaque.position + Vector2(3.0, 4.0), plaque.size), Color(0.0, 0.0, 0.0, 0.45), true)
-		draw_rect(plaque, ScavengeScene.COL_SLATE_DARK, true)
-		var border_c: Color = ScavengeScene.COL_HAZARD_YELLOW if is_scout else (ScavengeScene.COL_ALERT_RED if urgent else ScavengeScene.COL_ATOMIC_ORANGE)
-		draw_rect(plaque, border_c, false, 2.5)
+		draw_rect(Rect2(plaque.position + Vector2(0.0, 4.0), plaque.size), Color(0.0, 0.0, 0.0, 0.40), true)
+		var plaque_sb := StyleBoxFlat.new()
+		plaque_sb.bg_color = ScavengeScene.COL_SLATE_DARK
+		plaque_sb.border_color = ScavengeScene.COL_AMBER if is_scout else (ScavengeScene.COL_ALERT_RED if urgent else ScavengeScene.COL_BORDER)
+		plaque_sb.set_border_width_all(1 if not urgent else 2)
+		plaque_sb.set_corner_radius_all(14)
+		plaque_sb.anti_aliasing = true
+		draw_style_box(plaque_sb, plaque)
 
-		# Analog Civil Defense Stopwatch on left of plaque
+		# Ring timer (phone-style countdown) to the left of the card
 		var sw_c: Vector2 = Vector2(462.0, 58.0) + jitter
-		var sw_r: float = 43.0
-		# Crown stem & side button
-		draw_rect(Rect2(sw_c.x - 5.0, sw_c.y - sw_r - 9.0, 10.0, 9.0), Color("#c6a664"), true)
-		draw_rect(Rect2(sw_c.x - 8.0, sw_c.y - sw_r - 13.0, 16.0, 5.0), Color("#dfc282"), true)
-		draw_arc(sw_c + Vector2(0.0, -sw_r - 14.0), 6.0, PI, TAU, 12, Color("#c6a664"), 2.2)
-		var side_p: Vector2 = sw_c + Vector2(cos(-0.85), sin(-0.85)) * (sw_r + 4.0)
-		draw_circle(side_p, 4.5, ScavengeScene.COL_ALERT_RED)
-
-		# Outer bezel & cream dial
-		draw_circle(sw_c + Vector2(3.0, 4.0), sw_r + 4.0, Color(0.0, 0.0, 0.0, 0.5))
-		draw_circle(sw_c, sw_r + 4.0, Color("#b99858"))
-		draw_arc(sw_c, sw_r + 4.0, 0.0, TAU, 44, ScavengeScene.COL_INK, 2.5, true)
-		draw_circle(sw_c, sw_r - 1.0, ScavengeScene.COL_PARCHMENT)
-
-		# 15-second red danger wedge (from 45s at PI to 60s at 1.5*PI -> i.e. -PI to -PI/2)
-		var wedge_pts := PackedVector2Array([sw_c])
-		var w_steps: int = 16
-		for wi in range(w_steps + 1):
-			var wa: float = -PI + (PI * 0.5) * (float(wi) / float(w_steps))
-			wedge_pts.append(sw_c + Vector2(cos(wa), sin(wa)) * (sw_r - 3.0))
-		var danger_a: float = 0.52 if (urgent and sin(scene_ref._anim_time * 12.0) > 0.0) else 0.28
-		draw_colored_polygon(wedge_pts, Color(ScavengeScene.COL_ALERT_RED.r, ScavengeScene.COL_ALERT_RED.g, ScavengeScene.COL_ALERT_RED.b, danger_a))
-
-		# 60 dial ticks & numerals
-		for ti in range(60):
-			var ta: float = -PI * 0.5 + (float(ti) / 60.0) * TAU
-			var dir := Vector2(cos(ta), sin(ta))
-			var major: bool = (ti % 5 == 0)
-			var inner_r: float = (sw_r - 9.5) if major else (sw_r - 5.5)
-			var t_col: Color = ScavengeScene.COL_ALERT_RED if ti >= 45 else ScavengeScene.COL_INK
-			draw_line(sw_c + dir * inner_r, sw_c + dir * (sw_r - 2.0), t_col, 2.0 if major else 1.0)
-
-		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(0.0, -sw_r + 16.0), "60", 10, ScavengeScene.COL_INK)
-		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(sw_r - 15.0, 0.0), "15", 10, ScavengeScene.COL_INK)
-		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(0.0, sw_r - 15.0), "30", 10, ScavengeScene.COL_INK)
-		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(-sw_r + 15.0, 0.0), "45", 10, ScavengeScene.COL_ALERT_RED)
-		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(0.0, 11.0), "CONELRAD", 7, Color(0.2, 0.18, 0.15, 0.75))
-
-		# Sweeping stopwatch hand
-		var hand_frac: float = 0.0
-		if is_scout:
-			hand_frac = 1.0 - (scene_ref._scout_time_left / maxf(0.1, scene_ref._scout_total))
-		else:
-			hand_frac = 1.0 - (scene_ref._scavenge_time_left / maxf(1.0, scene_ref._scavenge_total))
-		var hand_ang: float = -PI * 0.5 + clampf(hand_frac, 0.0, 1.0) * TAU
-		var hand_dir := Vector2(cos(hand_ang), sin(hand_ang))
-		var needle_c: Color = ScavengeScene.COL_HAZARD_GOLD if is_scout else ScavengeScene.COL_ALERT_RED
-		draw_line(sw_c - hand_dir * 9.0, sw_c + hand_dir * (sw_r - 6.0), ScavengeScene.COL_INK, 4.0)
-		draw_line(sw_c - hand_dir * 9.0, sw_c + hand_dir * (sw_r - 6.0), needle_c, 2.2)
-		draw_circle(sw_c, 4.5, ScavengeScene.COL_INK)
-		draw_circle(sw_c, 2.4, ScavengeScene.COL_HAZARD_YELLOW)
-		draw_arc(sw_c, sw_r - 1.0, 0.0, TAU, 44, ScavengeScene.COL_INK, 2.2, true)
+		var sw_r: float = 40.0
+		draw_circle(sw_c + Vector2(0.0, 3.0), sw_r + 5.0, Color(0.0, 0.0, 0.0, 0.40))
+		draw_circle(sw_c, sw_r + 5.0, ScavengeScene.COL_SLATE_DARK)
+		draw_arc(sw_c, sw_r - 3.0, 0.0, TAU, 64, ScavengeScene.COL_SLATE, 7.0, true)
+		var total_t: float = maxf(0.1, scene_ref._scout_total) if is_scout else maxf(1.0, scene_ref._scavenge_total)
+		var frac_left: float = clampf(t_left / total_t, 0.0, 1.0)
+		var ring_col: Color = ScavengeScene.COL_AMBER if is_scout else (ScavengeScene.COL_ALERT_RED if urgent else ScavengeScene.COL_TEXT)
+		if frac_left > 0.001:
+			draw_arc(sw_c, sw_r - 3.0, -PI * 0.5, -PI * 0.5 + TAU * frac_left, 64, ring_col, 7.0, true)
+		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(0.0, -4.0), "%d" % int(ceil(t_left)), 22, ring_col)
+		ScavengeScene._draw_text_centered(self, font, sw_c + Vector2(0.0, 16.0), "LOOK" if is_scout else "SEC", 9, ScavengeScene.COL_TEXT_MUTED)
 
 		# Digital Tenths Readout + Mode Badge
-		var digital_str: String = ("RECON %04.1fs" % t_left) if is_scout else ("%04.1f SEC" % t_left)
-		var dig_col: Color = ScavengeScene.COL_HAZARD_YELLOW if is_scout else (ScavengeScene.COL_ALERT_RED if (urgent and sin(scene_ref._anim_time * 14.0) > 0.0) else ScavengeScene.COL_PARCHMENT)
+		var digital_str: String = ("LOOK %04.1f s" % t_left) if is_scout else ("%04.1f SEC" % t_left)
+		var dig_col: Color = ScavengeScene.COL_AMBER if is_scout else (ScavengeScene.COL_ALERT_RED if (urgent and sin(scene_ref._anim_time * 14.0) > 0.0) else ScavengeScene.COL_TEXT)
 		draw_string(font, Vector2(522.0, 46.0), digital_str, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, dig_col)
 
 		var leader_name: String = str(scene_ref._leader_member.get("name", "Leader")).to_upper()
 		var leader_trait: String = str(scene_ref._leader_member.get("trait", "")).to_upper()
 		var right_tag: String = "AUTO-PILOT DEMO" if GameState.demo_mode else ("LEADER: %s (%s)" % [leader_name, leader_trait])
-		var tag_c: Color = ScavengeScene.COL_TOXIC_GREEN if GameState.demo_mode else ScavengeScene.COL_PARCHMENT_DARK
+		var tag_c: Color = ScavengeScene.COL_OK_GREEN if GameState.demo_mode else ScavengeScene.COL_TEXT_MUTED
 		draw_string(font, Vector2(734.0, 42.0), right_tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, tag_c)
 
 		# Phase Banner Strip
 		var banner_r := Rect2(516.0, 56.0, 462.0, 34.0)
-		var banner_bg: Color = ScavengeScene.COL_HAZARD_YELLOW if is_scout else (ScavengeScene.COL_ALERT_RED if urgent else ScavengeScene.COL_ATOMIC_ORANGE)
-		var banner_fg: Color = ScavengeScene.COL_INK if is_scout else ScavengeScene.COL_PARCHMENT
-		var banner_txt: String = "RECON PHASE — MEMORIZE YOUR HOUSE! [TAB to Skip]"
+		var banner_bg: Color = ScavengeScene.COL_AMBER if is_scout else (ScavengeScene.COL_ALERT_RED if urgent else ScavengeScene.COL_SLATE)
+		var banner_fg: Color = ScavengeScene.COL_INK if is_scout else (Color("#ffffff") if urgent else ScavengeScene.COL_TEXT)
+		var banner_txt: String = "LOOK AROUND — PLAN YOUR ROUTE  [TAB: start now]"
 		if not is_scout:
 			if urgent:
-				banner_txt = "IMPENDING IMPACT! GET TO THE HATCH!"
+				banner_txt = "LAST SECONDS — GET TO THE HATCH!"
 			else:
-				banner_txt = "CONELRAD ALERT! GRAB SUPPLIES & FAMILY!"
+				banner_txt = "GRAB SUPPLIES & FAMILY — SPACE TO PICK UP"
 
-		draw_rect(banner_r, banner_bg, true)
-		draw_rect(banner_r, ScavengeScene.COL_INK, false, 1.5)
+		var banner_sb := StyleBoxFlat.new()
+		banner_sb.bg_color = banner_bg
+		banner_sb.set_corner_radius_all(10)
+		banner_sb.anti_aliasing = true
+		draw_style_box(banner_sb, banner_r)
 		ScavengeScene._draw_text_centered(self, font, banner_r.get_center(), banner_txt, 13, banner_fg)
 
 	func _draw_chute_tally_panel(font: Font) -> void:
 		var pop: float = sin((scene_ref._tally_pop_timer / 0.5) * PI) * 3.0 if scene_ref._tally_pop_timer > 0.0 else 0.0
 		var pr := Rect2(1010.0 - pop, 12.0 - pop * 0.5, 256.0 + pop * 2.0, 152.0 + pop)
 		draw_rect(Rect2(pr.position + Vector2(3.0, 4.0), pr.size), Color(0.0, 0.0, 0.0, 0.45), true)
-		draw_rect(pr, Color(0.14, 0.16, 0.14, 0.94), true)
-		draw_rect(Rect2(pr.position.x, pr.position.y, pr.size.x, 24.0), ScavengeScene.COL_HAZARD_YELLOW, true)
-		draw_rect(pr, ScavengeScene.COL_INK, false, 2.2)
+		draw_rect(pr, Color(0.10, 0.12, 0.14, 0.94), true)
+		draw_rect(Rect2(pr.position.x, pr.position.y, pr.size.x, 24.0), ScavengeScene.COL_SLATE, true)
+		draw_rect(pr, ScavengeScene.COL_BORDER, false, 1.0)
 
-		ScavengeScene._draw_text_centered(self, font, Vector2(pr.get_center().x, pr.position.y + 12.0), "BUNKER CHUTE TALLY", 12, ScavengeScene.COL_INK)
+		ScavengeScene._draw_text_centered(self, font, Vector2(pr.get_center().x, pr.position.y + 12.0), "DOWN THE HATCH", 12, ScavengeScene.COL_TEXT)
 
-		var soup_cans: int = GameState.soup_quarters / 4
+		var food_cans: int = GameState.soup_quarters / 4
 		var water_btls: int = GameState.water_quarters / 4
 		var row1_y: float = pr.position.y + 44.0
-		ItemDB.draw_item_icon(self, "soup", Vector2(pr.position.x + 22.0, row1_y), 24.0, false)
-		draw_string(font, Vector2(pr.position.x + 38.0, row1_y + 5.0), "Soup: %d" % soup_cans, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ScavengeScene.COL_PARCHMENT)
+		ItemDB.draw_item_icon(self, "food", Vector2(pr.position.x + 22.0, row1_y), 24.0, false)
+		draw_string(font, Vector2(pr.position.x + 38.0, row1_y + 5.0), "Food: %d" % food_cans, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ScavengeScene.COL_TEXT)
 
 		ItemDB.draw_item_icon(self, "water", Vector2(pr.position.x + 140.0, row1_y), 24.0, false)
-		draw_string(font, Vector2(pr.position.x + 156.0, row1_y + 5.0), "Water: %d" % water_btls, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ScavengeScene.COL_PARCHMENT)
+		draw_string(font, Vector2(pr.position.x + 156.0, row1_y + 5.0), "Water: %d" % water_btls, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ScavengeScene.COL_TEXT)
 
 		var row2_y: float = pr.position.y + 76.0
-		ItemDB.draw_item_icon(self, "toolbox", Vector2(pr.position.x + 22.0, row2_y), 22.0, false)
-		draw_string(font, Vector2(pr.position.x + 38.0, row2_y + 5.0), "Gear: %d" % scene_ref._gear_deposited_count, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ScavengeScene.COL_PARCHMENT)
+		draw_string(font, Vector2(pr.position.x + 12.0, row2_y + 5.0), "Gear: %d" % scene_ref._gear_deposited_count, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ScavengeScene.COL_TEXT)
 
 		# Draw up to 5 secured key gear mini-icons
 		var gx: float = pr.position.x + 122.0
@@ -2952,8 +2932,8 @@ class _ScavengeHUD extends Control:
 		for gid in scene_ref._secured_gear_order:
 			if shown >= 5:
 				break
-			draw_circle(Vector2(gx, row2_y), 11.0, ScavengeScene.COL_PARCHMENT)
-			draw_arc(Vector2(gx, row2_y), 11.0, 0.0, TAU, 16, ScavengeScene.COL_INK, 1.2)
+			draw_circle(Vector2(gx, row2_y), 11.0, ScavengeScene.COL_SLATE)
+			draw_arc(Vector2(gx, row2_y), 11.0, 0.0, TAU, 16, ScavengeScene.COL_BORDER, 1.0)
 			ItemDB.draw_item_icon(self, gid, Vector2(gx, row2_y), 17.0, false)
 			gx += 25.0
 			shown += 1
@@ -2962,8 +2942,8 @@ class _ScavengeHUD extends Control:
 		var row3_y: float = pr.position.y + 105.0
 		var fam_saved: int = scene_ref._family_deposited_count
 		var fam_tot: int = scene_ref._non_leader_total
-		var fam_col: Color = ScavengeScene.COL_TOXIC_GREEN if (fam_saved >= fam_tot) else ScavengeScene.COL_HAZARD_YELLOW
-		draw_string(font, Vector2(pr.position.x + 12.0, row3_y), "Family Rescued: %d / %d" % [fam_saved, fam_tot], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, fam_col)
+		var fam_col: Color = ScavengeScene.COL_OK_GREEN if (fam_saved >= fam_tot) else ScavengeScene.COL_AMBER
+		draw_string(font, Vector2(pr.position.x + 12.0, row3_y), "Family inside: %d / %d" % [fam_saved, fam_tot], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, fam_col)
 
 		var px: float = pr.position.x + 12.0
 		var py: float = pr.position.y + 112.0
@@ -2974,11 +2954,11 @@ class _ScavengeHUD extends Control:
 			var is_ldr: bool = bool(m.get("is_leader", false))
 			CharacterArtist.draw_portrait(self, p_rect, m, true)
 			if in_bunk:
-				draw_rect(p_rect, ScavengeScene.COL_TOXIC_GREEN, false, 2.2)
-				draw_circle(p_rect.end - Vector2(5.0, 5.0), 5.5, ScavengeScene.COL_TOXIC_GREEN)
+				draw_rect(p_rect, ScavengeScene.COL_OK_GREEN, false, 2.2)
+				draw_circle(p_rect.end - Vector2(5.0, 5.0), 5.5, ScavengeScene.COL_OK_GREEN)
 				ScavengeScene._draw_text_centered(self, font, p_rect.end - Vector2(5.0, 5.0), "V", 8, ScavengeScene.COL_INK)
 			elif is_ldr:
-				draw_rect(p_rect, ScavengeScene.COL_HAZARD_YELLOW, false, 1.6)
+				draw_rect(p_rect, ScavengeScene.COL_AMBER, false, 1.6)
 			else:
 				draw_rect(p_rect, Color(0.0, 0.0, 0.0, 0.42), true)
 			px += 40.0
@@ -2989,13 +2969,13 @@ class _ScavengeHUD extends Control:
 
 		# Hands Full / Suitcase Upgrade alert banner above carry rack
 		if scene_ref._suitcase_flash_timer > 0.0:
-			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "SUITCASE: +3 SLOTS WHILE YOU CARRY IT", 14, ScavengeScene.COL_INK, ScavengeScene.COL_HAZARD_YELLOW)
+			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "SUITCASE: +3 SLOTS WHILE YOU CARRY IT", 14, ScavengeScene.COL_INK, ScavengeScene.COL_AMBER)
 		elif scene_ref._hands_full_timer > 0.0:
-			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "HANDS FULL! SPACE AT THE HATCH TO DROP LOOT", 14, ScavengeScene.COL_INK, ScavengeScene.COL_ATOMIC_ORANGE)
+			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 554.0), "HANDS FULL — SPACE AT THE HATCH TO DROP EVERYTHING", 14, ScavengeScene.COL_INK, ScavengeScene.COL_ALERT_RED)
 		if not scene_ref._pending_action.is_empty():
 			var act_t: String = str(scene_ref._pending_action.get("type", ""))
-			var label: String = "GRABBING..." if act_t == "grab" else "DROPPING DOWN THE CHUTE..."
-			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 590.0), label, 13, ScavengeScene.COL_INK, ScavengeScene.COL_PARCHMENT)
+			var label: String = "GRABBING..." if act_t == "grab" else "DROPPING DOWN THE HATCH..."
+			ScavengeScene._draw_badge_pill(self, font, Vector2(640.0, 590.0), label, 13, ScavengeScene.COL_INK, ScavengeScene.COL_TEXT)
 
 		var cell_w: float = 82.0 if max_s <= 4 else 66.0
 		var cell_h: float = 56.0
@@ -3004,16 +2984,16 @@ class _ScavengeHUD extends Control:
 		var rack_rect := Rect2(640.0 - total_w * 0.5 - 14.0, 622.0, total_w + 28.0, 88.0)
 
 		draw_rect(Rect2(rack_rect.position + Vector2(3.0, 4.0), rack_rect.size), Color(0.0, 0.0, 0.0, 0.48), true)
-		draw_rect(rack_rect, Color(0.13, 0.15, 0.13, 0.95), true)
-		var border_col: Color = ScavengeScene.COL_ATOMIC_ORANGE if used_s >= max_s else (ScavengeScene.COL_HAZARD_YELLOW if scene_ref._suitcase_upgraded else ScavengeScene.COL_PARCHMENT_DARK)
+		draw_rect(rack_rect, Color(0.10, 0.12, 0.14, 0.95), true)
+		var border_col: Color = ScavengeScene.COL_ALERT_RED if used_s >= max_s else (ScavengeScene.COL_AMBER if scene_ref._suitcase_upgraded else ScavengeScene.COL_TEXT_MUTED)
 		draw_rect(rack_rect, border_col, false, 2.2)
 
-		var hdr_text: String = "CARRY HANDS: %d / %d SLOTS" % [used_s, max_s]
-		draw_string(font, Vector2(rack_rect.position.x + 12.0, rack_rect.position.y + 18.0), hdr_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, ScavengeScene.COL_PARCHMENT)
+		var hdr_text: String = "CARRYING: %d / %d SLOTS" % [used_s, max_s]
+		draw_string(font, Vector2(rack_rect.position.x + 12.0, rack_rect.position.y + 18.0), hdr_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, ScavengeScene.COL_TEXT)
 
 		if scene_ref._suitcase_upgraded:
 			var badge_r := Rect2(rack_rect.end.x - 170.0, rack_rect.position.y + 4.0, 160.0, 18.0)
-			draw_rect(badge_r, ScavengeScene.COL_HAZARD_YELLOW, true)
+			draw_rect(badge_r, ScavengeScene.COL_AMBER, true)
 			draw_rect(badge_r, ScavengeScene.COL_INK, false, 1.2)
 			ScavengeScene._draw_text_centered(self, font, badge_r.get_center(), "SUITCASE IN HAND: +3", 10, ScavengeScene.COL_INK)
 
@@ -3023,9 +3003,9 @@ class _ScavengeHUD extends Control:
 		for si in range(max_s):
 			var sr := Rect2(slots_x0 + float(si) * (cell_w + gap), slots_y0, cell_w, cell_h)
 			var is_bonus: bool = (si >= ScavengeScene.BASE_CARRY_SLOTS)
-			draw_rect(sr, Color(0.2, 0.22, 0.19, 0.85), true)
-			draw_rect(sr, ScavengeScene.COL_HAZARD_YELLOW if is_bonus else Color(0.45, 0.44, 0.38, 0.8), false, 1.5)
-			ScavengeScene._draw_text_centered(self, font, sr.get_center(), ("CASE %d" % (si + 1)) if is_bonus else ("SLOT %d" % (si + 1)), 10, Color(0.65, 0.63, 0.56, 0.45))
+			draw_rect(sr, Color(0.15, 0.17, 0.20, 0.85), true)
+			draw_rect(sr, ScavengeScene.COL_AMBER if is_bonus else ScavengeScene.COL_BORDER, false, 1.0)
+			ScavengeScene._draw_text_centered(self, font, sr.get_center(), ("CASE %d" % (si + 1)) if is_bonus else ("SLOT %d" % (si + 1)), 10, Color(0.60, 0.64, 0.68, 0.45))
 
 		# Draw carried item/family spanned cards over slots
 		var cur_slot: int = 0
@@ -3035,97 +3015,139 @@ class _ScavengeHUD extends Control:
 			var card_w: float = float(span) * cell_w + float(span - 1) * gap
 			var card_r := Rect2(slots_x0 + float(cur_slot) * (cell_w + gap), slots_y0, card_w, cell_h)
 
-			draw_rect(card_r, ScavengeScene.COL_PARCHMENT, true)
+			draw_rect(card_r, Color("#2f3640"), true)
 			var entry_idx: int = scene_ref._carried_entries.find(entry)
 			if entry_idx == scene_ref._selected_slot:
-				draw_rect(card_r.grow(3.0), ScavengeScene.COL_HAZARD_YELLOW, false, 3.0)
-				draw_string(font, Vector2(card_r.position.x + 3.0, card_r.end.y - 3.0), "SEL", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, ScavengeScene.COL_ATOMIC_ORANGE)
-			draw_rect(card_r, ScavengeScene.COL_INK, false, 2.2)
+				draw_rect(card_r.grow(3.0), ScavengeScene.COL_AMBER, false, 3.0)
+				draw_string(font, Vector2(card_r.position.x + 3.0, card_r.end.y - 3.0), "SEL", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, ScavengeScene.COL_ALERT_RED)
+			draw_rect(card_r, ScavengeScene.COL_BORDER, false, 1.0)
 
 			var kind: String = str(entry.get("kind", "item"))
 			if kind == "family":
 				var m: Dictionary = entry["member"]
 				var port_r := Rect2(card_r.position.x + 6.0, card_r.position.y + 5.0, 46.0, 46.0)
 				CharacterArtist.draw_portrait(self, port_r, m, true)
-				draw_string(font, Vector2(port_r.end.x + 8.0, card_r.position.y + 24.0), str(entry.get("name", "Family")), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ScavengeScene.COL_INK)
-				draw_string(font, Vector2(port_r.end.x + 8.0, card_r.position.y + 43.0), "[%d SLOTS]" % span, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_ATOMIC_ORANGE)
+				draw_string(font, Vector2(port_r.end.x + 8.0, card_r.position.y + 24.0), str(entry.get("name", "Family")), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ScavengeScene.COL_TEXT)
+				draw_string(font, Vector2(port_r.end.x + 8.0, card_r.position.y + 43.0), "[%d SLOTS]" % span, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_ALERT_RED)
 			else:
-				var iid: String = str(entry.get("item_id", "soup"))
+				var iid: String = str(entry.get("item_id", "food"))
 				if span == 1:
 					ItemDB.draw_item_icon(self, iid, card_r.position + Vector2(card_r.size.x * 0.5, 22.0), 32.0, false)
-					ScavengeScene._draw_text_centered(self, font, card_r.position + Vector2(card_r.size.x * 0.5, 47.0), str(entry.get("short_name", iid)), 10, ScavengeScene.COL_INK)
+					ScavengeScene._draw_text_centered(self, font, card_r.position + Vector2(card_r.size.x * 0.5, 47.0), str(entry.get("short_name", iid)), 10, ScavengeScene.COL_TEXT)
 				else:
 					ItemDB.draw_item_icon(self, iid, card_r.position + Vector2(32.0, 28.0), 40.0, false)
-					draw_string(font, Vector2(card_r.position.x + 58.0, card_r.position.y + 25.0), str(entry.get("short_name", iid)), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ScavengeScene.COL_INK)
-					draw_string(font, Vector2(card_r.position.x + 58.0, card_r.position.y + 43.0), "[2 SLOTS]", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_HAZARD_GOLD)
+					draw_string(font, Vector2(card_r.position.x + 58.0, card_r.position.y + 25.0), str(entry.get("short_name", iid)), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ScavengeScene.COL_TEXT)
+					draw_string(font, Vector2(card_r.position.x + 58.0, card_r.position.y + 43.0), "[2 SLOTS]", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_AMBER_DARK)
 
 			cur_slot += span
+
+	## The item (or family member) in reach or under the mouse: name, slot count and what it is for.
+	func _draw_item_tooltip(font: Font) -> void:
+		if scene_ref._phase == ScavengeScene.Phase.OUTRO:
+			return
+		var t: Dictionary = scene_ref._tooltip_target()
+		if t.is_empty():
+			return
+		var slots: int = int(t.get("slots", 1))
+		var fits: bool = scene_ref._get_used_slots() + slots <= scene_ref._max_slots
+		var line: String = ""
+		var icon_id: String = ""
+		if str(t.get("kind", "")) == "item":
+			icon_id = str(t.get("item_id", ""))
+			line = ItemDB.tooltip_line(icon_id)
+		else:
+			line = "%s [%d] — family: get them to the hatch" % [str(t.get("name", "Family")), slots]
+		var hint: String = ""
+		if scene_ref._phase == ScavengeScene.Phase.SCOUT:
+			hint = "Look now, grab when the timer starts"
+		elif fits:
+			hint = "SPACE or click: pick up"
+		else:
+			hint = "Hands full: drop something or empty them at the hatch"
+		var w_line: float = font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+		var w_hint: float = font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		var icon_w: float = 34.0 if icon_id != "" else 0.0
+		var box_w: float = clampf(maxf(w_line, w_hint) + icon_w + 28.0, 220.0, 760.0)
+		var box := Rect2(640.0 - box_w * 0.5, 500.0, box_w, 44.0)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.10, 0.12, 0.14, 0.94)
+		sb.border_color = ScavengeScene.COL_AMBER if fits else ScavengeScene.COL_ALERT_RED
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(12)
+		sb.anti_aliasing = true
+		draw_style_box(sb, box)
+		var tx: float = box.position.x + 14.0
+		if icon_id != "":
+			ItemDB.draw_item_icon(self, icon_id, Vector2(box.position.x + 26.0, box.get_center().y), 26.0, false)
+			tx += icon_w
+		draw_string(font, Vector2(tx, box.position.y + 19.0), line, HORIZONTAL_ALIGNMENT_LEFT, box.end.x - tx - 10.0, 14, ScavengeScene.COL_TEXT)
+		draw_string(font, Vector2(tx, box.position.y + 36.0), hint, HORIZONTAL_ALIGNMENT_LEFT, box.end.x - tx - 10.0, 11, ScavengeScene.COL_AMBER if fits else ScavengeScene.COL_ALERT_RED)
 
 	func _draw_controls_and_compass(font: Font) -> void:
 		# Bottom-left controls hint
 		var hint_r := Rect2(14.0, 646.0, 396.0, 64.0)
-		draw_rect(hint_r, Color(0.12, 0.14, 0.12, 0.9), true)
-		draw_rect(hint_r, Color(0.45, 0.44, 0.36, 0.85), false, 1.5)
-		draw_string(font, Vector2(22.0, 666.0), "WASD/Arrows: run   Click: walk & grab   F: dive in", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_PARCHMENT)
-		draw_string(font, Vector2(22.0, 684.0), "SPACE: grab  |  at hatch: drop loot down the chute", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_HAZARD_YELLOW)
-		draw_string(font, Vector2(22.0, 701.0), "Q / 1-7 / wheel: select  |  SPACE elsewhere: drop selected", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_PARCHMENT_DARK)
+		draw_rect(hint_r, Color(0.10, 0.12, 0.14, 0.9), true)
+		draw_rect(hint_r, ScavengeScene.COL_BORDER, false, 1.0)
+		draw_string(font, Vector2(22.0, 666.0), "WASD/Arrows: run   Click: walk & grab   F: dive in", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_TEXT)
+		draw_string(font, Vector2(22.0, 684.0), "SPACE: grab  |  at the hatch: drop everything down", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_AMBER)
+		draw_string(font, Vector2(22.0, 701.0), "Q / 1-7 / wheel: select  |  SPACE elsewhere: drop selected", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, ScavengeScene.COL_TEXT_MUTED)
 
 		# Bottom-right Hatch Compass & Speed Readout
 		var comp_r := Rect2(922.0, 646.0, 344.0, 64.0)
-		draw_rect(comp_r, Color(0.12, 0.14, 0.12, 0.9), true)
-		draw_rect(comp_r, Color(0.45, 0.44, 0.36, 0.85), false, 1.5)
+		draw_rect(comp_r, Color(0.10, 0.12, 0.14, 0.9), true)
+		draw_rect(comp_r, ScavengeScene.COL_BORDER, false, 1.0)
 
 		var to_hatch: Vector2 = scene_ref._hatch_pos - scene_ref._player_pos
 		var dist_px: float = to_hatch.length()
 		var dist_m: float = dist_px / 46.0
 		var cc := Vector2(comp_r.position.x + 32.0, comp_r.get_center().y)
 		draw_circle(cc, 20.0, ScavengeScene.COL_SLATE_DARK)
-		draw_arc(cc, 20.0, 0.0, TAU, 24, ScavengeScene.COL_HAZARD_YELLOW, 1.8, true)
+		draw_arc(cc, 20.0, 0.0, TAU, 24, ScavengeScene.COL_AMBER, 1.8, true)
 
 		if dist_px <= scene_ref._hatch_radius + ScavengeScene.HATCH_DROP_MARGIN:
-			draw_circle(cc, 8.0, ScavengeScene.COL_TOXIC_GREEN)
-			draw_string(font, Vector2(comp_r.position.x + 62.0, 671.0), "AT BUNKER HATCH!", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ScavengeScene.COL_TOXIC_GREEN)
+			draw_circle(cc, 8.0, ScavengeScene.COL_OK_GREEN)
+			draw_string(font, Vector2(comp_r.position.x + 62.0, 671.0), "AT THE HATCH", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ScavengeScene.COL_OK_GREEN)
 		else:
 			var dir_h: Vector2 = to_hatch.normalized()
 			var tip: Vector2 = cc + dir_h * 14.0
 			var wing_l: Vector2 = cc - dir_h * 8.0 + Vector2(-dir_h.y, dir_h.x) * 6.5
 			var wing_r: Vector2 = cc - dir_h * 8.0 - Vector2(-dir_h.y, dir_h.x) * 6.5
-			draw_colored_polygon(PackedVector2Array([tip, wing_l, wing_r]), ScavengeScene.COL_HAZARD_YELLOW)
-			draw_string(font, Vector2(comp_r.position.x + 62.0, 671.0), "HATCH BEARING: %.1f m" % dist_m, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ScavengeScene.COL_HAZARD_YELLOW)
+			draw_colored_polygon(PackedVector2Array([tip, wing_l, wing_r]), ScavengeScene.COL_AMBER)
+			draw_string(font, Vector2(comp_r.position.x + 62.0, 671.0), "HATCH: %.1f m" % dist_m, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, ScavengeScene.COL_AMBER)
 
 		var spd_pct: int = int(round((scene_ref._compute_move_speed() / ScavengeScene.BASE_MOVE_SPEED) * 100.0))
-		var spd_col: Color = ScavengeScene.COL_TOXIC_GREEN if spd_pct >= 100 else ScavengeScene.COL_PARCHMENT_DARK
+		var spd_col: Color = ScavengeScene.COL_OK_GREEN if spd_pct >= 100 else ScavengeScene.COL_TEXT_MUTED
 		draw_string(font, Vector2(comp_r.position.x + 62.0, 695.0), "MOVE SPEED: %d%%" % spd_pct, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, spd_col)
 
 	func _draw_outro_transition_overlay(font: Font) -> void:
-		draw_rect(Rect2(0.0, 0.0, 1280.0, 720.0), Color(0.05, 0.05, 0.04, 0.78), true)
+		draw_rect(Rect2(0.0, 0.0, 1280.0, 720.0), Color(0.04, 0.05, 0.06, 0.80), true)
 
-		if scene_ref._atomic_flash_alpha > 0.0:
-			draw_rect(Rect2(0.0, 0.0, 1280.0, 720.0), Color(1.0, 0.96, 0.86, scene_ref._atomic_flash_alpha), true)
+		if scene_ref._blast_flash_alpha > 0.0:
+			draw_rect(Rect2(0.0, 0.0, 1280.0, 720.0), Color(1.0, 0.98, 0.94, scene_ref._blast_flash_alpha), true)
 
 		var card := Rect2(250.0, 146.0, 780.0, 428.0)
 		draw_rect(Rect2(card.position + Vector2(6.0, 8.0), card.size), Color(0.0, 0.0, 0.0, 0.55), true)
-		draw_rect(card, ScavengeScene.COL_PARCHMENT, true)
+		draw_rect(card, ScavengeScene.COL_SLATE_DARK, true)
 		var hdr_r := Rect2(card.position.x, card.position.y, card.size.x, 58.0)
-		var hdr_bg: Color = ScavengeScene.COL_ALERT_RED if scene_ref._leader_caught_outside else ScavengeScene.COL_SLATE_DARK
+		var hdr_bg: Color = ScavengeScene.COL_ALERT_RED if scene_ref._leader_caught_outside else ScavengeScene.COL_SLATE
 		draw_rect(hdr_r, hdr_bg, true)
-		draw_rect(card, ScavengeScene.COL_INK, false, 3.5)
+		draw_rect(card, ScavengeScene.COL_BORDER, false, 1.0)
 
 		var survivors: Array = GameState.get_all_living_members()
 		var no_guardian: bool = (not survivors.is_empty()) and (not scene_ref._has_capable_guardian_in_bunker())
-		var title_txt: String = "HATCH SEALED — ENTERING FALLOUT SHELTER..."
+		var title_txt: String = "HATCH SHUT — INTO THE SHELTER"
 		if scene_ref._leader_caught_outside:
 			if survivors.is_empty():
-				title_txt = "ATOMIC DETONATION — NO SURVIVORS IN BUNKER"
+				title_txt = "NOBODY MADE IT INTO THE SHELTER"
 			elif no_guardian:
-				title_txt = "NO ADULT GUARDIAN IN SHELTER — EMERGENCY SEAL FAILED"
+				title_txt = "NO ADULT OR TEEN MADE IT INTO THE SHELTER"
 			else:
-				title_txt = "LEADER CAUGHT OUTSIDE — SEALING EMERGENCY HATCH..."
+				title_txt = "THE LEADER DIDN'T MAKE IT — THE HATCH IS SHUT"
 
-		ScavengeScene._draw_text_centered(self, font, hdr_r.get_center(), title_txt, 19, ScavengeScene.COL_HAZARD_YELLOW if not scene_ref._leader_caught_outside else ScavengeScene.COL_PARCHMENT)
+		ScavengeScene._draw_text_centered(self, font, hdr_r.get_center(), title_txt, 19, ScavengeScene.COL_TEXT if not scene_ref._leader_caught_outside else Color("#ffffff"))
 
 		# 4 Summary Stat Tiles
-		var soup_n: int = GameState.soup_quarters / 4
+		var food_n: int = GameState.soup_quarters / 4
 		var water_n: int = GameState.water_quarters / 4
 		var gear_n: int = scene_ref._gear_deposited_count
 		var fam_n: int = survivors.size()
@@ -3138,20 +3160,20 @@ class _ScavengeHUD extends Control:
 		var tx0: float = card.get_center().x - (tile_w * 4.0 + tile_gap * 3.0) * 0.5
 
 		var tiles_data: Array = [
-			{"icon": "soup", "val": "%d CANS" % soup_n, "lbl": "TOMATO SOUP"},
-			{"icon": "water", "val": "%d BOTTLES" % water_n, "lbl": "DRINKING WATER"},
-			{"icon": "suitcase", "val": "%d ITEMS" % gear_n, "lbl": "SURVIVAL GEAR"},
-			{"icon": "medkit", "val": "%d / %d" % [fam_n, fam_tot], "lbl": "SURVIVORS"}
+			{"icon": "food", "val": "%d CANS" % food_n, "lbl": "FOOD"},
+			{"icon": "water", "val": "%d BOTTLES" % water_n, "lbl": "WATER"},
+			{"icon": "suitcase", "val": "%d ITEMS" % gear_n, "lbl": "GEAR"},
+			{"icon": "medkit", "val": "%d / %d" % [fam_n, fam_tot], "lbl": "FAMILY INSIDE"}
 		]
 
 		for ti in range(4):
 			var td: Dictionary = tiles_data[ti]
 			var tr := Rect2(tx0 + float(ti) * (tile_w + tile_gap), tile_y, tile_w, tile_h)
-			draw_rect(tr, ScavengeScene.COL_PARCHMENT_DARK, true)
-			draw_rect(tr, ScavengeScene.COL_INK, false, 2.0)
+			draw_rect(tr, ScavengeScene.COL_SLATE, true)
+			draw_rect(tr, ScavengeScene.COL_BORDER, false, 1.0)
 			ItemDB.draw_item_icon(self, str(td["icon"]), tr.position + Vector2(tile_w * 0.5, 34.0), 38.0, false)
-			ScavengeScene._draw_text_centered(self, font, tr.position + Vector2(tile_w * 0.5, 74.0), str(td["val"]), 16, ScavengeScene.COL_INK)
-			ScavengeScene._draw_text_centered(self, font, tr.position + Vector2(tile_w * 0.5, 96.0), str(td["lbl"]), 11, ScavengeScene.COL_SLATE)
+			ScavengeScene._draw_text_centered(self, font, tr.position + Vector2(tile_w * 0.5, 74.0), str(td["val"]), 16, ScavengeScene.COL_TEXT)
+			ScavengeScene._draw_text_centered(self, font, tr.position + Vector2(tile_w * 0.5, 96.0), str(td["lbl"]), 11, ScavengeScene.COL_TEXT_MUTED)
 
 		# Family Roster Status Portraits
 		var fam_count: int = GameState.family_members.size()
@@ -3167,8 +3189,8 @@ class _ScavengeHUD extends Control:
 			CharacterArtist.draw_portrait(self, pr, fm, true)
 			if not safe:
 				draw_rect(pr, Color(0.15, 0.05, 0.05, 0.55), true)
-			draw_rect(pr, ScavengeScene.COL_TOXIC_GREEN if safe else ScavengeScene.COL_ALERT_RED, false, 3.0)
-			ScavengeScene._draw_text_centered(self, font, Vector2(pr.get_center().x, pr.end.y + 16.0), str(fm.get("name", "Member")), 13, ScavengeScene.COL_INK)
+			draw_rect(pr, ScavengeScene.COL_OK_GREEN if safe else ScavengeScene.COL_ALERT_RED, false, 3.0)
+			ScavengeScene._draw_text_centered(self, font, Vector2(pr.get_center().x, pr.end.y + 16.0), str(fm.get("name", "Member")), 13, ScavengeScene.COL_TEXT)
 			ScavengeScene._draw_badge_pill(
 				self,
 				font,
@@ -3176,12 +3198,12 @@ class _ScavengeHUD extends Control:
 				"SAFE" if safe else "LOST",
 				10,
 				ScavengeScene.COL_SLATE_DARK,
-				ScavengeScene.COL_TOXIC_GREEN if safe else ScavengeScene.COL_ALERT_RED
+				ScavengeScene.COL_OK_GREEN if safe else ScavengeScene.COL_ALERT_RED
 			)
 
 		# Progress bar along bottom of transition card
 		var bar_r := Rect2(card.position.x + 40.0, card.end.y - 34.0, card.size.x - 80.0, 14.0)
 		var fill_p: float = clampf(scene_ref._outro_elapsed / ScavengeScene.OUTRO_DURATION, 0.0, 1.0)
 		draw_rect(bar_r, ScavengeScene.COL_SLATE_DARK, true)
-		draw_rect(Rect2(bar_r.position.x + 2.0, bar_r.position.y + 2.0, (bar_r.size.x - 4.0) * fill_p, bar_r.size.y - 4.0), ScavengeScene.COL_HAZARD_YELLOW, true)
-		draw_rect(bar_r, ScavengeScene.COL_INK, false, 1.5)
+		draw_rect(Rect2(bar_r.position.x + 2.0, bar_r.position.y + 2.0, (bar_r.size.x - 4.0) * fill_p, bar_r.size.y - 4.0), ScavengeScene.COL_AMBER, true)
+		draw_rect(bar_r, ScavengeScene.COL_BORDER, false, 1.0)

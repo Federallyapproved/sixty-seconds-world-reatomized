@@ -1,0 +1,65 @@
+[
+	{
+		"id": "update_complete", "title": "Update Complete!", "type": "chain_followup", "mood": "bad", "system": true,
+		"setup": "The fridge upstairs chimes. The update finished. Everything inside has spoiled.",
+		"options": [
+			{"id": "eat", "label": "Eat the least spoiled can", "cinematic": "sickness",
+				"effects": [{"do": "rations", "kind": "food", "n": 2}, {"do": "sick", "who": "actor", "why": "ate from the fridge"}],
+				"outcome": "Two rations of something. {name} regrets it by evening."},
+			{"id": "bin", "label": "Leave it all up there", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "The fridge plays a little song of thanks."}
+		]
+	},
+	{
+		"id": "good_boy_returns", "title": "Good Boy, Again", "type": "chain_followup", "mood": "good", "system": true,
+		"setup": "The retriever is back at dawn, dragging a medkit by its strap.",
+		"options": [
+			{"id": "keep", "label": "Take it and let him in", "cinematic": "pet",
+				"effects": [{"do": "add", "item": "medkit", "n": 1}, {"do": "pet", "kind": "dog"}],
+				"outcome": "He stays. The medkit has only been chewed a little."},
+			{"id": "send", "label": "Take it and send him off", "cinematic": "give",
+				"effects": [{"do": "add", "item": "medkit", "n": 1}, {"do": "morale", "who": "all", "n": -1}],
+				"outcome": "He leaves. Nobody says anything for a while."}
+		]
+	},
+	{
+		"id": "fleas", "title": "Fleas", "type": "pests", "mood": "bad", "system": true,
+		"setup": "Everyone is scratching. The dog looks innocent, which is suspicious.",
+		"options": [
+			{"id": "spray", "label": "Spray everything", "item": "bug_spray", "cinematic": "repair",
+				"effects": [{"do": "use", "item": "bug_spray", "what": "the fleas are gone"}],
+				"outcome": "The shelter smells like a summer evening. The fleas disagree, briefly."},
+			{"id": "scratch", "label": "Scratch and bear it", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}, {"do": "chance", "p": 0.3, "then": [{"do": "sick", "who": "random", "why": "infected bites", "root": "chance"}]}],
+				"outcome": "Three itchy days. Everyone's temper shortens."},
+			{"id": "wash", "label": "Wash everyone in drinking water", "cinematic": "give",
+				"effects": [{"do": "rations", "kind": "water", "n": -3}],
+				"outcome": "Clean people, clean dog, a lot less water."}
+		]
+	},
+	{
+		"id": "neighbour_thanks", "title": "A Note Under the Hatch", "type": "chain_followup", "mood": "good", "system": true,
+		"setup": "A bag hangs from the hatch handle. Inside: water, and a crayon drawing of your hatch.",
+		"options": [
+			{"id": "take", "label": "Take it inside", "cinematic": "gain",
+				"effects": [{"do": "add", "item": "water", "n": 2}, {"do": "morale", "who": "all", "n": 1}],
+				"outcome": "The drawing goes up by the radio. The water goes on the shelf."},
+			{"id": "pass", "label": "Leave the water for someone else", "cinematic": "celebrate",
+				"effects": [{"do": "morale", "who": "all", "n": 2}],
+				"outcome": "You keep the drawing. Someone else gets the water."}
+		]
+	},
+	{
+		"id": "stranger_returns", "title": "Paid Back", "type": "chain_followup", "mood": "good", "system": true,
+		"setup": "The teenager is back with a friend and a sack. \"For the water,\" they say.",
+		"options": [
+			{"id": "take", "label": "Take the sack", "cinematic": "gain",
+				"effects": [{"do": "add", "item": "food", "n": 1}, {"do": "add", "item": "water", "n": 1}],
+				"outcome": "A can and a bottle. They're gone before anyone can say thanks."},
+			{"id": "share", "label": "Invite them to eat", "cinematic": "celebrate",
+				"effects": [{"do": "add", "item": "food", "n": 1}, {"do": "add", "item": "water", "n": 1}, {"do": "rations", "kind": "food", "n": -2}, {"do": "morale", "who": "all", "n": 2}],
+				"outcome": "The shelter is loud for an hour. It's a good loud."}
+		]
+	}
+]

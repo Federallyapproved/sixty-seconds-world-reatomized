@@ -2,7 +2,7 @@ extends Control
 
 ## Root scene router & transition manager for "The End Is Near".
 ## Connects GameState.screen_requested to instantiate each screen cleanly,
-## applies ThemeHelper's global CONELRAD theme, and supports CLI hooks for
+## applies ThemeHelper's global emergency-alert theme, and supports CLI hooks for
 ## automated Critic screenshot tours and Movie Maker demo showcase recording.
 
 var _screen_holder: Control
@@ -20,7 +20,7 @@ func _ready() -> void:
 
 	_fade_rect = ColorRect.new()
 	_fade_rect.name = "TransitionFade"
-	_fade_rect.color = Color(0.08, 0.08, 0.07, 0.0)
+	_fade_rect.color = Color(0.06, 0.067, 0.082, 0.0)
 	_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_fade_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_fade_rect)
@@ -51,6 +51,9 @@ func _mount_screen(screen_name: String) -> void:
 		_active_node = null
 
 	GameState.current_screen = screen_name
+	if "--log-screens" in OS.get_cmdline_user_args() or "--log-screens" in OS.get_cmdline_args():
+		# Smoke tests of exported packs grep these lines (headless runs print nothing else).
+		print("SCREEN %s day=%d" % [screen_name, GameState.day])
 
 	match screen_name:
 		GameState.SCREEN_TITLE:

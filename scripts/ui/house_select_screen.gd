@@ -7,14 +7,16 @@ extends Control
 ## interactive OsmSlippyMap parcel picker, architectural footprint blueprint preview,
 ## and scrollable real-world Churches / Supermarkets / Pharmacies / Schools / Neighbor Houses list.
 
-const COL_BG_DARK := Color("#1a1d1a")
-const COL_PANEL_SLATE := Color("#232824")
-const COL_CARD_PARCHMENT := Color("#efe3c8")
-const COL_CARD_AGED := Color("#dccba6")
-const COL_INK := Color("#1b1917")
-const COL_HAZARD_YELLOW := Color("#f5be2e")
-const COL_ATOMIC_ORANGE := Color("#e05a2b")
-const COL_SAFE_GREEN := Color("#7ec850")
+const COL_BG_DARK := Color("#0f1115")
+const COL_PANEL_SLATE := Color("#1a1e24")
+const COL_PANEL_RAISED := Color("#262c34")
+const COL_BORDER := Color("#39414b")
+const COL_TEXT := Color("#e8eaed")
+const COL_TEXT_MUTED := Color("#9aa3ad")
+const COL_INK := Color("#0f1115")
+const COL_AMBER := Color("#ffb020")
+const COL_RED := Color("#ff4d4f")
+const COL_SAFE_GREEN := Color("#4cc38a")
 const COL_BLUEPRINT_BG := Color("#132b40")
 const COL_BLUEPRINT_GRID := Color(0.32, 0.58, 0.78, 0.22)
 const COL_BLUEPRINT_LINE := Color("#eef7ff")
@@ -103,16 +105,14 @@ func _draw() -> void:
 	var full := Rect2(Vector2.ZERO, size if size.x > 100.0 else Vector2(1280.0, 720.0))
 	draw_rect(full, COL_BG_DARK, true)
 
-	# Subtle CONELRAD top hazard trim & tactical background scanlines
-	for y in range(0, int(full.size.y), 6):
-		draw_line(Vector2(0.0, float(y)), Vector2(full.size.x, float(y)), Color(0.0, 0.0, 0.0, 0.12), 1.0)
+	# Thin hazard-tape trim along the top edge
 
 	var stripe_h: float = 4.0
 	var stripe_w: float = 28.0
 	var sx: float = 0.0
 	var toggle: bool = false
 	while sx < full.size.x:
-		draw_rect(Rect2(sx, 0.0, stripe_w, stripe_h), COL_HAZARD_YELLOW if toggle else COL_INK, true)
+		draw_rect(Rect2(sx, 0.0, stripe_w, stripe_h), COL_AMBER if toggle else COL_INK, true)
 		sx += stripe_w
 		toggle = not toggle
 
@@ -129,18 +129,18 @@ func _build_top_bar() -> void:
 	var top_panel := Panel.new()
 	top_panel.position = Vector2(16.0, 8.0)
 	top_panel.size = Vector2(1248.0, 80.0)
-	top_panel.add_theme_stylebox_override("panel", _make_panel_style(COL_PANEL_SLATE, COL_HAZARD_YELLOW, 2, 5))
+	top_panel.add_theme_stylebox_override("panel", _make_panel_style(COL_PANEL_SLATE, COL_BORDER, 1, 12))
 	add_child(top_panel)
 
-	# Row 1: Step Badge + Search LineEdit + [ SEARCH LIVE OSM ]
+	# Row 1: Step badge + search field + search button
 	var badge_panel := PanelContainer.new()
 	badge_panel.position = Vector2(10.0, 8.0)
 	badge_panel.size = Vector2(218.0, 32.0)
-	badge_panel.add_theme_stylebox_override("panel", _make_panel_style(COL_HAZARD_YELLOW, COL_INK, 2, 3))
+	badge_panel.add_theme_stylebox_override("panel", _make_panel_style(COL_AMBER, COL_AMBER, 1, 16))
 	top_panel.add_child(badge_panel)
 
 	var badge_lbl := Label.new()
-	badge_lbl.text = " 02 // REAL-WORLD HOUSE"
+	badge_lbl.text = " STEP 2 OF 4 • YOUR HOUSE"
 	badge_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	badge_lbl.add_theme_color_override("font_color", COL_INK)
 	badge_lbl.add_theme_font_size_override("font_size", 14)
@@ -158,8 +158,8 @@ func _build_top_bar() -> void:
 	_search_btn = Button.new()
 	_search_btn.position = Vector2(1026.0, 8.0)
 	_search_btn.size = Vector2(212.0, 32.0)
-	_search_btn.text = "[ SEARCH LIVE OSM ]"
-	_style_button(_search_btn, COL_HAZARD_YELLOW, COL_INK, COL_INK, 14)
+	_search_btn.text = "SEARCH OPENSTREETMAP"
+	_style_button(_search_btn, COL_AMBER, COL_INK, COL_AMBER, 13)
 	_search_btn.pressed.connect(_trigger_live_search)
 	top_panel.add_child(_search_btn)
 
@@ -167,9 +167,9 @@ func _build_top_bar() -> void:
 	var preset_caption := Label.new()
 	preset_caption.position = Vector2(12.0, 48.0)
 	preset_caption.size = Vector2(150.0, 24.0)
-	preset_caption.text = "INSTANT PRESETS:"
+	preset_caption.text = "QUICK PICKS:"
 	preset_caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	preset_caption.add_theme_color_override("font_color", Color("#c8bfa8"))
+	preset_caption.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	preset_caption.add_theme_font_size_override("font_size", 12)
 	top_panel.add_child(preset_caption)
 
@@ -178,7 +178,7 @@ func _build_top_bar() -> void:
 	for p_v in presets:
 		var p: Dictionary = p_v
 		var pid: String = str(p.get("id", "seattle"))
-		var b_label: String = "[ %s ]" % str(p.get("button_label", pid))
+		var b_label: String = str(p.get("button_label", pid))
 		var btn := Button.new()
 		var bw: float = float(b_label.length()) * 7.6 + 22.0
 		btn.position = Vector2(px, 46.0)
@@ -214,7 +214,7 @@ func _build_map_section() -> void:
 	_slippy_map.house_clicked.connect(_on_map_house_clicked)
 	add_child(_slippy_map)
 
-	# Tactical Legend Pill overlaid at top of slippy map (non-blocking mouse_filter)
+	# Legend pill overlaid at top of the map (non-blocking mouse_filter)
 	var legend_bar := Control.new()
 	legend_bar.position = Vector2(54.0, 8.0)
 	legend_bar.size = Vector2(778.0, 26.0)
@@ -231,8 +231,8 @@ func _build_map_section() -> void:
 		var f: Font = get_theme_default_font()
 		if f == null:
 			f = ThemeDB.fallback_font
-		hint_bar.draw_rect(Rect2(Vector2.ZERO, hint_bar.size), Color(0.10, 0.11, 0.10, 0.86), true)
-		hint_bar.draw_rect(Rect2(Vector2.ZERO, hint_bar.size), Color(0.95, 0.75, 0.18, 0.55), false, 1.0)
+		hint_bar.draw_rect(Rect2(Vector2.ZERO, hint_bar.size), Color(0.06, 0.07, 0.08, 0.86), true)
+		hint_bar.draw_rect(Rect2(Vector2.ZERO, hint_bar.size), COL_BORDER, false, 1.0)
 		hint_bar.draw_string(
 			f,
 			Vector2(10.0, 15.0),
@@ -240,7 +240,7 @@ func _build_map_section() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT,
 			-1,
 			10,
-			COL_CARD_PARCHMENT
+			COL_TEXT
 		)
 	)
 	_slippy_map.add_child(hint_bar)
@@ -250,8 +250,8 @@ func _draw_map_legend_strip(ctrl: Control) -> void:
 	if f == null:
 		f = ThemeDB.fallback_font
 	var r := Rect2(Vector2.ZERO, ctrl.size)
-	ctrl.draw_rect(r, Color(0.11, 0.12, 0.11, 0.90), true)
-	ctrl.draw_rect(r, COL_HAZARD_YELLOW, false, 1.2)
+	ctrl.draw_rect(r, Color(0.06, 0.07, 0.08, 0.90), true)
+	ctrl.draw_rect(r, COL_BORDER, false, 1.0)
 
 	var entries: Array = [
 		{"cat": "selected", "label": "Your House"},
@@ -288,11 +288,11 @@ func _draw_map_legend_strip(ctrl: Control) -> void:
 		var tw: float = text_widths[idx]
 		var ic := Vector2(x + 6.5, r.size.y * 0.5)
 		if cat == "selected":
-			ctrl.draw_circle(ic, 6.5, COL_ATOMIC_ORANGE)
-			ctrl.draw_arc(ic, 6.5, 0.0, TAU, 16, COL_HAZARD_YELLOW, 1.7, true)
+			ctrl.draw_circle(ic, 6.5, COL_RED)
+			ctrl.draw_arc(ic, 6.5, 0.0, TAU, 16, COL_AMBER, 1.7, true)
 		else:
 			OsmSlippyMap.draw_poi_badge(ctrl, ic, 6.8 if cat != "neighbor_house" else 5.6, cat, false)
-		ctrl.draw_string(f, Vector2(x + icon_span, baseline_y), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, COL_CARD_PARCHMENT)
+		ctrl.draw_string(f, Vector2(x + icon_span, baseline_y), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, COL_TEXT)
 		x += icon_span + tw + gap
 
 func _build_right_sidebar() -> void:
@@ -300,21 +300,21 @@ func _build_right_sidebar() -> void:
 	var bp_card := Panel.new()
 	bp_card.position = Vector2(868.0, 94.0)
 	bp_card.size = Vector2(396.0, 236.0)
-	bp_card.add_theme_stylebox_override("panel", _make_panel_style(COL_CARD_PARCHMENT, COL_INK, 2, 5))
+	bp_card.add_theme_stylebox_override("panel", _make_panel_style(COL_PANEL_SLATE, COL_BORDER, 1, 12))
 	add_child(bp_card)
 
 	var bp_header := Panel.new()
 	bp_header.position = Vector2(0.0, 0.0)
 	bp_header.size = Vector2(396.0, 28.0)
-	bp_header.add_theme_stylebox_override("panel", _make_panel_style(COL_INK, COL_HAZARD_YELLOW, 1, 4))
+	bp_header.add_theme_stylebox_override("panel", _make_panel_style(COL_PANEL_RAISED, COL_BORDER, 1, 12))
 	bp_card.add_child(bp_header)
 
 	var bp_title := Label.new()
 	bp_title.position = Vector2(10.0, 2.0)
 	bp_title.size = Vector2(265.0, 24.0)
-	bp_title.text = "SELECTED HOUSE BLUEPRINT"
+	bp_title.text = "YOUR HOUSE"
 	bp_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	bp_title.add_theme_color_override("font_color", COL_HAZARD_YELLOW)
+	bp_title.add_theme_color_override("font_color", COL_TEXT)
 	bp_title.add_theme_font_size_override("font_size", 13)
 	bp_header.add_child(bp_title)
 
@@ -324,7 +324,7 @@ func _build_right_sidebar() -> void:
 	_lbl_house_osm_id.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_lbl_house_osm_id.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_lbl_house_osm_id.text = "OSM #--"
-	_lbl_house_osm_id.add_theme_color_override("font_color", Color("#bfb69f"))
+	_lbl_house_osm_id.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	_lbl_house_osm_id.add_theme_font_size_override("font_size", 11)
 	bp_header.add_child(_lbl_house_osm_id)
 
@@ -343,19 +343,19 @@ func _build_right_sidebar() -> void:
 	_lbl_house_address = Label.new()
 	_lbl_house_address.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_lbl_house_address.custom_minimum_size = Vector2(198.0, 38.0)
-	_lbl_house_address.add_theme_color_override("font_color", COL_INK)
+	_lbl_house_address.add_theme_color_override("font_color", COL_TEXT)
 	_lbl_house_address.add_theme_font_size_override("font_size", 14)
 	meta_vbox.add_child(_lbl_house_address)
 
 	_lbl_house_neighborhood = Label.new()
 	_lbl_house_neighborhood.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_lbl_house_neighborhood.add_theme_color_override("font_color", Color("#564d3f"))
+	_lbl_house_neighborhood.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	_lbl_house_neighborhood.add_theme_font_size_override("font_size", 11)
 	meta_vbox.add_child(_lbl_house_neighborhood)
 
 	var sep := ColorRect.new()
 	sep.custom_minimum_size = Vector2(196.0, 2.0)
-	sep.color = Color(0.15, 0.13, 0.11, 0.25)
+	sep.color = COL_BORDER
 	meta_vbox.add_child(sep)
 
 	_lbl_house_coords = _make_meta_row_label(meta_vbox)
@@ -363,10 +363,10 @@ func _build_right_sidebar() -> void:
 	_lbl_house_rooms = _make_meta_row_label(meta_vbox)
 
 	var hatch_note := Label.new()
-	hatch_note.text = "★ Central Bunker Hatch Installed"
+	hatch_note.text = "★ Shelter hatch under the house"
 	hatch_note.clip_text = true
 	hatch_note.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	hatch_note.add_theme_color_override("font_color", Color("#a63c1c"))
+	hatch_note.add_theme_color_override("font_color", COL_AMBER)
 	hatch_note.add_theme_font_size_override("font_size", 11)
 	meta_vbox.add_child(hatch_note)
 
@@ -374,21 +374,21 @@ func _build_right_sidebar() -> void:
 	var poi_card := Panel.new()
 	poi_card.position = Vector2(868.0, 338.0)
 	poi_card.size = Vector2(396.0, 316.0)
-	poi_card.add_theme_stylebox_override("panel", _make_panel_style(COL_CARD_PARCHMENT, COL_INK, 2, 5))
+	poi_card.add_theme_stylebox_override("panel", _make_panel_style(COL_PANEL_SLATE, COL_BORDER, 1, 12))
 	add_child(poi_card)
 
 	var poi_header := Panel.new()
 	poi_header.position = Vector2(0.0, 0.0)
 	poi_header.size = Vector2(396.0, 28.0)
-	poi_header.add_theme_stylebox_override("panel", _make_panel_style(COL_INK, COL_HAZARD_YELLOW, 1, 4))
+	poi_header.add_theme_stylebox_override("panel", _make_panel_style(COL_PANEL_RAISED, COL_BORDER, 1, 12))
 	poi_card.add_child(poi_header)
 
 	_lbl_poi_header = Label.new()
 	_lbl_poi_header.position = Vector2(10.0, 2.0)
 	_lbl_poi_header.size = Vector2(376.0, 24.0)
 	_lbl_poi_header.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_lbl_poi_header.text = "NEARBY REAL-WORLD SCAVENGE PLACES"
-	_lbl_poi_header.add_theme_color_override("font_color", COL_HAZARD_YELLOW)
+	_lbl_poi_header.text = "REAL PLACES NEARBY"
+	_lbl_poi_header.add_theme_color_override("font_color", COL_TEXT)
 	_lbl_poi_header.add_theme_font_size_override("font_size", 13)
 	poi_header.add_child(_lbl_poi_header)
 
@@ -398,7 +398,7 @@ func _build_right_sidebar() -> void:
 	_lbl_poi_summary.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_lbl_poi_summary.clip_text = true
 	_lbl_poi_summary.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_lbl_poi_summary.add_theme_color_override("font_color", Color("#473f33"))
+	_lbl_poi_summary.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	_lbl_poi_summary.add_theme_font_size_override("font_size", 10)
 	poi_card.add_child(_lbl_poi_summary)
 
@@ -416,7 +416,7 @@ func _build_right_sidebar() -> void:
 func _make_meta_row_label(parent: VBoxContainer) -> Label:
 	var lbl := Label.new()
 	lbl.custom_minimum_size = Vector2(198.0, 0.0)
-	lbl.add_theme_color_override("font_color", COL_INK)
+	lbl.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	lbl.add_theme_font_size_override("font_size", 11)
 	lbl.clip_text = true
 	lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -427,14 +427,14 @@ func _build_bottom_bar() -> void:
 	var bot_panel := Panel.new()
 	bot_panel.position = Vector2(16.0, 662.0)
 	bot_panel.size = Vector2(1248.0, 50.0)
-	bot_panel.add_theme_stylebox_override("panel", _make_panel_style(COL_PANEL_SLATE, COL_INK, 2, 5))
+	bot_panel.add_theme_stylebox_override("panel", _make_panel_style(COL_PANEL_SLATE, COL_BORDER, 1, 12))
 	add_child(bot_panel)
 
 	_btn_back = Button.new()
 	_btn_back.position = Vector2(8.0, 6.0)
 	_btn_back.size = Vector2(158.0, 38.0)
-	_btn_back.text = "[ < FAMILY ]"
-	_style_button(_btn_back, Color("#353b35"), COL_CARD_PARCHMENT, COL_HAZARD_YELLOW, 14)
+	_btn_back.text = "< FAMILY"
+	_style_button(_btn_back, COL_PANEL_RAISED, COL_TEXT, COL_BORDER, 14)
 	_btn_back.pressed.connect(func() -> void:
 		_play_sfx("button_click")
 		GameState.request_screen(GameState.SCREEN_FAMILY)
@@ -448,15 +448,15 @@ func _build_bottom_bar() -> void:
 	_lbl_bottom_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_lbl_bottom_summary.clip_text = true
 	_lbl_bottom_summary.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_lbl_bottom_summary.add_theme_color_override("font_color", COL_CARD_PARCHMENT)
+	_lbl_bottom_summary.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	_lbl_bottom_summary.add_theme_font_size_override("font_size", 11)
 	bot_panel.add_child(_lbl_bottom_summary)
 
 	_btn_confirm = Button.new()
 	_btn_confirm.position = Vector2(820.0, 6.0)
 	_btn_confirm.size = Vector2(420.0, 38.0)
-	_btn_confirm.text = "[ CONFIRM HOUSE & SELECT NUKE GROUND ZERO > ]"
-	_style_button(_btn_confirm, COL_ATOMIC_ORANGE, Color("#fff7e4"), COL_HAZARD_YELLOW, 14)
+	_btn_confirm.text = "THIS IS OUR HOUSE — SET UP THE STRIKE  >"
+	_style_button(_btn_confirm, COL_AMBER, COL_INK, COL_AMBER, 14)
 	_btn_confirm.pressed.connect(_on_confirm_house_pressed)
 	bot_panel.add_child(_btn_confirm)
 
@@ -465,7 +465,7 @@ func _build_search_results_overlay() -> void:
 	_search_results_panel.position = Vector2(252.0, 50.0)
 	_search_results_panel.custom_minimum_size = Vector2(782.0, 34.0)
 	_search_results_panel.visible = false
-	_search_results_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.11, 0.13, 0.11, 0.97), COL_HAZARD_YELLOW, 2, 4))
+	_search_results_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.10, 0.12, 0.14, 0.97), COL_BORDER, 1, 10))
 	add_child(_search_results_panel)
 
 	_search_results_bar = HBoxContainer.new()
@@ -556,8 +556,8 @@ func _draw_house_blueprint() -> void:
 	if not Geometry2D.is_point_in_polygon(hatch_px, poly):
 		hatch_px = center_px
 	_blueprint_canvas.draw_circle(hatch_px, 8.5, COL_INK)
-	_blueprint_canvas.draw_arc(hatch_px, 8.5, 0.0, TAU, 20, COL_HAZARD_YELLOW, 2.0, true)
-	_blueprint_canvas.draw_circle(hatch_px, 3.0, COL_ATOMIC_ORANGE)
+	_blueprint_canvas.draw_arc(hatch_px, 8.5, 0.0, TAU, 20, COL_AMBER, 2.0, true)
+	_blueprint_canvas.draw_circle(hatch_px, 3.0, COL_RED)
 
 	# North indicator & metric dimensions
 	_blueprint_canvas.draw_string(f, Vector2(7.0, 14.0), "N↑", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#9bd4ff"))
@@ -618,7 +618,7 @@ func _on_nominatim_search_completed(results: Array, _query: String) -> void:
 
 	var title_lbl := Label.new()
 	title_lbl.text = " Matches:"
-	title_lbl.add_theme_color_override("font_color", COL_HAZARD_YELLOW)
+	title_lbl.add_theme_color_override("font_color", COL_AMBER)
 	title_lbl.add_theme_font_size_override("font_size", 11)
 	_search_results_bar.add_child(title_lbl)
 
@@ -630,7 +630,7 @@ func _on_nominatim_search_completed(results: Array, _query: String) -> void:
 			sname = sname.substr(0, 24) + ".."
 		var chip := Button.new()
 		chip.text = sname
-		_style_button(chip, Color("#2a302b"), COL_CARD_PARCHMENT, COL_HAZARD_YELLOW, 11)
+		_style_button(chip, COL_PANEL_RAISED, COL_TEXT, COL_BORDER, 11)
 		var r_lat: float = float(item.get("lat", 0.0))
 		var r_lon: float = float(item.get("lon", 0.0))
 		var full_short: String = str(item.get("short_name", sname))
@@ -643,7 +643,7 @@ func _on_nominatim_search_completed(results: Array, _query: String) -> void:
 
 	var close_btn := Button.new()
 	close_btn.text = "×"
-	_style_button(close_btn, COL_INK, COL_HAZARD_YELLOW, COL_HAZARD_YELLOW, 12)
+	_style_button(close_btn, COL_PANEL_RAISED, COL_TEXT, COL_BORDER, 12)
 	close_btn.pressed.connect(_hide_search_results_overlay)
 	_search_results_bar.add_child(close_btn)
 	_search_results_panel.visible = true
@@ -856,8 +856,8 @@ func _create_poi_row_card(poi: Dictionary) -> PanelContainer:
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
-	var normal_sb: StyleBoxFlat = _make_panel_style(COL_CARD_AGED, Color(0.18, 0.16, 0.13, 0.55), 1, 4)
-	var hover_sb: StyleBoxFlat = _make_panel_style(Color("#f7e7b4"), COL_ATOMIC_ORANGE, 2, 4)
+	var normal_sb: StyleBoxFlat = _make_panel_style(COL_PANEL_RAISED, COL_BORDER, 1, 8)
+	var hover_sb: StyleBoxFlat = _make_panel_style(Color("#2f3640"), COL_AMBER, 1, 8)
 	card.add_theme_stylebox_override("panel", normal_sb)
 
 	var hbox := HBoxContainer.new()
@@ -883,7 +883,7 @@ func _create_poi_row_card(poi: Dictionary) -> PanelContainer:
 	name_lbl.text = pname
 	name_lbl.clip_text = true
 	name_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	name_lbl.add_theme_color_override("font_color", COL_INK)
+	name_lbl.add_theme_color_override("font_color", COL_TEXT)
 	name_lbl.add_theme_font_size_override("font_size", 12)
 	text_vbox.add_child(name_lbl)
 
@@ -895,7 +895,7 @@ func _create_poi_row_card(poi: Dictionary) -> PanelContainer:
 	sub_lbl.text = "%s  •  OSM %s %d" % [kind_txt, str(poi.get("osm_type", "node")), int(poi.get("osm_id", 0))]
 	sub_lbl.clip_text = true
 	sub_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	sub_lbl.add_theme_color_override("font_color", Color("#524839"))
+	sub_lbl.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	sub_lbl.add_theme_font_size_override("font_size", 10)
 	text_vbox.add_child(sub_lbl)
 
@@ -906,7 +906,7 @@ func _create_poi_row_card(poi: Dictionary) -> PanelContainer:
 	var walk_m: int = int(poi.get("walk_m", dist_m))
 	var walk_tag: String = "walk" if str(poi.get("walk_source", "")) == "network" else "est."
 	dist_lbl.text = "%dm %s %s\n%dd trip " % [walk_m, walk_tag, bearing, days]
-	dist_lbl.add_theme_color_override("font_color", Color("#8c2f16") if cat != "neighbor_house" else Color("#4a4235"))
+	dist_lbl.add_theme_color_override("font_color", COL_AMBER if cat != "neighbor_house" else COL_TEXT_MUTED)
 	dist_lbl.add_theme_font_size_override("font_size", 11)
 	hbox.add_child(dist_lbl)
 
@@ -946,7 +946,7 @@ func _init_demo_mode() -> void:
 	_demo_stage = 0
 	_demo_finished = false
 
-	# Prominent CONELRAD Hazard Banner across top of map
+	# Demo banner across the top of the map
 	_demo_banner = Control.new()
 	_demo_banner.position = Vector2(26.0, 132.0)
 	_demo_banner.size = Vector2(820.0, 36.0)
@@ -956,9 +956,9 @@ func _init_demo_mode() -> void:
 		if f == null:
 			f = ThemeDB.fallback_font
 		var r := Rect2(Vector2.ZERO, _demo_banner.size)
-		_demo_banner.draw_rect(r, COL_INK, true)
-		_demo_banner.draw_rect(r, COL_HAZARD_YELLOW, false, 2.5)
-		_demo_banner.draw_rect(Rect2(4.0, 4.0, 10.0, r.size.y - 8.0), COL_ATOMIC_ORANGE, true)
+		_demo_banner.draw_rect(r, Color(0.06, 0.07, 0.08, 0.94), true)
+		_demo_banner.draw_rect(r, COL_BORDER, false, 1.0)
+		_demo_banner.draw_rect(Rect2(4.0, 6.0, 4.0, r.size.y - 12.0), COL_AMBER, true)
 		_demo_banner.draw_string(
 			f,
 			Vector2(22.0, 23.0),
@@ -966,7 +966,7 @@ func _init_demo_mode() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT,
 			-1,
 			13,
-			COL_HAZARD_YELLOW
+			COL_TEXT
 		)
 	)
 	add_child(_demo_banner)
@@ -1019,16 +1019,16 @@ func _set_status_text(txt: String, busy: bool) -> void:
 	_status_busy = busy
 	if is_instance_valid(_status_label):
 		_status_label.text = txt
-		_status_label.add_theme_color_override("font_color", COL_HAZARD_YELLOW if busy else COL_SAFE_GREEN)
+		_status_label.add_theme_color_override("font_color", COL_AMBER if busy else COL_SAFE_GREEN)
 
 func _refresh_preset_button_styles() -> void:
 	for pid_k in _preset_buttons.keys():
 		var pid: String = str(pid_k)
 		var btn: Button = _preset_buttons[pid]
 		if pid == _active_preset_id:
-			_style_button(btn, COL_HAZARD_YELLOW, COL_INK, COL_INK, 12)
+			_style_button(btn, COL_AMBER, COL_INK, COL_AMBER, 12)
 		else:
-			_style_button(btn, Color("#303630"), COL_CARD_PARCHMENT, Color("#6e756a"), 12)
+			_style_button(btn, COL_PANEL_RAISED, COL_TEXT, COL_BORDER, 12)
 
 func _make_panel_style(bg: Color, border: Color, border_w: int, radius: int) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -1043,23 +1043,23 @@ func _make_panel_style(bg: Color, border: Color, border_w: int, radius: int) -> 
 	return sb
 
 func _style_search_input(le: LineEdit) -> void:
-	var normal := _make_panel_style(COL_CARD_PARCHMENT, COL_INK, 2, 4)
-	normal.content_margin_left = 10.0
-	normal.content_margin_right = 10.0
-	var focus := _make_panel_style(Color("#fff7e2"), COL_ATOMIC_ORANGE, 2, 4)
-	focus.content_margin_left = 10.0
-	focus.content_margin_right = 10.0
+	var normal := _make_panel_style(COL_BG_DARK, COL_BORDER, 1, 16)
+	normal.content_margin_left = 12.0
+	normal.content_margin_right = 12.0
+	var focus := _make_panel_style(COL_BG_DARK, COL_AMBER, 2, 16)
+	focus.content_margin_left = 12.0
+	focus.content_margin_right = 12.0
 	le.add_theme_stylebox_override("normal", normal)
 	le.add_theme_stylebox_override("focus", focus)
-	le.add_theme_color_override("font_color", COL_INK)
-	le.add_theme_color_override("font_placeholder_color", Color("#6e6352"))
-	le.add_theme_color_override("caret_color", COL_ATOMIC_ORANGE)
+	le.add_theme_color_override("font_color", COL_TEXT)
+	le.add_theme_color_override("font_placeholder_color", Color("#6b7580"))
+	le.add_theme_color_override("caret_color", COL_AMBER)
 	le.add_theme_font_size_override("font_size", 13)
 
 func _style_button(btn: Button, bg: Color, fg: Color, border: Color, fsize: int) -> void:
-	var normal := _make_panel_style(bg, border, 2, 4)
-	var hover := _make_panel_style(bg.lightened(0.14), COL_HAZARD_YELLOW, 2, 4)
-	var pressed_sb := _make_panel_style(bg.darkened(0.15), COL_CARD_PARCHMENT, 2, 4)
+	var normal := _make_panel_style(bg, border, 1, 8)
+	var hover := _make_panel_style(bg.lightened(0.10), COL_AMBER, 1, 8)
+	var pressed_sb := _make_panel_style(bg.darkened(0.15), COL_AMBER, 1, 8)
 	btn.add_theme_stylebox_override("normal", normal)
 	btn.add_theme_stylebox_override("hover", hover)
 	btn.add_theme_stylebox_override("pressed", pressed_sb)

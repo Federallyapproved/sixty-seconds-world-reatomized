@@ -31,15 +31,15 @@ func _setup_preset(pid: String) -> Dictionary:
 
 
 func _start_run() -> void:
+	# M1: the shelter is a ShelterState built from the grab haul (rations are whole cans/bottles).
 	GameState.reset_to_defaults()
 	GameState.init_default_family()
 	for m in GameState.family_members:
 		m["in_bunker"] = true
 		m["alive"] = true
-	GameState.soup_quarters = 40
-	GameState.water_quarters = 48
+	GameState.add_scavenged_item("food", 10)
+	GameState.add_scavenged_item("water", 12)
 	BunkerSim.start_bunker_run()
-
 
 func run() -> int:
 	GameState.rng.seed = 777
@@ -80,13 +80,24 @@ func _test_location_honesty() -> void:
 		var pc: String = str(GameState.place_names.get("postcode", ""))
 		var leaks: int = 0
 		var mentions_home: int = 0
+		var sh: ShelterState = GameState.shelter
 		for i in range(40):
-			GameState.day = 2 + i
-			var ev: Dictionary = EventDeck.draw_daily_event(GameState.day, GameState.rng)
-			var txt: String = str(ev.get("description", "")) + " " + str(ev.get("title", ""))
+			ShelterSim.begin_day(sh)
+			var ev: Dictionary = sh.today_event
+			var txt: String = str(ev.get("setup", "")) + " " + str(ev.get("title", ""))
+			for o_v in sh.today_options:
+				txt += " " + str((o_v as Dictionary).get("label", ""))
+			for pl in sh.places:
+				txt += " " + ShelterTrips.place_label(pl as Dictionary)
+			if not ev.is_empty():
+				var oc: Dictionary = ShelterSim.choose(sh, str((sh.today_options[0] as Dictionary)["id"]) if bool((sh.today_options[0] as Dictionary)["available"]) else str((sh.today_options[sh.today_options.size() - 1] as Dictionary)["id"]))
+				txt += " " + str(oc.get("text", ""))
+			if sh.is_over():
+				break
+			ShelterSim.end_day(sh, SimPolicies.make_plan(sh, "expert", GameState.rng))
 			if (not pc.is_empty() and txt.find(pc) != -1) or txt.find(", WA") != -1 or txt.find("USA") != -1 or txt.find(full) != -1:
 				leaks += 1
-			if txt.find("house") != -1 or txt.find("our place") != -1 or txt.find("home") != -1:
+			if txt.find("house") != -1 or txt.find("hatch") != -1 or txt.find("home") != -1:
 				mentions_home += 1
 		_ok(leaks == 0, "%s: no full address/postcode/country in 40 event texts (leaks=%d)" % [pid, leaks])
 		_ok(mentions_home > 0, "%s: events still refer to home naturally (%d mentions)" % [pid, mentions_home])
@@ -155,96 +166,104 @@ func _test_osm_verification() -> void:
 
 
 func _test_finite_loot() -> void:
-	print("\n--- finite loot ---")
+	print("\n--- finite loot (M1: ShelterTrips + the run's place stock) ---")
 	_setup_preset("concord")
 	_start_run()
+	var s: ShelterState = GameState.shelter
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9
-	var target: Dictionary = {}
-	for p in GameState.nearby_pois:
-		if str(p["category"]) == "grocery":
-			target = p
+	var place: Dictionary = {}
+	for p in s.places:
+		if str((p as Dictionary)["category"]) == "grocery":
+			place = p
 			break
+	_ok(not place.is_empty(), "the Concord preset has a real grocery among the expedition targets")
 	var hauls: Array[int] = []
 	for i in range(30):
-		var t: Dictionary = LootInventory.raid(target, 6, 0.45, rng)
+		var t: Dictionary = ShelterTrips.raid_stock(s, place, 5, 0.8)
 		var n: int = 0
 		for v in t.values():
 			n += int(v)
 		hauls.append(n)
-	print("  successive raids at %s: %s" % [target["name"], str(hauls)])
+	print("  successive searches at %s: %s" % [place.get("name", ""), str(hauls)])
 	var last_nonzero: int = -1
 	for i2 in range(hauls.size()):
 		if hauls[i2] > 0:
 			last_nonzero = i2
-	_ok(hauls[0] > 0 and last_nonzero < hauls.size() - 5 and LootInventory.remaining_total(target) == 0, "raids eventually yield nothing, forever (last find on raid %d of %d)" % [last_nonzero + 1, hauls.size()])
-	var non_increasing: bool = true
+	_ok(hauls[0] > 0 and last_nonzero < hauls.size() - 5 and ShelterTrips.stock_total(place) == 0, "searches eventually yield nothing, forever (last find on search %d of %d)" % [last_nonzero + 1, hauls.size()])
 	var tot_first3: int = hauls[0] + hauls[1] + hauls[2]
 	var tot_last3: int = hauls[27] + hauls[28] + hauls[29]
-	_ok(tot_last3 < tot_first3, "later raids yield less than early ones (%d vs %d)" % [tot_first3, tot_last3])
-	_ok(LootInventory.remaining_total(target) == 0 or LootInventory.remaining_total(target) < 3, "stock nearly/fully exhausted (left %d)" % LootInventory.remaining_total(target))
-	# persistence: same dictionary across get_available_targets refresh
+	_ok(tot_last3 < tot_first3, "later searches yield less than early ones (%d vs %d)" % [tot_first3, tot_last3])
+	_ok(ShelterTrips.stock_total(place) < 3, "stock nearly/fully exhausted (left %d)" % ShelterTrips.stock_total(place))
+	var poi: Dictionary = GameState.nearby_pois[int(place["idx"])]
+	_ok(LootInventory.remaining_total(poi) == ShelterTrips.stock_total(place), "the map's stock readout is the run's stock (no respawn on refresh)")
 	ExpeditionEngine.get_available_targets()
-	_ok(LootInventory.remaining_total(target) == LootInventory.remaining_total(GameState.nearby_pois[GameState.nearby_pois.find(target)]) , "inventory persists across target refresh (no respawn)")
-	var inv_a: Dictionary = LootInventory._generate(target)
-	var inv_b: Dictionary = LootInventory._generate(target)
-	_ok(JSON.stringify(inv_a) == JSON.stringify(inv_b), "stock is deterministic per OSM id")
-	# full expedition loop to the same place
-	var member: Dictionary = GameState.family_members[0]
-	var idx: int = GameState.nearby_pois.find(target)
-	var exp_hauls: Array[int] = []
-	for k in range(3):
-		member["on_expedition"] = false
-		ExpeditionEngine.start_expedition(str(member["id"]), idx, [])
-		var guard: int = 0
-		var res: Dictionary = {}
-		while not GameState.active_expedition.is_empty() and guard < 5:
-			res = ExpeditionEngine.tick_active_expedition()
-			guard += 1
-		var c: int = 0
-		for v2 in (res.get("loot", {}) as Dictionary).values():
-			c += int(v2)
-		exp_hauls.append(c)
-	_ok(exp_hauls[2] == 0, "expedition to an emptied store returns nothing: %s" % str(exp_hauls))
-
+	_ok(LootInventory.remaining_total(GameState.nearby_pois[int(place["idx"])]) == ShelterTrips.stock_total(place), "inventory persists across target refresh")
+	var a: Dictionary = ShelterTrips.generate_stock(place, 1.0)
+	var b: Dictionary = ShelterTrips.generate_stock(place, 1.0)
+	_ok(JSON.stringify(a) == JSON.stringify(b), "stock is deterministic per OSM id")
+	# A full trip to the emptied store brings nothing back.
+	var m: Dictionary = s.home()[1]
+	ShelterSim.begin_day(s)
+	s.today_event = {}
+	s.today_resolved = true
+	ShelterSim.end_day(s, {"rations": {}, "treat": {}, "jobs": {str(m["id"]): {"job": "trip", "place": int(place["idx"]), "gear": []}}})
+	var guard: int = 0
+	while str(m.get("loc", "")) == "away" and guard < 10:
+		ShelterSim.begin_day(s)
+		s.today_event = {}
+		s.today_resolved = true
+		ShelterSim.end_day(s, {"rations": {}, "treat": {}, "jobs": {}})
+		guard += 1
+	var back_line: String = ""
+	for l_v in s.receipt:
+		if str((l_v as Dictionary).get("kind", "")) == "return":
+			back_line = str((l_v as Dictionary)["text"])
+	_ok(not bool(m.get("alive", true)) or back_line.ends_with("with nothing."), "a trip to an emptied store returns nothing: %s" % back_line)
 
 func _test_actor_succession() -> void:
 	print("\n--- actor succession ---")
 	_setup_preset("seattle")
 	_start_run()
+	var s: ShelterState = GameState.shelter
 	var fam: Array = GameState.family_members
 	var leader: Dictionary = fam[0]
 	_ok(str(EventDeck.pick_actor().get("id", "")) == str(leader["id"]), "capable leader acts")
-	leader["on_expedition"] = true
+	leader["loc"] = "away"
 	var a2: Dictionary = EventDeck.pick_actor()
-	_ok(str(a2.get("name", "")) == "Dolores", "leader absent -> oldest eligible acts (%s)" % a2.get("name", ""))
-	leader["on_expedition"] = false
-	leader["injury"] = 3
-	_ok(str(EventDeck.pick_actor().get("name", "")) == "Dolores", "leader incapacitated -> oldest eligible acts")
-	leader["injury"] = 0
+	_ok(str(a2.get("name", "")) == "Priya", "leader away -> oldest able survivor acts (%s)" % a2.get("name", ""))
+	leader["loc"] = "shelter"
+	leader["morale"] = 0
+	_ok(str(EventDeck.pick_actor().get("name", "")) == "Priya", "leader withdrawn -> oldest able survivor acts")
+	leader["morale"] = 7
 	fam[1]["alive"] = false
+	fam[1]["loc"] = "dead"
 	leader["alive"] = false
+	leader["loc"] = "dead"
 	var a3: Dictionary = EventDeck.pick_actor()
-	_ok(str(a3.get("name", "")) == "Mary Jane", "leader & oldest dead -> next oldest eligible (teen) acts: %s" % a3.get("name", ""))
-	# outcomes never name absent/dead people
+	_ok(str(a3.get("name", "")) == "Maya", "leader & oldest dead -> next oldest able (teen) acts: %s" % a3.get("name", ""))
+	# Outcomes never name the dead.
 	var bad: int = 0
-	for i in range(60):
-		GameState.day = 3 + i
-		var ev: Dictionary = EventDeck.draw_daily_event(GameState.day, GameState.rng)
-		var opts: Array = ev.get("options", [])
-		if opts.is_empty():
-			continue
-		var res: Dictionary = EventDeck.resolve_event(ev, str(opts[opts.size() - 1]["id"]), GameState.rng)
-		var txt: String = str(res.get("outcome_text", ""))
-		for nm in ["Ted", "Dolores"]:
-			if txt.find(nm) != -1:
-				bad += 1
-		if str(res.get("actor_name", "")) in ["Ted", "Dolores", ""]:
-			bad += 1
-		if GameState.game_over:
+	for i in range(40):
+		ShelterSim.begin_day(s)
+		if s.is_over():
 			break
+		if not s.today_event.is_empty():
+			var pick: String = ""
+			for o_v in s.today_options:
+				if bool((o_v as Dictionary)["available"]):
+					pick = str((o_v as Dictionary)["id"])
+			var res: Dictionary = ShelterSim.choose(s, pick)
+			var txt: String = str(res.get("text", ""))
+			for nm in ["Sam", "Priya"]:
+				if txt.find(nm) != -1:
+					bad += 1
+			if str(s.member(str(res.get("actor_id", ""))).get("name", "")) in ["Sam", "Priya"]:
+				bad += 1
+		if s.is_over():
+			break
+		ShelterSim.end_day(s, SimPolicies.make_plan(s, "expert", GameState.rng))
 	_ok(bad == 0, "no outcome attributes actions to dead characters (%d violations)" % bad)
-
 
 func _test_radiation_units_and_decay() -> void:
 	print("\n--- radiation ---")
@@ -309,12 +328,16 @@ func _test_radiation_units_and_decay() -> void:
 
 
 func _test_vehicle_and_endings() -> void:
-	print("\n--- vehicle & location-driven routes ---")
+	print("\n--- vehicle (disabled feature) & location-driven routes ---")
+	_ok(not GameState.FEATURE_CAR_ESCAPE, "the car escape sits behind a disabled feature flag (section 4)")
+	VehicleSystem.init_for_run()
+	_ok(GameState.vehicle.is_empty() and not VehicleSystem.route_available(), "with the flag off, a run has no car and no drive-out route")
+	VehicleSystem.test_override = true
 	var routes: Dictionary = {}
 	for pid in ["seattle", "concord", "brooklyn"]:
 		_setup_preset(pid)
 		_start_run()
-		var v: Dictionary = GameState.vehicle
+		VehicleSystem.init_for_run()
 		var missing: Array = VehicleSystem.missing_parts()
 		var sources: Dictionary = {}
 		for part in ["car_battery", "fuel_can", "spark_plugs", "fan_belt", "tire_patch"]:
@@ -322,172 +345,121 @@ func _test_vehicle_and_endings() -> void:
 		var cats: Dictionary = {}
 		for p in GameState.nearby_pois:
 			cats[str(p["category"])] = true
-		routes[pid] = {
-			"hardware_or_auto": cats.has("hardware") or cats.has("auto"),
-			"sanctuary": EventDeck.has_real_poi(["church", "school"]),
-			"vehicle_route": VehicleSystem.route_available(),
-			"missing": missing, "part_sources": sources,
-			"spark_plug_sources": sources["spark_plugs"]
-		}
+		routes[pid] = {"neighbourhood_rescue": EventDeck.has_real_poi(["church", "school"]), "missing": missing, "part_sources": sources}
 		print("  %s: %s" % [pid, JSON.stringify(routes[pid])])
-		_ok(not missing.is_empty() and missing.has("car_battery"), "%s: car starts broken (battery missing)" % pid)
+		_ok(not missing.is_empty() and missing.has("car_battery"), "%s: the (disabled) car still starts broken" % pid)
 	_report["routes"] = routes
-	# A neighbourhood without hardware/auto has far fewer engine-part sources than one with them
-	var with_shops: int = int(routes["concord"]["part_sources"]["spark_plugs"]) + int(routes["seattle"]["part_sources"]["fuel_can"])
-	_ok(int(routes["brooklyn"]["part_sources"]["spark_plugs"]) <= int(routes["concord"]["part_sources"]["spark_plugs"]), "no hardware store -> fewer spark-plug sources (Brooklyn %d vs Concord %d)" % [int(routes["brooklyn"]["part_sources"]["spark_plugs"]), int(routes["concord"]["part_sources"]["spark_plugs"])])
-	# battery manual install flow
 	_setup_preset("seattle")
 	_start_run()
+	VehicleSystem.init_for_run()
 	GameState.vehicle["wrecked"] = false
 	_ok(not VehicleSystem.can_install("car_battery")["ok"], "cannot install a battery that is not in storage")
 	GameState.add_scavenged_item("car_battery", 1)
-	_ok(int(GameState.parts["car_battery"]) == 1, "recovered battery is placed in storage")
+	_ok(int(GameState.parts["car_battery"]) == 1, "a recovered battery goes into storage")
 	_ok(not bool(GameState.vehicle["battery_installed"]), "battery is NOT auto-installed")
 	var res: Dictionary = VehicleSystem.install("car_battery")
-	_ok(bool(res["ok"]) and bool(GameState.vehicle["battery_installed"]) and int(GameState.parts["car_battery"]) == 0, "manual install moves battery from storage into the car: %s" % str(res.get("text", "")))
-	_ok(float(res.get("dose_msv", 0.0)) > 0.0, "garage work costs radiation dose (%s)" % RadiationModel.format_dose(float(res.get("dose_msv", 0.0))))
-	# complete repair and drive out
-	GameState.add_scavenged_item("toolbox", 1)
-	for part in ["spark_plugs", "fan_belt", "tire_patch"]:
-		GameState.add_scavenged_item(part, 1)
-	GameState.add_scavenged_item("fuel_can", 3)
-	var guard: int = 0
-	while not VehicleSystem.missing_parts().is_empty() and guard < 10:
-		var p: String = str(VehicleSystem.missing_parts()[0])
-		var r2: Dictionary = VehicleSystem.install(p)
-		guard += 1
-		if not bool(r2["ok"]):
-			print("  install failed: ", p, " ", r2["text"])
-			break
-	_ok(VehicleSystem.is_ready(), "car becomes road-worthy after all parts installed")
-	var drive: Dictionary = VehicleSystem.drive_out()
-	_ok(bool(drive["ok"]) and GameState.victory and GameState.ending_title.begins_with("VICTORY: DROVE OUT"), "drive-out escape ending works: %s" % GameState.ending_title)
+	_ok(bool(res["ok"]) and bool(GameState.vehicle["battery_installed"]), "manual install moves the battery into the car: %s" % str(res.get("text", "")))
 	var plan_e: Dictionary = VehicleSystem.escape_plan()
 	var hl: float = float(GameState.selected_house["lat"])
 	var ho: float = float(GameState.selected_house["lon"])
 	var to_gz_e: float = NukePhysics.bearing_deg(hl, ho, float(GameState.nuke_config["lat"]), float(GameState.nuke_config["lon"]))
 	var cross_e: float = absf(NukePhysics.angle_diff_deg(float(plan_e["bearing"]), LocationText.downwind_bearing()))
 	var away_e: float = absf(NukePhysics.angle_diff_deg(float(plan_e["bearing"]), to_gz_e))
-	_ok(absf(cross_e - 90.0) < 1.0 and away_e >= 90.0, "escape heads crosswind (%.0f° off the plume) and away from ground zero (%.0f° from GZ bearing): %s" % [cross_e, away_e, str(plan_e["dir_word"])])
-	# Wrecked car removes the route
-	_start_run()
+	_ok(absf(cross_e - 90.0) < 1.0 and away_e >= 90.0, "the escape plan still heads crosswind and away from ground zero (%s)" % str(plan_e["dir_word"]))
 	GameState.vehicle["wrecked"] = true
-	_ok(not VehicleSystem.route_available() and VehicleSystem.missing_parts().is_empty(), "wrecked car -> vehicle route unavailable")
-	# Sanctuary chain only with a real church/school
+	_ok(not VehicleSystem.route_available(), "wrecked car -> vehicle route unavailable")
+	VehicleSystem.test_override = false
+	# The neighbourhood rescue needs a real church or school; the convoy and airlift never do.
 	_setup_preset("seattle")
 	_start_run()
-	var saved: Array = GameState.nearby_pois
-	var filtered: Array = []
-	for p2 in saved:
-		if not (str(p2["category"]) in ["church", "school"]):
-			filtered.append(p2)
-	GameState.nearby_pois = filtered
-	EventDeck.reset_state()
-	var sanct_drawn: int = 0
-	for d in range(5, 60):
-		var id: String = EventDeck._pick_rescue_event_id(d, GameState.rng)
-		if id.begins_with("rescue_sanctuary"):
-			sanct_drawn += 1
-	_ok(sanct_drawn == 0, "no sanctuary rescue chain without a real church/school")
-	var mil: int = 0
-	for d2 in range(5, 60):
-		if EventDeck._pick_rescue_event_id(d2, GameState.rng).begins_with("rescue_military"):
-			mil += 1
-	_ok(mil > 0, "military rescue remains as a legitimate alternative (no softlock)")
-	GameState.nearby_pois = saved
-
+	var s: ShelterState = GameState.shelter
+	var community: int = 0
+	for p2 in s.places:
+		if str((p2 as Dictionary)["category"]) in ["church", "school"]:
+			(p2 as Dictionary)["category"] = "neighbor_house"
+	for d in range(60):
+		s.day = 10 + d
+		ShelterChains.tick(s)
+		if str((s.chains["neighbourhood"] as Dictionary)["state"]) != "idle":
+			community += 1
+	_ok(community == 0, "no neighbourhood rescue without a real church/school")
+	_ok(str((s.chains["convoy"] as Dictionary)["state"]) == "active" and str((s.chains["airlift"] as Dictionary)["state"]) == "active", "convoy and airlift rescues remain (no softlock)")
 
 func _test_health_links() -> void:
 	print("\n--- health links ---")
 	_setup_preset("brooklyn")
-	var deaths_thirst: int = 0
 	var sick_from_thirst: int = 0
 	for trial in range(40):
 		_start_run()
-		var m: Dictionary = GameState.family_members[1]
-		m["days_without_water"] = 3
-		m["thirst"] = 2
-		GameState.rng.seed = 5000 + trial
-		var plan: Dictionary = {}
-		for mm in GameState.get_living_bunker_members():
-			plan[str(mm["id"])] = {"soup_q": 1, "water_q": 1 if str(mm["id"]) != str(m["id"]) else 0}
-		BunkerSim.advance_day(plan, "", {}, {})
-		if int(m.get("sickness", 0)) > 0:
+		var s: ShelterState = GameState.shelter
+		s.rng.seed = 5000 + trial
+		s.temp_c = 19.0   # no blast heat: this measures dehydration alone
+		var m: Dictionary = s.members[1]
+		m["dww"] = 3
+		ShelterSim.begin_day(s)
+		s.today_event = {}
+		s.today_resolved = true
+		var r: Dictionary = {}
+		for mm in s.home():
+			r[str(mm["id"])] = {"food": true, "water": str(mm["id"]) != str(m["id"])}
+		ShelterSim.end_day(s, {"rations": r, "treat": {}, "jobs": {}})
+		if bool(m.get("sick", false)):
 			sick_from_thirst += 1
-	_ok(sick_from_thirst >= 2, "dehydration raises fever risk (%d/40 got sick after a dry day)" % sick_from_thirst)
-	# ARS blocks healing
-	var healed_clean: int = 0
-	var healed_irradiated: int = 0
-	for trial2 in range(60):
-		_start_run()
-		GameState.rng.seed = 9000 + trial2
-		var a: Dictionary = GameState.family_members[0]
-		var b: Dictionary = GameState.family_members[1]
-		a["sickness"] = 1
-		b["sickness"] = 1
-		RadiationModel.add_dose(b, 2600.0, GameState.day)
-		var plan2: Dictionary = {}
-		for mm2 in GameState.get_living_bunker_members():
-			plan2[str(mm2["id"])] = {"soup_q": 1, "water_q": 1}
-		BunkerSim.advance_day(plan2, "", {}, {})
-		if int(a.get("sickness", 0)) == 0:
-			healed_clean += 1
-		if int(b.get("sickness", 0)) == 0:
-			healed_irradiated += 1
-	_ok(healed_irradiated < healed_clean, "radiation sickness slows healing (%d vs %d of 60 recovered)" % [healed_irradiated, healed_clean])
-	# severe ARS can kill
+	_ok(sick_from_thirst >= 6, "dehydration raises the risk of falling sick (%d/40 after a day dehydrated)" % sick_from_thirst)
+	# Radiation: a lethal dose in a week means radiation sickness; a very severe one can kill.
+	var ars_sick: int = 0
 	var ars_deaths: int = 0
 	for trial3 in range(40):
 		_start_run()
-		GameState.rng.seed = 12000 + trial3
-		var c: Dictionary = GameState.family_members[1]
-		RadiationModel.add_dose(c, 7000.0, GameState.day)
-		var plan3: Dictionary = {}
-		for mm3 in GameState.get_living_bunker_members():
-			plan3[str(mm3["id"])] = {"soup_q": 1, "water_q": 1}
-		BunkerSim.advance_day(plan3, "", {}, {})
+		var s3: ShelterState = GameState.shelter
+		s3.rng.seed = 12000 + trial3
+		var c: Dictionary = s3.members[1]
+		ShelterSim.add_dose(c, s3.day, 7000.0)
+		for d in range(3):
+			ShelterSim.begin_day(s3)
+			s3.today_event = {}
+			s3.today_resolved = true
+			var r3: Dictionary = {}
+			for mm3 in s3.home():
+				r3[str(mm3["id"])] = {"food": true, "water": true}
+			ShelterSim.end_day(s3, {"rations": r3, "treat": {}, "jobs": {}})
+		if bool(c.get("sick", false)) or not bool(c.get("alive", true)):
+			ars_sick += 1
 		if not bool(c.get("alive", true)):
 			ars_deaths += 1
-	_ok(ars_deaths >= 5, "very severe radiation sickness can be fatal (%d/40 died in one day)" % ars_deaths)
-
+	_ok(ars_sick == 40, "a lethal weekly dose always brings radiation sickness (%d/40)" % ars_sick)
+	_ok(ars_deaths >= 2 and ars_deaths < 40, "very severe radiation sickness can be fatal, after a warning (%d/40 died in 3 days)" % ars_deaths)
 
 func _test_long_runs() -> void:
-	print("\n--- long runs (30 days, 6 seeds x 3 presets) ---")
-	var errors: int = 0
+	print("\n--- long runs (expert policy to the end, 6 seeds x 3 presets) ---")
 	var summaries: Array = []
 	for pid in ["seattle", "concord", "brooklyn"]:
 		_setup_preset(pid)
 		for seed_i in range(6):
 			_start_run()
-			GameState.rng.seed = 400 + seed_i
-			var day_reached: int = 1
-			for d in range(30):
-				if GameState.game_over:
+			var s: ShelterState = GameState.shelter
+			var rng := RandomNumberGenerator.new()
+			rng.seed = 400 + seed_i
+			while not s.is_over() and s.day < 90:
+				ShelterSim.begin_day(s)
+				if s.is_over():
 					break
-				var plan: Dictionary = {}
-				for mm in GameState.get_living_bunker_members():
-					plan[str(mm["id"])] = {"soup_q": 1 if GameState.soup_quarters > 0 else 0, "water_q": 1 if GameState.water_quarters > 0 else 0}
-				var ev: Dictionary = EventDeck.draw_daily_event(GameState.day, GameState.rng)
-				var outcome: Dictionary = {}
-				var opts: Array = ev.get("options", [])
-				if not opts.is_empty():
-					var pick: String = ""
-					for o in opts:
-						if bool(o.get("available", false)):
-							pick = str(o["id"])
-					outcome = EventDeck.resolve_event(ev, pick, GameState.rng)
-				var launch: Dictionary = {}
-				if GameState.active_expedition.is_empty() and d % 3 == 1:
-					var actor: Dictionary = EventDeck.pick_actor()
-					if not actor.is_empty() and not GameState.nearby_pois.is_empty():
-						launch = {"member_id": str(actor["id"]), "poi_index": (d * 7) % GameState.nearby_pois.size(), "gear_ids": []}
-				BunkerSim.advance_day(plan, "", outcome, launch)
-				day_reached = GameState.day
+				if not s.today_event.is_empty():
+					ShelterSim.choose(s, SimPolicies.pick_option(s, "expert", rng))
+				if s.is_over():
+					break
+				ShelterSim.end_day(s, SimPolicies.make_plan(s, "expert", rng))
+			BunkerSim.sync_outcome()
 			var doses: Array = []
-			for m in GameState.family_members:
-				doses.append(int(float(m.get("dose_msv", 0.0))))
-			summaries.append({"preset": pid, "seed": 400 + seed_i, "day": day_reached, "victory": GameState.victory, "game_over": GameState.game_over, "ending": GameState.ending_title, "doses_msv": doses})
-	for s in summaries:
-		print("  ", JSON.stringify(s))
+			for m in s.members:
+				doses.append(int(float((m as Dictionary).get("dose_msv", 0.0))))
+			summaries.append({"preset": pid, "seed": 400 + seed_i, "day": s.day, "ending": s.ending, "victory": GameState.victory, "trips": int(s.stats["trips"]), "doses_msv": doses})
+	for sm in summaries:
+		print("  ", JSON.stringify(sm))
 	_report["long_runs"] = summaries
-	_ok(summaries.size() == 18, "18 long simulated runs completed without script errors")
+	var finished: int = 0
+	for sm2 in summaries:
+		if str((sm2 as Dictionary)["ending"]) != "":
+			finished += 1
+	_ok(summaries.size() == 18 and finished == 18, "18 long simulated runs reached an ending without script errors (%d/18)" % finished)
+

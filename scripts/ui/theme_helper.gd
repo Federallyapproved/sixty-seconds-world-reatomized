@@ -1,91 +1,96 @@
 class_name ThemeHelper
 extends RefCounted
 
-## 1950s Civil Defense CONELRAD UI Theme & Procedural Widget Styling Helper.
-## Eliminates default grey Godot controls with tactile bakelite, hazard-amber,
-## bunker-olive, and aged-parchment StyleBoxFlat definitions.
+## Global UI theme and widget styling: a present-day emergency-alert / phone look.
+## Dark flat panels, rounded corners, thin borders, amber for alerts and primary actions,
+## red for danger, green for OK. Every screen goes through these helpers, so the palette
+## lives here.
 
-const COLOR_BG_DARK := Color("#1a1d1a")
-const COLOR_BUNKER_OLIVE := Color("#232824")
-const COLOR_PANEL_SLATE := Color("#262b25")
-const COLOR_PARCHMENT := Color("#f2e6ce")
-const COLOR_PARCHMENT_AGED := Color("#dccba6")
-const COLOR_INK := Color("#1b1917")
-const COLOR_HAZARD_YELLOW := Color("#f5be2e")
-const COLOR_HAZARD_GOLD := Color("#f2b82e")
-const COLOR_ATOMIC_ORANGE := Color("#e05a2b")
-const COLOR_TOXIC_GREEN := Color("#7ec850")
-const COLOR_WATER_BLUE := Color("#3b8ec2")
+# Palette (section 4: modern emergency-alert / phone UI)
+const COLOR_BG := Color("#0f1115")
+const COLOR_PANEL := Color("#1a1e24")
+const COLOR_PANEL_RAISED := Color("#262c34")
+const COLOR_BORDER := Color("#39414b")
+const COLOR_TEXT := Color("#e8eaed")
+const COLOR_TEXT_MUTED := Color("#9aa3ad")
+const COLOR_ALERT_AMBER := Color("#ffb020")
+const COLOR_ALERT_RED := Color("#ff4d4f")
+const COLOR_OK_GREEN := Color("#4cc38a")
+const COLOR_WATER_BLUE := Color("#4aa3ff")
+const COLOR_FOOD := Color("#f0a35e")
+
+# Older names kept as aliases so screens written against the first theme still compile.
+const COLOR_BG_DARK := COLOR_BG
+const COLOR_BUNKER_OLIVE := COLOR_PANEL
+const COLOR_PANEL_SLATE := COLOR_PANEL
+const COLOR_PARCHMENT := COLOR_TEXT
+const COLOR_PARCHMENT_AGED := COLOR_TEXT_MUTED
+const COLOR_INK := COLOR_BG
+const COLOR_HAZARD_YELLOW := COLOR_ALERT_AMBER
+const COLOR_HAZARD_GOLD := COLOR_ALERT_AMBER
+const COLOR_TOXIC_GREEN := COLOR_OK_GREEN
+
+const _HOVER_BG := Color("#2f3640")
+const _DISABLED_TEXT := Color("#5d6671")
+const _CORNER: int = 8
 
 static func get_game_theme() -> Theme:
 	var t := Theme.new()
 	t.default_font_size = 16
 
 	# --- Label ---
-	t.set_color("font_color", "Label", COLOR_PARCHMENT)
-	t.set_color("font_shadow_color", "Label", Color(0.05, 0.05, 0.04, 0.55))
-	t.set_constant("shadow_offset_x", "Label", 1)
-	t.set_constant("shadow_offset_y", "Label", 1)
+	t.set_color("font_color", "Label", COLOR_TEXT)
+	t.set_color("font_shadow_color", "Label", Color(0.0, 0.0, 0.0, 0.0))
+	t.set_constant("shadow_offset_x", "Label", 0)
+	t.set_constant("shadow_offset_y", "Label", 0)
 	t.set_font_size("font_size", "Label", 16)
 
 	t.set_type_variation("HeaderLarge", "Label")
 	t.set_font_size("font_size", "HeaderLarge", 28)
-	t.set_color("font_color", "HeaderLarge", COLOR_HAZARD_YELLOW)
+	t.set_color("font_color", "HeaderLarge", COLOR_TEXT)
 
 	t.set_type_variation("HeaderMedium", "Label")
 	t.set_font_size("font_size", "HeaderMedium", 22)
-	t.set_color("font_color", "HeaderMedium", COLOR_HAZARD_YELLOW)
+	t.set_color("font_color", "HeaderMedium", COLOR_TEXT)
 
 	t.set_type_variation("HeaderSmall", "Label")
 	t.set_font_size("font_size", "HeaderSmall", 18)
-	t.set_color("font_color", "HeaderSmall", COLOR_PARCHMENT)
+	t.set_color("font_color", "HeaderSmall", COLOR_TEXT_MUTED)
 
-	# --- Button (Dark Olive / Brass Civil Defense Switch) ---
+	# --- Button (flat, rounded, thin border; amber ring on hover/focus) ---
 	var btn_normal := _make_stylebox(
-		Color("#2b322a"),
-		Color("#d69e2a"),
-		2,
-		4,
-		14.0, 8.0, 14.0, 8.0,
-		Color(0.0, 0.0, 0.0, 0.45),
-		3,
-		Vector2(0, 2)
+		COLOR_PANEL_RAISED,
+		COLOR_BORDER,
+		1,
+		_CORNER,
+		14.0, 8.0, 14.0, 8.0
 	)
 	var btn_hover := _make_stylebox(
-		Color("#394336"),
-		COLOR_HAZARD_YELLOW,
-		2,
-		4,
-		14.0, 8.0, 14.0, 8.0,
-		Color(0.96, 0.75, 0.18, 0.28),
-		5,
-		Vector2(0, 1)
+		_HOVER_BG,
+		COLOR_ALERT_AMBER,
+		1,
+		_CORNER,
+		14.0, 8.0, 14.0, 8.0
 	)
 	var btn_pressed := _make_stylebox(
-		Color("#1e231e"),
-		COLOR_ATOMIC_ORANGE,
+		COLOR_PANEL,
+		COLOR_ALERT_AMBER,
 		2,
-		4,
-		14.0, 10.0, 14.0, 6.0,
-		Color(0.0, 0.0, 0.0, 0.2),
-		1,
-		Vector2(0, 0)
+		_CORNER,
+		14.0, 9.0, 14.0, 7.0
 	)
 	var btn_disabled := _make_stylebox(
-		Color("#333832"),
-		Color("#5a6156"),
-		2,
-		4,
-		14.0, 8.0, 14.0, 8.0,
-		Color(0.0, 0.0, 0.0, 0.0),
-		0,
-		Vector2.ZERO
+		COLOR_PANEL,
+		Color("#2a3039"),
+		1,
+		_CORNER,
+		14.0, 8.0, 14.0, 8.0
 	)
 	var btn_focus := StyleBoxFlat.new()
 	btn_focus.draw_center = false
-	btn_focus.border_color = COLOR_HAZARD_YELLOW
+	btn_focus.border_color = COLOR_ALERT_AMBER
 	btn_focus.set_border_width_all(2)
-	btn_focus.set_corner_radius_all(4)
+	btn_focus.set_corner_radius_all(_CORNER)
 
 	for btn_type in ["Button", "OptionButton", "MenuButton"]:
 		t.set_stylebox("normal", btn_type, btn_normal)
@@ -93,28 +98,28 @@ static func get_game_theme() -> Theme:
 		t.set_stylebox("pressed", btn_type, btn_pressed)
 		t.set_stylebox("disabled", btn_type, btn_disabled)
 		t.set_stylebox("focus", btn_type, btn_focus)
-		t.set_color("font_color", btn_type, COLOR_PARCHMENT)
-		t.set_color("font_hover_color", btn_type, Color("#fff8e6"))
-		t.set_color("font_pressed_color", btn_type, COLOR_HAZARD_YELLOW)
-		t.set_color("font_focus_color", btn_type, COLOR_PARCHMENT)
-		t.set_color("font_disabled_color", btn_type, Color("#c5beae"))
+		t.set_color("font_color", btn_type, COLOR_TEXT)
+		t.set_color("font_hover_color", btn_type, Color("#ffffff"))
+		t.set_color("font_pressed_color", btn_type, COLOR_ALERT_AMBER)
+		t.set_color("font_focus_color", btn_type, COLOR_TEXT)
+		t.set_color("font_disabled_color", btn_type, _DISABLED_TEXT)
 		t.set_font_size("font_size", btn_type, 16)
 
 	var chk_icon_off := make_checkbox_icon(false)
 	var chk_icon_on := make_checkbox_icon(true)
 	for chk_type in ["CheckBox", "CheckButton"]:
 		var chk_normal := _make_stylebox(
-			Color("#232923"),
-			Color("#6e7668"),
+			COLOR_PANEL,
+			COLOR_BORDER,
 			1,
-			4,
+			_CORNER,
 			10.0, 6.0, 10.0, 6.0
 		)
 		var chk_hover := _make_stylebox(
-			Color("#2f372e"),
-			COLOR_HAZARD_YELLOW,
+			COLOR_PANEL_RAISED,
+			COLOR_ALERT_AMBER,
 			1,
-			4,
+			_CORNER,
 			10.0, 6.0, 10.0, 6.0
 		)
 		t.set_stylebox("normal", chk_type, chk_normal)
@@ -123,11 +128,11 @@ static func get_game_theme() -> Theme:
 		t.set_stylebox("hover_pressed", chk_type, chk_hover)
 		t.set_stylebox("disabled", chk_type, btn_disabled)
 		t.set_stylebox("focus", chk_type, btn_focus)
-		t.set_color("font_color", chk_type, COLOR_PARCHMENT)
-		t.set_color("font_hover_color", chk_type, COLOR_HAZARD_YELLOW)
-		t.set_color("font_pressed_color", chk_type, COLOR_HAZARD_YELLOW)
-		t.set_color("font_hover_pressed_color", chk_type, COLOR_HAZARD_YELLOW)
-		t.set_color("font_disabled_color", chk_type, Color("#c5beae"))
+		t.set_color("font_color", chk_type, COLOR_TEXT)
+		t.set_color("font_hover_color", chk_type, Color("#ffffff"))
+		t.set_color("font_pressed_color", chk_type, COLOR_ALERT_AMBER)
+		t.set_color("font_hover_pressed_color", chk_type, COLOR_ALERT_AMBER)
+		t.set_color("font_disabled_color", chk_type, _DISABLED_TEXT)
 		t.set_font_size("font_size", chk_type, 15)
 	t.set_icon("checked", "CheckBox", chk_icon_on)
 	t.set_icon("unchecked", "CheckBox", chk_icon_off)
@@ -136,13 +141,13 @@ static func get_game_theme() -> Theme:
 
 	# --- Panel & PanelContainer ---
 	var panel_sb := _make_stylebox(
-		COLOR_PANEL_SLATE,
-		Color("#5a6354"),
-		2,
-		4,
-		10.0, 10.0, 10.0, 10.0,
-		Color(0.0, 0.0, 0.0, 0.35),
-		3,
+		COLOR_PANEL,
+		COLOR_BORDER,
+		1,
+		_CORNER + 2,
+		12.0, 10.0, 12.0, 10.0,
+		Color(0.0, 0.0, 0.0, 0.30),
+		6,
 		Vector2(0, 2)
 	)
 	t.set_stylebox("panel", "Panel", panel_sb)
@@ -150,129 +155,122 @@ static func get_game_theme() -> Theme:
 
 	# --- PopupPanel / PopupMenu ---
 	var popup_sb := _make_stylebox(
-		Color("#1e231e"),
-		COLOR_HAZARD_GOLD,
-		2,
-		4,
+		COLOR_PANEL,
+		COLOR_BORDER,
+		1,
+		_CORNER + 2,
 		8.0, 8.0, 8.0, 8.0,
-		Color(0.0, 0.0, 0.0, 0.55),
-		6,
-		Vector2(0, 3)
+		Color(0.0, 0.0, 0.0, 0.50),
+		10,
+		Vector2(0, 4)
 	)
 	t.set_stylebox("panel", "PopupPanel", popup_sb)
 	t.set_stylebox("panel", "PopupMenu", popup_sb)
-	var popup_hover := _make_stylebox(Color("#384235"), COLOR_HAZARD_YELLOW, 1, 3, 6.0, 4.0, 6.0, 4.0)
+	var popup_hover := _make_stylebox(COLOR_PANEL_RAISED, COLOR_PANEL_RAISED, 1, 6, 6.0, 4.0, 6.0, 4.0)
 	t.set_stylebox("hover", "PopupMenu", popup_hover)
-	t.set_color("font_color", "PopupMenu", COLOR_PARCHMENT)
-	t.set_color("font_hover_color", "PopupMenu", COLOR_HAZARD_YELLOW)
+	t.set_color("font_color", "PopupMenu", COLOR_TEXT)
+	t.set_color("font_hover_color", "PopupMenu", COLOR_ALERT_AMBER)
 
-	# --- LineEdit (Recessed Teletype Input) ---
+	# --- LineEdit (search-field style input) ---
 	var le_normal := _make_stylebox(
-		Color("#161916"),
-		Color("#8d7b54"),
-		2,
-		4,
+		COLOR_BG,
+		COLOR_BORDER,
+		1,
+		_CORNER,
 		10.0, 6.0, 10.0, 6.0
 	)
 	var le_focus := _make_stylebox(
-		Color("#1c201b"),
-		COLOR_HAZARD_YELLOW,
+		COLOR_BG,
+		COLOR_ALERT_AMBER,
 		2,
-		4,
-		10.0, 6.0, 10.0, 6.0,
-		Color(0.96, 0.75, 0.18, 0.22),
-		4,
-		Vector2.ZERO
+		_CORNER,
+		10.0, 6.0, 10.0, 6.0
 	)
 	var le_read_only := _make_stylebox(
-		Color("#191c19"),
-		Color("#484d45"),
+		COLOR_PANEL,
+		Color("#2a3039"),
 		1,
-		4,
+		_CORNER,
 		10.0, 6.0, 10.0, 6.0
 	)
 	t.set_stylebox("normal", "LineEdit", le_normal)
 	t.set_stylebox("focus", "LineEdit", le_focus)
 	t.set_stylebox("read_only", "LineEdit", le_read_only)
-	t.set_color("font_color", "LineEdit", COLOR_PARCHMENT)
-	t.set_color("font_placeholder_color", "LineEdit", Color("#8a8372"))
-	t.set_color("caret_color", "LineEdit", COLOR_HAZARD_YELLOW)
-	t.set_color("selection_color", "LineEdit", Color(0.95, 0.74, 0.18, 0.35))
+	t.set_color("font_color", "LineEdit", COLOR_TEXT)
+	t.set_color("font_placeholder_color", "LineEdit", Color("#6b7580"))
+	t.set_color("caret_color", "LineEdit", COLOR_ALERT_AMBER)
+	t.set_color("selection_color", "LineEdit", Color(1.0, 0.69, 0.13, 0.32))
 	t.set_color("font_selected_color", "LineEdit", Color("#ffffff"))
 	t.set_font_size("font_size", "LineEdit", 16)
 
-	# --- HSlider (Brass Dial & Recessed Track) ---
+	# --- HSlider (thin track, round thumb) ---
 	var slider_rail := _make_stylebox(
-		Color("#151815"),
-		Color("#535b4e"),
+		COLOR_PANEL_RAISED,
+		COLOR_PANEL_RAISED,
 		1,
 		3,
-		0.0, 4.0, 0.0, 4.0
+		0.0, 3.0, 0.0, 3.0
 	)
 	var slider_fill := _make_stylebox(
-		Color("#c98d24"),
-		Color("#f2b82e"),
+		COLOR_ALERT_AMBER,
+		COLOR_ALERT_AMBER,
 		1,
 		3,
-		0.0, 4.0, 0.0, 4.0
+		0.0, 3.0, 0.0, 3.0
 	)
 	var slider_fill_hi := _make_stylebox(
-		COLOR_HAZARD_YELLOW,
-		Color("#ffe07d"),
+		Color("#ffc45c"),
+		Color("#ffc45c"),
 		1,
 		3,
-		0.0, 4.0, 0.0, 4.0
+		0.0, 3.0, 0.0, 3.0
 	)
 	t.set_stylebox("slider", "HSlider", slider_rail)
 	t.set_stylebox("grabber_area", "HSlider", slider_fill)
 	t.set_stylebox("grabber_area_highlight", "HSlider", slider_fill_hi)
-	t.set_icon("grabber", "HSlider", _make_knob_icon(COLOR_HAZARD_GOLD, COLOR_INK))
-	t.set_icon("grabber_highlight", "HSlider", _make_knob_icon( Color("#ffe07a"), COLOR_INK))
-	t.set_icon("grabber_disabled", "HSlider", _make_knob_icon(Color("#6b7066"), COLOR_INK))
+	t.set_icon("grabber", "HSlider", _make_knob_icon(COLOR_TEXT, COLOR_BG))
+	t.set_icon("grabber_highlight", "HSlider", _make_knob_icon(Color("#ffffff"), COLOR_ALERT_AMBER))
+	t.set_icon("grabber_disabled", "HSlider", _make_knob_icon(Color("#5d6671"), COLOR_BG))
 
-	# --- TabContainer & TabBar ---
+	# --- TabContainer & TabBar (segmented control) ---
 	var tab_panel := _make_stylebox(
-		COLOR_PANEL_SLATE,
-		COLOR_HAZARD_GOLD,
-		2,
-		4,
+		COLOR_PANEL,
+		COLOR_BORDER,
+		1,
+		_CORNER,
 		12.0, 12.0, 12.0, 12.0
 	)
 	var tab_sel := StyleBoxFlat.new()
-	tab_sel.bg_color = Color("#343b31")
-	tab_sel.border_color = COLOR_HAZARD_YELLOW
-	tab_sel.border_width_top = 3
-	tab_sel.border_width_left = 2
-	tab_sel.border_width_right = 2
-	tab_sel.border_width_bottom = 0
-	tab_sel.corner_radius_top_left = 4
-	tab_sel.corner_radius_top_right = 4
+	tab_sel.bg_color = COLOR_PANEL_RAISED
+	tab_sel.border_color = COLOR_ALERT_AMBER
+	tab_sel.border_width_top = 0
+	tab_sel.border_width_left = 0
+	tab_sel.border_width_right = 0
+	tab_sel.border_width_bottom = 2
+	tab_sel.corner_radius_top_left = 6
+	tab_sel.corner_radius_top_right = 6
 	tab_sel.content_margin_left = 14.0
 	tab_sel.content_margin_right = 14.0
 	tab_sel.content_margin_top = 7.0
 	tab_sel.content_margin_bottom = 7.0
 
 	var tab_hover := StyleBoxFlat.new()
-	tab_hover.bg_color = Color("#2a3028")
-	tab_hover.border_color = Color("#b88e28")
-	tab_hover.border_width_top = 2
-	tab_hover.border_width_left = 1
-	tab_hover.border_width_right = 1
-	tab_hover.corner_radius_top_left = 4
-	tab_hover.corner_radius_top_right = 4
+	tab_hover.bg_color = Color("#20252c")
+	tab_hover.border_color = COLOR_BORDER
+	tab_hover.border_width_bottom = 2
+	tab_hover.corner_radius_top_left = 6
+	tab_hover.corner_radius_top_right = 6
 	tab_hover.content_margin_left = 14.0
 	tab_hover.content_margin_right = 14.0
 	tab_hover.content_margin_top = 7.0
 	tab_hover.content_margin_bottom = 7.0
 
 	var tab_unsel := StyleBoxFlat.new()
-	tab_unsel.bg_color = Color("#1d211d")
-	tab_unsel.border_color = Color("#4a5246")
-	tab_unsel.border_width_top = 1
-	tab_unsel.border_width_left = 1
-	tab_unsel.border_width_right = 1
-	tab_unsel.corner_radius_top_left = 4
-	tab_unsel.corner_radius_top_right = 4
+	tab_unsel.bg_color = COLOR_PANEL
+	tab_unsel.border_color = COLOR_PANEL
+	tab_unsel.border_width_bottom = 2
+	tab_unsel.corner_radius_top_left = 6
+	tab_unsel.corner_radius_top_right = 6
 	tab_unsel.content_margin_left = 14.0
 	tab_unsel.content_margin_right = 14.0
 	tab_unsel.content_margin_top = 7.0
@@ -284,19 +282,19 @@ static func get_game_theme() -> Theme:
 		t.set_stylebox("tab_hovered", tab_cls, tab_hover)
 		t.set_stylebox("tab_unselected", tab_cls, tab_unsel)
 		t.set_stylebox("tab_focus", tab_cls, btn_focus)
-		t.set_color("font_selected_color", tab_cls, COLOR_HAZARD_YELLOW)
-		t.set_color("font_hovered_color", tab_cls, COLOR_PARCHMENT)
-		t.set_color("font_unselected_color", tab_cls, Color("#a89f8c"))
+		t.set_color("font_selected_color", tab_cls, COLOR_TEXT)
+		t.set_color("font_hovered_color", tab_cls, COLOR_TEXT)
+		t.set_color("font_unselected_color", tab_cls, COLOR_TEXT_MUTED)
 		t.set_font_size("font_size", tab_cls, 15)
 
-	# --- ScrollContainer & ScrollBars ---
+	# --- ScrollContainer & ScrollBars (thin, phone-style) ---
 	var empty_sb := StyleBoxEmpty.new()
 	t.set_stylebox("panel", "ScrollContainer", empty_sb)
 
-	var scroll_track := _make_stylebox(Color("#161916"), Color("#373d34"), 1, 3, 2.0, 2.0, 2.0, 2.0)
-	var scroll_grab := _make_stylebox(Color("#b58626"), COLOR_INK, 1, 3, 2.0, 2.0, 2.0, 2.0)
-	var scroll_grab_hi := _make_stylebox(COLOR_HAZARD_YELLOW, COLOR_INK, 1, 3, 2.0, 2.0, 2.0, 2.0)
-	var scroll_grab_pr := _make_stylebox(COLOR_ATOMIC_ORANGE, COLOR_INK, 1, 3, 2.0, 2.0, 2.0, 2.0)
+	var scroll_track := _make_stylebox(Color(0.0, 0.0, 0.0, 0.0), Color(0.0, 0.0, 0.0, 0.0), 0, 4, 2.0, 2.0, 2.0, 2.0)
+	var scroll_grab := _make_stylebox(COLOR_BORDER, COLOR_BORDER, 0, 4, 2.0, 2.0, 2.0, 2.0)
+	var scroll_grab_hi := _make_stylebox(COLOR_TEXT_MUTED, COLOR_TEXT_MUTED, 0, 4, 2.0, 2.0, 2.0, 2.0)
+	var scroll_grab_pr := _make_stylebox(COLOR_ALERT_AMBER, COLOR_ALERT_AMBER, 0, 4, 2.0, 2.0, 2.0, 2.0)
 	for sb_cls in ["VScrollBar", "HScrollBar"]:
 		t.set_stylebox("scroll", sb_cls, scroll_track)
 		t.set_stylebox("scroll_focus", sb_cls, scroll_track)
@@ -305,17 +303,18 @@ static func get_game_theme() -> Theme:
 		t.set_stylebox("grabber_pressed", sb_cls, scroll_grab_pr)
 
 	# --- ProgressBar & RichTextLabel ---
-	var pb_bg := _make_stylebox(Color("#151815"), Color("#565e50"), 1, 3, 2.0, 2.0, 2.0, 2.0)
-	var pb_fill := _make_stylebox(COLOR_HAZARD_GOLD, COLOR_INK, 1, 3, 2.0, 2.0, 2.0, 2.0)
+	var pb_bg := _make_stylebox(COLOR_PANEL_RAISED, COLOR_PANEL_RAISED, 0, 4, 2.0, 2.0, 2.0, 2.0)
+	var pb_fill := _make_stylebox(COLOR_ALERT_AMBER, COLOR_ALERT_AMBER, 0, 4, 2.0, 2.0, 2.0, 2.0)
 	t.set_stylebox("background", "ProgressBar", pb_bg)
 	t.set_stylebox("fill", "ProgressBar", pb_fill)
-	t.set_color("font_color", "ProgressBar", COLOR_PARCHMENT)
+	t.set_color("font_color", "ProgressBar", COLOR_TEXT)
 
-	t.set_color("default_color", "RichTextLabel", COLOR_PARCHMENT)
+	t.set_color("default_color", "RichTextLabel", COLOR_TEXT)
 	t.set_font_size("normal_font_size", "RichTextLabel", 16)
 
 	return t
 
+## Primary action: solid amber, dark text (the "take action" button of an alert).
 static func make_hazard_button(text_str: String, min_size: Vector2 = Vector2(200, 44)) -> Button:
 	var btn := Button.new()
 	btn.text = text_str
@@ -323,40 +322,34 @@ static func make_hazard_button(text_str: String, min_size: Vector2 = Vector2(200
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 	var normal := _make_stylebox(
-		COLOR_HAZARD_YELLOW,
-		COLOR_INK,
-		2,
-		4,
-		16.0, 8.0, 16.0, 8.0,
-		Color(0.0, 0.0, 0.0, 0.45),
-		4,
-		Vector2(0, 2)
+		COLOR_ALERT_AMBER,
+		COLOR_ALERT_AMBER,
+		1,
+		_CORNER,
+		16.0, 8.0, 16.0, 8.0
 	)
 	var hover := _make_stylebox(
-		Color("#ffd24c"),
-		COLOR_INK,
-		2,
-		4,
-		16.0, 8.0, 16.0, 8.0,
-		Color(0.96, 0.75, 0.18, 0.40),
-		6,
-		Vector2(0, 1)
-	)
-	var pressed := _make_stylebox(
-		Color("#d6921b"),
-		COLOR_INK,
-		2,
-		4,
-		16.0, 10.0, 16.0, 6.0,
-		Color(0.0, 0.0, 0.0, 0.2),
+		Color("#ffc45c"),
+		Color("#ffc45c"),
 		1,
+		_CORNER,
+		16.0, 8.0, 16.0, 8.0,
+		Color(1.0, 0.69, 0.13, 0.30),
+		8,
 		Vector2.ZERO
 	)
+	var pressed := _make_stylebox(
+		Color("#e09600"),
+		Color("#e09600"),
+		1,
+		_CORNER,
+		16.0, 9.0, 16.0, 7.0
+	)
 	var disabled := _make_stylebox(
-		Color("#333832"),
-		COLOR_INK,
-		2,
-		4,
+		COLOR_PANEL,
+		Color("#2a3039"),
+		1,
+		_CORNER,
 		16.0, 8.0, 16.0, 8.0
 	)
 
@@ -364,15 +357,16 @@ static func make_hazard_button(text_str: String, min_size: Vector2 = Vector2(200
 	btn.add_theme_stylebox_override("hover", hover)
 	btn.add_theme_stylebox_override("pressed", pressed)
 	btn.add_theme_stylebox_override("disabled", disabled)
-	btn.add_theme_color_override("font_color", COLOR_INK)
-	btn.add_theme_color_override("font_hover_color", Color("#12100e"))
-	btn.add_theme_color_override("font_pressed_color", Color("#12100e"))
-	btn.add_theme_color_override("font_focus_color", COLOR_INK)
-	btn.add_theme_color_override("font_disabled_color", Color("#c5beae"))
+	btn.add_theme_color_override("font_color", COLOR_BG)
+	btn.add_theme_color_override("font_hover_color", COLOR_BG)
+	btn.add_theme_color_override("font_pressed_color", COLOR_BG)
+	btn.add_theme_color_override("font_focus_color", COLOR_BG)
+	btn.add_theme_color_override("font_disabled_color", _DISABLED_TEXT)
 	btn.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	btn.add_theme_font_size_override("font_size", 16)
 	return btn
 
+## Danger action: solid red, white text.
 static func make_alert_button(text_str: String, min_size: Vector2 = Vector2(200, 44)) -> Button:
 	var btn := Button.new()
 	btn.text = text_str
@@ -380,37 +374,34 @@ static func make_alert_button(text_str: String, min_size: Vector2 = Vector2(200,
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 	var normal := _make_stylebox(
-		COLOR_ATOMIC_ORANGE,
-		COLOR_INK,
-		2,
-		4,
-		16.0, 8.0, 16.0, 8.0,
-		Color(0.0, 0.0, 0.0, 0.45),
-		4,
-		Vector2(0, 2)
+		COLOR_ALERT_RED,
+		COLOR_ALERT_RED,
+		1,
+		_CORNER,
+		16.0, 8.0, 16.0, 8.0
 	)
 	var hover := _make_stylebox(
-		Color("#f06b3b"),
-		COLOR_HAZARD_YELLOW,
-		2,
-		4,
+		Color("#ff6b6d"),
+		Color("#ff6b6d"),
+		1,
+		_CORNER,
 		16.0, 8.0, 16.0, 8.0,
-		Color(0.88, 0.35, 0.17, 0.42),
-		6,
-		Vector2(0, 1)
+		Color(1.0, 0.30, 0.31, 0.30),
+		8,
+		Vector2.ZERO
 	)
 	var pressed := _make_stylebox(
-		Color("#b53e1d"),
-		COLOR_INK,
-		2,
-		4,
-		16.0, 10.0, 16.0, 6.0
+		Color("#d93638"),
+		Color("#d93638"),
+		1,
+		_CORNER,
+		16.0, 9.0, 16.0, 7.0
 	)
 	var disabled := _make_stylebox(
-		Color("#333832"),
-		COLOR_INK,
-		2,
-		4,
+		COLOR_PANEL,
+		Color("#2a3039"),
+		1,
+		_CORNER,
 		16.0, 8.0, 16.0, 8.0
 	)
 
@@ -418,36 +409,37 @@ static func make_alert_button(text_str: String, min_size: Vector2 = Vector2(200,
 	btn.add_theme_stylebox_override("hover", hover)
 	btn.add_theme_stylebox_override("pressed", pressed)
 	btn.add_theme_stylebox_override("disabled", disabled)
-	btn.add_theme_color_override("font_color", COLOR_PARCHMENT)
+	btn.add_theme_color_override("font_color", Color("#ffffff"))
 	btn.add_theme_color_override("font_hover_color", Color("#ffffff"))
-	btn.add_theme_color_override("font_pressed_color", COLOR_HAZARD_YELLOW)
-	btn.add_theme_color_override("font_focus_color", COLOR_PARCHMENT)
-	btn.add_theme_color_override("font_disabled_color", Color("#c5beae"))
+	btn.add_theme_color_override("font_pressed_color", Color("#ffffff"))
+	btn.add_theme_color_override("font_focus_color", Color("#ffffff"))
+	btn.add_theme_color_override("font_disabled_color", _DISABLED_TEXT)
+	btn.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	btn.add_theme_font_size_override("font_size", 16)
 	return btn
 
-static func make_card_panel(bg_color: Color = Color("#262b25"), border_color: Color = Color("#f2b82e")) -> PanelContainer:
+static func make_card_panel(bg_color: Color = COLOR_PANEL, border_color: Color = COLOR_BORDER) -> PanelContainer:
 	var panel := PanelContainer.new()
 	var sb := _make_stylebox(
 		bg_color,
 		border_color,
-		2,
-		4,
+		1,
+		_CORNER + 4,
 		14.0, 12.0, 14.0, 12.0,
-		Color(0.0, 0.0, 0.0, 0.42),
-		4,
-		Vector2(0, 2)
+		Color(0.0, 0.0, 0.0, 0.35),
+		8,
+		Vector2(0, 3)
 	)
 	panel.add_theme_stylebox_override("panel", sb)
 	return panel
 
+## Amber-and-black hazard tape (still on every barrier and site fence).
 static func draw_hazard_stripes(canvas: CanvasItem, rect: Rect2, stripe_w: float = 18.0) -> void:
 	if rect.size.x <= 0.5 or rect.size.y <= 0.5:
 		return
-	var ink := COLOR_INK
-	var yellow := COLOR_HAZARD_GOLD
+	var ink := COLOR_BG
+	var yellow := COLOR_ALERT_AMBER
 	canvas.draw_rect(rect, ink, true)
-
 	var w: float = rect.size.x
 	var h: float = rect.size.y
 	var sw: float = maxf(4.0, stripe_w)
@@ -546,13 +538,13 @@ static func _make_knob_icon(fill_color: Color, rim_color: Color) -> ImageTexture
 	var img: Image = Image.create(sz, sz, false, Image.FORMAT_RGBA8)
 	var center := Vector2(float(sz - 1) * 0.5, float(sz - 1) * 0.5)
 	var r_outer: float = 7.0
-	var r_inner: float = 5.0
+	var r_inner: float = 6.0
 	var r_pip: float = 1.8
 	for y in range(sz):
 		for x in range(sz):
 			var d: float = Vector2(float(x), float(y)).distance_to(center)
 			if d <= r_pip:
-				img.set_pixel(x, y, rim_color)
+				img.set_pixel(x, y, fill_color)
 			elif d <= r_inner:
 				img.set_pixel(x, y, fill_color)
 			elif d <= r_outer:
@@ -562,20 +554,22 @@ static func _make_knob_icon(fill_color: Color, rim_color: Color) -> ImageTexture
 	return ImageTexture.create_from_image(img)
 
 static func make_checkbox_icon(checked: bool) -> ImageTexture:
+	# Rounded square: outlined when off, amber with a dark tick when on.
 	var sz: int = 16
 	var img: Image = Image.create(sz, sz, false, Image.FORMAT_RGBA8)
-	var bg_fill := Color("#faf5e8")
-	var rim := COLOR_INK
+	var fill: Color = COLOR_ALERT_AMBER if checked else COLOR_BG
+	var rim: Color = COLOR_ALERT_AMBER if checked else COLOR_TEXT_MUTED
 	for y in range(sz):
 		for x in range(sz):
-			if x == 0 or y == 0 or x == sz - 1 or y == sz - 1:
+			var corner: bool = (x <= 1 or x >= sz - 2) and (y <= 1 or y >= sz - 2)
+			if x == 0 or y == 0 or x == sz - 1 or y == sz - 1 or corner:
 				img.set_pixel(x, y, Color(0, 0, 0, 0))
 			elif x <= 2 or y <= 2 or x >= sz - 3 or y >= sz - 3:
 				img.set_pixel(x, y, rim)
 			else:
-				img.set_pixel(x, y, bg_fill)
+				img.set_pixel(x, y, fill)
 	if checked:
-		# Crisp 2px bold checkmark inside 3..12 box
+		# Crisp 2px tick inside the 3..12 box
 		var check_pts: Array[Vector2i] = [
 			Vector2i(4, 8), Vector2i(4, 9),
 			Vector2i(5, 9), Vector2i(5, 10),
@@ -588,5 +582,5 @@ static func make_checkbox_icon(checked: bool) -> ImageTexture:
 			Vector2i(12, 4), Vector2i(12, 5)
 		]
 		for pt in check_pts:
-			img.set_pixel(pt.x, pt.y, rim)
+			img.set_pixel(pt.x, pt.y, COLOR_BG)
 	return ImageTexture.create_from_image(img)

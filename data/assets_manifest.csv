@@ -1,0 +1,22 @@
+path,kind,title,author,source_url,license,notes
+assets/icons/items/food.svg,icon,opened-food-can (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/opened-food-can.html,CC-BY-3.0,source assets/icons/source/delapouite/opened-food-can.svg
+assets/icons/items/water.svg,icon,water-bottle (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/water-bottle.html,CC-BY-3.0,source assets/icons/source/delapouite/water-bottle.svg
+assets/icons/items/axe.svg,icon,wood-axe (recoloured),Lorc,https://game-icons.net/1x1/lorc/wood-axe.html,CC-BY-3.0,source assets/icons/source/lorc/wood-axe.svg
+assets/icons/items/rifle.svg,icon,rifle (recoloured),Sbed,https://game-icons.net/1x1/sbed/rifle.html,CC-BY-3.0,source assets/icons/source/sbed/rifle.svg
+assets/icons/items/ammo.svg,icon,ammo-box (recoloured),Sbed,https://game-icons.net/1x1/sbed/ammo-box.html,CC-BY-3.0,source assets/icons/source/sbed/ammo-box.svg
+assets/icons/items/padlock.svg,icon,padlock (recoloured),Lorc,https://game-icons.net/1x1/lorc/padlock.html,CC-BY-3.0,source assets/icons/source/lorc/padlock.svg
+assets/icons/items/bug_spray.svg,icon,aerosol (recoloured),Lorc,https://game-icons.net/1x1/lorc/aerosol.html,CC-BY-3.0,source assets/icons/source/lorc/aerosol.svg
+assets/icons/items/manual.svg,icon,open-book (recoloured),Lorc,https://game-icons.net/1x1/lorc/open-book.html,CC-BY-3.0,source assets/icons/source/lorc/open-book.svg
+assets/icons/items/medkit.svg,icon,first-aid-kit (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/first-aid-kit.html,CC-BY-3.0,source assets/icons/source/delapouite/first-aid-kit.svg
+assets/icons/items/suitcase.svg,icon,suitcase (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/suitcase.html,CC-BY-3.0,source assets/icons/source/delapouite/suitcase.svg
+assets/icons/items/radio.svg,icon,pocket-radio (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/pocket-radio.html,CC-BY-3.0,source assets/icons/source/delapouite/pocket-radio.svg
+assets/icons/items/gas_mask.svg,icon,gas-mask (recoloured),Lorc,https://game-icons.net/1x1/lorc/gas-mask.html,CC-BY-3.0,source assets/icons/source/lorc/gas-mask.svg
+assets/icons/items/flashlight.svg,icon,flashlight (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/flashlight.html,CC-BY-3.0,source assets/icons/source/delapouite/flashlight.svg
+assets/icons/items/map.svg,icon,atlas (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/atlas.html,CC-BY-3.0,source assets/icons/source/delapouite/atlas.svg
+assets/icons/items/cards.svg,icon,poker-hand (recoloured),Lorc,https://game-icons.net/1x1/lorc/poker-hand.html,CC-BY-3.0,source assets/icons/source/lorc/poker-hand.svg
+assets/icons/items/console.svg,icon,game-console (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/game-console.html,CC-BY-3.0,source assets/icons/source/delapouite/game-console.svg
+assets/icons/ui/cat.svg,icon,cat (recoloured),Lorc,https://game-icons.net/1x1/lorc/cat.html,CC-BY-3.0,source assets/icons/source/lorc/cat.svg
+assets/icons/ui/dog.svg,icon,sitting-dog (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/sitting-dog.html,CC-BY-3.0,source assets/icons/source/delapouite/sitting-dog.svg
+assets/icons/ui/radioactive.svg,icon,radioactive (recoloured),Lorc,https://game-icons.net/1x1/lorc/radioactive.html,CC-BY-3.0,source assets/icons/source/lorc/radioactive.svg
+assets/icons/ui/tombstone.svg,icon,tombstone (recoloured),Lorc,https://game-icons.net/1x1/lorc/tombstone.html,CC-BY-3.0,source assets/icons/source/lorc/tombstone.svg
+assets/icons/ui/hatch.svg,icon,floor-hatch (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/floor-hatch.html,CC-BY-3.0,source assets/icons/source/delapouite/floor-hatch.svg

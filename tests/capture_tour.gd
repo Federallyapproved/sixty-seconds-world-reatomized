@@ -40,13 +40,13 @@ func _run_tour() -> void:
 	for m in members:
 		m["in_bunker"] = true
 		m["alive"] = true
-	gs.call("add_scavenged_item", "soup", 5)
+	gs.call("add_scavenged_item", "food", 5)
 	gs.call("add_scavenged_item", "water", 6)
 	gs.call("add_scavenged_item", "medkit", 2)
 	gs.call("add_scavenged_item", "gas_mask", 1)
 	gs.call("add_scavenged_item", "radio", 1)
 	gs.call("add_scavenged_item", "rifle", 1)
-	gs.call("add_scavenged_item", "book", 1)
+	gs.call("add_scavenged_item", "manual", 1)
 	gs.call("add_scavenged_item", "suitcase", 1)
 	gs.call("add_scavenged_item", "padlock", 1)
 
