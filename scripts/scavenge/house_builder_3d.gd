@@ -184,11 +184,12 @@ static func build(layout: Dictionary) -> Dictionary:
 		(rm["node"] as Node3D).add_child(fix)
 
 	var hatch_node: Node3D = _build_hatch(hatch)
-	# Turn the hatch so its lid and ladder are on the far side from where the leader starts.
+	# Turn the hatch so its lid and ladder are on the far side from where the leader starts, in
+	# quarter turns only: the frame has to line up with the square cut in the floor.
 	var start: Vector2 = layout.get("leader_start_pos", hatch + Vector2(0.0, 60.0))
 	var to_start: Vector2 = start - hatch
 	if to_start.length() > 4.0:
-		hatch_node.rotation.y = atan2(to_start.x, to_start.y)
+		hatch_node.rotation.y = snappedf(atan2(to_start.x, to_start.y), PI * 0.5)
 	root.add_child(hatch_node)
 	return {"root": root, "rooms": rooms, "hatch": hatch_node, "hub": hub}
 

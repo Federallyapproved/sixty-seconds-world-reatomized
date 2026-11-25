@@ -236,6 +236,8 @@ func _house_checks(g: HouseGrab3D, osm: String, kinds_seen: Dictionary) -> bool:
 	if not HouseBuilder3D.no_mesh_data():
 		_check("h%s_few_meshes_per_room" % osm, worst_meshes <= 5, "worst %d" % worst_meshes)
 	_check("h%s_hatch_built" % osm, g._house3d.get("hatch") != null and g._hatch_prop_added)
+	var hr: float = fposmod((g._house3d["hatch"] as Node3D).rotation.y, PI * 0.5)
+	_check("h%s_hatch_frame_lines_up_with_the_floor_cut" % osm, hr < 0.001 or PI * 0.5 - hr < 0.001, "%.3f rad" % hr)
 	# You can stand at the hatch (beside the opening) without walking over it.
 	var stand_ok: bool = false
 	for k in range(16):
