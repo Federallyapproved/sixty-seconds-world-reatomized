@@ -42,3 +42,116 @@ assets/icons/items/phone_torch.svg,icon,vibrating-smartphone (recoloured),Delapo
 assets/icons/items/scrap_receiver.svg,icon,radar-dish (recoloured),Lorc,https://game-icons.net/1x1/lorc/radar-dish.html,CC-BY-3.0,source assets/icons/source/lorc/radar-dish.svg
 assets/icons/items/soap_spray.svg,icon,soap (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/soap.html,CC-BY-3.0,source assets/icons/source/delapouite/soap.svg
 assets/icons/items/sock_puppets.svg,icon,socks (recoloured),Delapouite,https://game-icons.net/1x1/delapouite/socks.html,CC-BY-3.0,source assets/icons/source/delapouite/socks.svg
+assets/models/furniture/bathroomCabinet.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/bathroomMirror.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/bathroomSink.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/bathtub.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/bedDouble.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/bedSingle.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/bookcaseClosedDoors.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/bookcaseClosedWide.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/bookcaseOpen.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/bookcaseOpenLow.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/books.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/cabinetBedDrawer.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/cabinetBedDrawerTable.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/cabinetTelevision.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/cardboardBoxClosed.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/cardboardBoxOpen.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/chair.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/chairDesk.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/coatRackStanding.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/computerScreen.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/desk.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/dryer.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/hoodModern.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/kitchenCabinet.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/kitchenCabinetDrawer.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/kitchenCabinetUpper.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/kitchenCoffeeMachine.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/kitchenFridgeLarge.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/kitchenMicrowave.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/kitchenSink.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/kitchenStove.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/lampRoundTable.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/lampSquareCeiling.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/lampSquareFloor.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/laptop.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/loungeChair.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/loungeSofa.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/pillow.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/plantSmall1.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/pottedPlant.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/radio.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/rugRectangle.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/rugRound.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/sideTableDrawers.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/speakerSmall.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/table.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/tableCloth.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/tableCoffee.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/televisionModern.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/toaster.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/toilet.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/trashcan.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/furniture/washer.glb,model,Furniture Kit 2.0,Kenney,https://kenney.nl/assets/furniture-kit,CC0,unchanged GLB
+assets/models/survival/Textures/colormap.png,model,Survival Kit,Kenney,https://kenney.nl/assets/survival-kit,CC0,unchanged GLB / colormap
+assets/models/survival/barrel.glb,model,Survival Kit,Kenney,https://kenney.nl/assets/survival-kit,CC0,unchanged GLB / colormap
+assets/models/survival/bottle-large.glb,model,Survival Kit,Kenney,https://kenney.nl/assets/survival-kit,CC0,unchanged GLB / colormap
+assets/models/survival/box.glb,model,Survival Kit,Kenney,https://kenney.nl/assets/survival-kit,CC0,unchanged GLB / colormap
+assets/models/survival/bucket.glb,model,Survival Kit,Kenney,https://kenney.nl/assets/survival-kit,CC0,unchanged GLB / colormap
+assets/models/survival/chest.glb,model,Survival Kit,Kenney,https://kenney.nl/assets/survival-kit,CC0,unchanged GLB / colormap
+assets/models/survival/tool-axe.glb,model,Survival Kit,Kenney,https://kenney.nl/assets/survival-kit,CC0,unchanged GLB / colormap
+assets/models/survival/workbench.glb,model,Survival Kit,Kenney,https://kenney.nl/assets/survival-kit,CC0,unchanged GLB / colormap
+assets/models/food/Textures/colormap.png,model,Food Kit,Kenney,https://kenney.nl/assets/food-kit,CC0,unchanged GLB / colormap
+assets/models/food/bottle-oil.glb,model,Food Kit,Kenney,https://kenney.nl/assets/food-kit,CC0,unchanged GLB / colormap
+assets/models/food/can-small.glb,model,Food Kit,Kenney,https://kenney.nl/assets/food-kit,CC0,unchanged GLB / colormap
+assets/models/food/can.glb,model,Food Kit,Kenney,https://kenney.nl/assets/food-kit,CC0,unchanged GLB / colormap
+assets/models/food/carton.glb,model,Food Kit,Kenney,https://kenney.nl/assets/food-kit,CC0,unchanged GLB / colormap
+assets/models/food/frying-pan.glb,model,Food Kit,Kenney,https://kenney.nl/assets/food-kit,CC0,unchanged GLB / colormap
+assets/models/food/pot.glb,model,Food Kit,Kenney,https://kenney.nl/assets/food-kit,CC0,unchanged GLB / colormap
+assets/models/food/soda-bottle.glb,model,Food Kit,Kenney,https://kenney.nl/assets/food-kit,CC0,unchanged GLB / colormap
+assets/textures/surfaces/carpet_color.jpg,texture,Carpet016 (ambientCG),ambientCG,https://ambientcg.com/view?id=Carpet016,CC0,1K colour; normal map resized to 512 px
+assets/textures/surfaces/carpet_normal.jpg,texture,Carpet016 (ambientCG),ambientCG,https://ambientcg.com/view?id=Carpet016,CC0,1K colour; normal map resized to 512 px
+assets/textures/surfaces/concrete_color.jpg,texture,Concrete034 (ambientCG),ambientCG,https://ambientcg.com/view?id=Concrete034,CC0,1K colour; normal map resized to 512 px
+assets/textures/surfaces/concrete_normal.jpg,texture,Concrete034 (ambientCG),ambientCG,https://ambientcg.com/view?id=Concrete034,CC0,1K colour; normal map resized to 512 px
+assets/textures/surfaces/plaster_color.jpg,texture,Plaster002 (ambientCG),ambientCG,https://ambientcg.com/view?id=Plaster002,CC0,1K colour; normal map resized to 512 px; colour made greyscale (tinted per room in game)
+assets/textures/surfaces/plaster_normal.jpg,texture,Plaster002 (ambientCG),ambientCG,https://ambientcg.com/view?id=Plaster002,CC0,1K colour; normal map resized to 512 px; colour made greyscale (tinted per room in game)
+assets/textures/surfaces/tiles_color.jpg,texture,Tiles141 (ambientCG),ambientCG,https://ambientcg.com/view?id=Tiles141,CC0,1K colour; normal map resized to 512 px
+assets/textures/surfaces/tiles_normal.jpg,texture,Tiles141 (ambientCG),ambientCG,https://ambientcg.com/view?id=Tiles141,CC0,1K colour; normal map resized to 512 px
+assets/textures/surfaces/wood_floor_color.jpg,texture,WoodFloor051 (ambientCG),ambientCG,https://ambientcg.com/view?id=WoodFloor051,CC0,1K colour; normal map resized to 512 px
+assets/textures/surfaces/wood_floor_normal.jpg,texture,WoodFloor051 (ambientCG),ambientCG,https://ambientcg.com/view?id=WoodFloor051,CC0,1K colour; normal map resized to 512 px
+assets/characters/ubc/Body_Female.bin,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Body_Female.gltf,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Body_Male.bin,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Body_Male.gltf,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Eyebrows_Female.bin,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Eyebrows_Female.gltf,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Eyebrows_Regular.bin,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Eyebrows_Regular.gltf,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_Beard.bin,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_Beard.gltf,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_Buns.bin,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_Buns.gltf,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_Buzzed.bin,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_Buzzed.gltf,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_BuzzedFemale.bin,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_BuzzedFemale.gltf,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_Long.bin,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_Long.gltf,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_SimpleParted.bin,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/Hair_SimpleParted.gltf,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/T_Body_Female_BaseColor.png,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/T_Body_Female_Normal.png,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/T_Body_Male_BaseColor.png,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/T_Body_Male_Normal.png,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/T_Eye_Brown.png,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/T_Eye_Normal.png,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/T_Hair_1_BaseColor.png,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/T_Hair_1_Normal.png,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/T_Hair_2_BaseColor.png,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/ubc/T_Hair_2_Normal.png,model,Universal Base Characters (Standard),Quaternius,https://quaternius.itch.io/universal-base-characters,CC0,"bodies and hair; textures resized to 1K / 512 px, roughness maps dropped"
+assets/characters/family_anims.res,model,Universal Animation Library 1 and 2 (Standard),Quaternius,https://quaternius.itch.io/universal-animation-library,CC0,19 clips cut by tools/build_family_anims.gd (UAL2: https://quaternius.itch.io/universal-animation-library-2)
+assets/shaders/clothed_body.gdshader,shader,clothed_body.gdshader,The End Is Near contributors,https://github.com/Federallyapproved/the-end-is-near,MIT,original
+assets/shaders/hair_tint.gdshader,shader,hair_tint.gdshader,The End Is Near contributors,https://github.com/Federallyapproved/the-end-is-near,MIT,original
+assets/shaders/outline.gdshader,shader,outline.gdshader,The End Is Near contributors,https://github.com/Federallyapproved/the-end-is-near,MIT,original

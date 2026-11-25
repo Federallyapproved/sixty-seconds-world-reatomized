@@ -36,6 +36,10 @@ func _run() -> void:
 	_out = _arg("out", "/tmp/keys")
 	var hard: bool = _arg("hard", "0") == "1"
 	DirAccess.make_dir_recursive_absolute(_out)
+	# M4: the grab is first person by default (tests/m4/play_grab_3d.gd plays that); this test keeps
+	# covering the classic top-down view, which is still a setting.
+	GameSettings.reset_for_tests()
+	GameSettings.set_value("top_down_grab", true)
 	_main = (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(_main)
 	_gs = root.get_node("GameState")

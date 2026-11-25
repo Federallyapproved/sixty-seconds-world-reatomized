@@ -126,6 +126,15 @@ func _build_ui() -> void:
 		SoundManager.play_sfx("button_click")
 		GameState.request_screen(GameState.SCREEN_ACHIEVEMENTS))
 	row.add_child(btn_ach)
+	# Settings (mouse look, field of view, the classic top-down grab) sit in the top-right corner.
+	var btn_set := Button.new()
+	btn_set.name = "SettingsButton"
+	btn_set.text = "SETTINGS"
+	btn_set.position = Vector2(1132.0, 18.0)
+	btn_set.size = Vector2(130.0, 36.0)
+	btn_set.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn_set.pressed.connect(_open_settings)
+	add_child(btn_set)
 
 	# Bottom Telemetry Strip (y = 650..688)
 	var footer_panel := ThemeHelper.make_card_panel(Color(0.10, 0.12, 0.14, 0.92), ThemeHelper.COLOR_BORDER)
@@ -163,6 +172,15 @@ func _build_ui() -> void:
 	_crt_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_crt_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_crt_overlay)
+
+func _open_settings() -> void:
+	SoundManager.play_sfx("button_click")
+	if get_node_or_null("SettingsPanel") != null:
+		return
+	var panel := SettingsPanel.new()
+	add_child(panel)
+	panel.position = Vector2(380.0, 230.0)
+
 
 func _make_feature_pill(label_str: String, dot_color: Color) -> PanelContainer:
 	var pill := PanelContainer.new()

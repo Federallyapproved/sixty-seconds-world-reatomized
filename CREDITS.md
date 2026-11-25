@@ -12,7 +12,16 @@ _Generated from `data/assets_manifest.csv` by `tools/build_data.gd`. Do not edit
 
 ## 3D and textures (CC0)
 
-_None yet._
+- Furniture Kit 2.0 by Kenney — [source](https://kenney.nl/assets/furniture-kit), CC0 (53 files)
+- Survival Kit by Kenney — [source](https://kenney.nl/assets/survival-kit), CC0 (8 files)
+- Food Kit by Kenney — [source](https://kenney.nl/assets/food-kit), CC0 (8 files)
+- Universal Base Characters (Standard) by Quaternius — [source](https://quaternius.itch.io/universal-base-characters), CC0 (30 files)
+- Universal Animation Library 1 and 2 (Standard) by Quaternius — [source](https://quaternius.itch.io/universal-animation-library), CC0
+- Carpet016 (ambientCG) by ambientCG — [source](https://ambientcg.com/view?id=Carpet016), CC0 (2 files)
+- Concrete034 (ambientCG) by ambientCG — [source](https://ambientcg.com/view?id=Concrete034), CC0 (2 files)
+- Plaster002 (ambientCG) by ambientCG — [source](https://ambientcg.com/view?id=Plaster002), CC0 (2 files)
+- Tiles141 (ambientCG) by ambientCG — [source](https://ambientcg.com/view?id=Tiles141), CC0 (2 files)
+- WoodFloor051 (ambientCG) by ambientCG — [source](https://ambientcg.com/view?id=WoodFloor051), CC0 (2 files)
 
 ## Attribution required
 
@@ -44,6 +53,8 @@ _No third-party add-ons yet._
 
 ## Shaders
 
-_None yet._
+- clothed_body.gdshader by The End Is Near contributors — [source](https://github.com/Federallyapproved/the-end-is-near), MIT
+- hair_tint.gdshader by The End Is Near contributors — [source](https://github.com/Federallyapproved/the-end-is-near), MIT
+- outline.gdshader by The End Is Near contributors — [source](https://github.com/Federallyapproved/the-end-is-near), MIT
 
 Full license texts are in [`/licenses/`](licenses/).

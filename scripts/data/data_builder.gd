@@ -827,8 +827,17 @@ func _write_credits() -> void:
 static func _rows_md(rows: Array, empty: String) -> String:
 	if rows.is_empty():
 		return empty + "\n"
+	# One line per pack: rows with the same title, author, source and licence are grouped.
 	var s: String = ""
+	var order: Array = []
+	var counts: Dictionary = {}
 	for r_v in rows:
 		var r: Dictionary = r_v
-		s += "- %s by %s — [source](%s), %s\n" % [str(r.get("title", "")), str(r.get("author", "")), str(r.get("source_url", "")), str(r.get("license", ""))]
+		var key: String = "%s by %s — [source](%s), %s" % [str(r.get("title", "")), str(r.get("author", "")), str(r.get("source_url", "")), str(r.get("license", ""))]
+		if not counts.has(key):
+			order.append(key)
+			counts[key] = 0
+		counts[key] = int(counts[key]) + 1
+	for k in order:
+		s += "- %s%s\n" % [k, (" (%d files)" % int(counts[k])) if int(counts[k]) > 1 else ""]
 	return s
