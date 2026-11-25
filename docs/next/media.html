@@ -3,45 +3,58 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The End Is Near — Gameplay Improvement Pass</title>
+<title>The End Is Near v3 — M1 preview</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; background: #171a16; color: #efe3c8; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.45; }
   main { max-width: 1120px; margin: 0 auto; padding: 20px; }
   h1 { color: #f2b82e; font-size: 1.6rem; margin: 0 0 4px; }
   h2 { color: #f2b82e; font-size: 1.15rem; margin: 28px 0 8px; border-bottom: 1px solid #3a423b; padding-bottom: 4px; }
-  p { margin: 6px 0; color: #d9cfb6; }
+  p, li { margin: 6px 0; color: #d9cfb6; }
   a { color: #7ec850; }
   .play { display: inline-block; margin: 12px 0; padding: 10px 18px; background: #d94c2a; color: #fff3db; border-radius: 4px; text-decoration: none; font-weight: 700; }
   video, img { width: 100%; border: 2px solid #3a423b; border-radius: 4px; background: #000; }
   .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
   .cap { font-size: 0.9rem; color: #9fb59a; margin-top: 2px; }
+  table { border-collapse: collapse; margin: 8px 0; }
+  td, th { border: 1px solid #3a423b; padding: 4px 10px; text-align: left; color: #d9cfb6; }
+  th { color: #f2b82e; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Gameplay Improvement Pass — preview build</h1>
-  <p>Real-footprint floorplans, a genuinely hard 60/30-second scavenge, honest OpenStreetMap places, finite loot, location-driven radiation, cinematic daily dilemmas, and a repairable car. The live game at the site root is unchanged until the pull request is merged.</p>
-  <a class="play" href="./">Play the preview build</a>
-  <p class="cap">Controls: WASD/arrows move · SPACE grabs, deposits at the hatch, drops elsewhere · Q / 1–7 select a carried slot · F dives in · TAB skips recon · in the shelter, press 1–4 to answer a dilemma and SPACE to continue.</p>
+  <h1>The End Is Near v3 — Milestone 1 preview</h1>
+  <p>Harder, fairer, present day. Survival rules with real deadlines, trips to real places that take days and can go wrong, raids once you are followed home, three rescues that take a month, and every number on screen before you commit. The live game at the site root is unchanged until the pull request is merged.</p>
+  <a class="play" href="./">Play the M1 preview build</a>
+  <p class="cap">Grab: WASD/arrows move · SPACE grabs and drops your load at the hatch · Q / 1–7 select a carried slot · F climbs down · TAB ends the look-around. Shelter: 1–4 or click answers the day's dilemma · Give/Skip food and water per person · Treat · Rest or Trip… opens the trip planner · ENTER ends the day · SPACE skips an animation.</p>
+
+  <h2>Measured balance (10,000 simulated runs per policy, 37 real homes)</h2>
+  <table>
+    <tr><th>Policy</th><th>Win rate</th><th>Target</th></tr>
+    <tr><td>Random (coin-flip rations, random answers)</td><td>0.1%</td><td>≤ 5%</td></tr>
+    <tr><td>Naive (feeds everyone every 5 days, nearest store when low)</td><td>11.1%</td><td>10–20%</td></tr>
+    <tr><td>Expert (rations to the thresholds, plans trips by risk and need)</td><td>49.2%</td><td>45–60%</td></tr>
+  </table>
+  <p class="cap">Expert median win on day 38 (earliest 27), 5 trips per run, no single cause above 40% of deaths. Full report: <a href="https://github.com/Federallyapproved/the-end-is-near/blob/v3-m1-foundation/docs/BALANCE_REPORT.md">docs/BALANCE_REPORT.md</a>.</p>
 
   <h2>Gameplay footage</h2>
   <div class="grid">
-    <div><video controls preload="metadata" src="media/demo_showcase.mp4"></video><div class="cap">Full demo: family → real house → strike → autopilot scavenge → four shelter days with animated outcomes and an expedition return.</div></div>
-    <div><video controls preload="metadata" src="media/shelter_garage_escape.mp4"></video><div class="cap">Keyboard-driven shelter days, a recovered part on the storage rack, installing the battery by hand, and driving out of Capitol Hill.</div></div>
-    <div><video controls preload="metadata" src="media/scavenge_hard_keyboard.mp4"></video><div class="cap">Hard mode, keyboard only: 30 seconds of scavenging in the real 1002 E Republican St footprint (one family member left behind).</div></div>
+    <div><video controls preload="metadata" src="media/m1_demo_showcase.mp4" poster="media/m1_demo_showcase.jpg"></video><div class="cap">Demo: family → a real Seattle house → strike → the grab → six shelter days, with a trip to a neighbour's house planned from the risk preview.</div></div>
+    <div><video controls preload="metadata" src="media/m1_shelter_keyboard_mouse.mp4" poster="media/m1_shelter_keyboard_mouse.jpg"></video><div class="cap">Driven with simulated keys and mouse: answering dilemmas, toggling rations with tomorrow's preview, planning a trip, and reading the morning receipts.</div></div>
   </div>
 
   <h2>Before → after</h2>
   <div class="grid">
-    <img src="media/before_after_scavenge_floorplan.png" alt="Scavenge floorplan before and after">
-    <img src="media/before_after_daily_dilemma.png" alt="Daily dilemma before and after">
-    <img src="media/before_after_expedition_map.png" alt="Expedition map before and after">
-    <img src="media/before_after_shelter_log.png" alt="Shelter log before and after">
-    <img src="media/before_after_house_select.png" alt="House select before and after">
-    <img src="media/before_after_nuke_screen.png" alt="Strike screen before and after">
+    <img src="media/m1_before_after_shelter_day.png" alt="Shelter day screen before and after">
+    <img src="media/m1_before_after_trip_planner.png" alt="Expedition planner before and after">
+    <img src="media/m1_before_after_grab.png" alt="The grab before and after">
+    <img src="media/m1_before_after_strike.png" alt="Strike screen before and after">
+    <img src="media/m1_before_after_house_select.png" alt="House select before and after">
   </div>
-  <p class="cap">Interiors are fictional approximations generated inside each building's real OpenStreetMap outline. Map data © OpenStreetMap contributors.</p>
+  <p class="cap">Interiors are fictional approximations generated inside each building's real OpenStreetMap outline. Map data © OpenStreetMap contributors. Item icons from game-icons.net (CC BY 3.0); see CREDITS.md.</p>
+
+  <h2>Earlier pass</h2>
+  <p>Footage of the gameplay improvement pass is still here: <a href="media/demo_showcase.mp4">demo</a> · <a href="media/scavenge_hard_keyboard.mp4">hard-mode grab</a> · <a href="media/shelter_garage_escape.mp4">garage escape (now switched off)</a>.</p>
 </main>
 </body>
 </html>
