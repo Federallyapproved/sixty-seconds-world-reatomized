@@ -1,1 +1,8 @@
-id,name,bonus,morale_cost,order,narrator_line
+id,name,order,bonus,cost,morale_hit,needs,narrator_line
+finders_eat_first,Finders eat first,1,explorers search 10% harder,everyone else loses 1 morale when they come home,-1,,Finders eat first. The shelter now has a class system.
+nobody_opens_hatch,Nobody opens the hatch,2,events can't give the hatch away,"no visitors, trades or favours at the door",-2,,The hatch is now a wall with ambitions.
+work_or_dont_eat,Work or don't eat,3,Withdrawn people still take jobs,everyone's morale cap drops by 1,-1,,Productivity is up. Nobody can say what is being produced.
+sick_sleep_upstairs,The sick sleep upstairs,4,sickness can't spread or come back,the sick lose 1 morale every night,-2,,"Upstairs has a draft, a view, and very few visitors."
+kids_eat_last,Kids eat last,5,a skipped child's ration only counts every other day,children's morale stays at 5 or below,-2,child,The children were not consulted. They noticed anyway.
+occupied_fair_game,Occupied homes are fair game,6,trips take 50% more from homes people still live in,the explorer carries Guilt and the neighbourhood rescue is lost,-2,,The street has stopped waving.
+pet_ration,The pet is an emergency ration,7,"when the food runs out, the dog becomes 8 rations (the cat 4)",everyone loses 3 morale when it happens,-3,pet,Nobody voted for it. Nobody voted against it either.

@@ -1,0 +1,42 @@
+{
+	"paranoid": {
+		"effect": "won't open the hatch for anyone, or go out",
+		"id": "paranoid",
+		"name": "Paranoid",
+		"onset": "{name} is Paranoid now: the hatch stays shut until morale is back to 3.",
+		"recover": "{name} let someone else check the hatch. They're steadier now.",
+		"warning_1": "{name} has checked the hatch four times since lunch.",
+		"warning_2": "{name}, very quietly: \"Anyone could be listening to us.\"",
+		"warning_3": "{name} wants to know who touched the hatch last."
+	},
+	"reckless": {
+		"effect": "goes to the farthest place on the map",
+		"id": "reckless",
+		"name": "Reckless",
+		"onset": "{name} is Reckless now: they'll head for the farthest place on the map until morale is back to 3.",
+		"recover": "{name} planned a short trip on the map. They're themselves again.",
+		"warning_1": "{name}, at the map: \"Sitting here is how we die.\"",
+		"warning_2": "{name} keeps lacing and unlacing their boots.",
+		"warning_3": "{name} has started measuring the distance to everywhere."
+	},
+	"selfish": {
+		"effect": "eats an extra ration at night",
+		"id": "selfish",
+		"name": "Selfish",
+		"onset": "{name} is Selfish now: they help themselves at night until morale is back to 3.",
+		"recover": "{name} put the can opener back on the shelf. They're themselves again.",
+		"warning_1": "{name}, counting cans: \"Some of us are doing more than others.\"",
+		"warning_2": "{name} has started keeping a list of who ate what.",
+		"warning_3": "{name}, at the shelf: \"Funny how the good cans always go first.\""
+	},
+	"withdrawn": {
+		"effect": "won't work",
+		"id": "withdrawn",
+		"name": "Withdrawn",
+		"onset": "{name} is Withdrawn now: they won't work until morale is back to 3.",
+		"recover": "{name} asked what day it is. That's a good sign.",
+		"warning_1": "{name} has stopped answering questions.",
+		"warning_2": "{name} has been facing the wall since breakfast.",
+		"warning_3": "{name} hasn't eaten much or said much today."
+	}
+}

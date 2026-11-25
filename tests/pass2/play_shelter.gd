@@ -128,6 +128,10 @@ func _run() -> void:
 		m["alive"] = true
 	for pair in [["food", 4], ["water", 5], ["medkit", 1], ["gas_mask", 1], ["radio", 1], ["rifle", 1], ["ammo", 1], ["map", 1], ["flashlight", 1], ["suitcase", 1]]:
 		_gs.call("add_scavenged_item", pair[0], pair[1])
+	var alm: Dictionary = _gs.get("almanac")
+	for iid in ShelterData.core_ids():
+		if iid != "console":
+			Almanac.mark_seen(alm, iid)
 	_gs.call("request_screen", "bunker")
 	await _frames(40)
 	_bk = _main.get("_active_node")
@@ -142,9 +146,24 @@ func _run() -> void:
 	var saw_used: bool = false
 	var saw_end_locked: bool = false
 	var saw_needs: bool = false
+	var saw_meeting: bool = false
+	var saw_console_option: bool = false
+	var saw_toast: bool = false
+	var aff_member: Dictionary = {}
 	for d in range(days):
 		if s.is_over():
 			break
+		# M2: on day 5 Maya hits the bottom (as a run of bad days would do); the warning comes first.
+		if s.day == 5 and aff_member.is_empty():
+			aff_member = s.members[2]   # Maya
+			aff_member["morale_cap"] = 0   # nothing lifts her tonight (no cards, no quiet-day recovery)
+			# Outside an event, a drop happens at night: its warning is read tomorrow morning and the
+			# affliction can only take hold the morning after that.
+			s.night = true
+			ShelterSim.add_morale(s, aff_member, -10, "")
+			s.night = false
+		if not aff_member.is_empty() and ShelterState.affliction(aff_member) != "" and int(aff_member.get("morale_cap", 10)) == 0:
+			aff_member["morale_cap"] = 10
 		var day_rec: Dictionary = {"day": s.day, "event": str(s.today_event.get("id", ""))}
 		# The End Day button is locked until the dilemma is answered.
 		if not s.today_event.is_empty() and not s.today_resolved:
@@ -152,6 +171,8 @@ func _run() -> void:
 			for o_v in s.today_options:
 				if str((o_v as Dictionary).get("needs", "")) != "":
 					saw_needs = true
+				if str((o_v as Dictionary).get("item", "")) == "console":
+					saw_console_option = true
 			var pick: int = -1
 			for i in range(s.today_options.size()):
 				var o: Dictionary = s.today_options[i]
@@ -159,7 +180,13 @@ func _run() -> void:
 					pick = i
 			if d == 1:
 				await _snap("p10_dilemma")
+			var is_meeting: bool = str(s.today_event.get("id", "")) == "house_meeting"
+			if is_meeting:
+				await _snap("p50_house_meeting")
 			await _key(KEY_1 + pick)
+			if is_meeting:
+				saw_meeting = true
+				_check("house_meeting_answered_with_keys", not s.rules.is_empty() or int(s.stats["rules_declined"]) > 0, str(s.rules))
 			day_rec["choice"] = str((s.today_options[pick] as Dictionary)["id"])
 			await _frames(20)
 			await _finish_cinematic()
@@ -228,6 +255,20 @@ func _run() -> void:
 				break
 			if planned_trip:
 				await _snap("p30_trip_planned")
+		if not aff_member.is_empty() and ShelterState.affliction(aff_member) != "" and not bool(_report.get("aff_shot", false)):
+			_report["aff_shot"] = true
+			var aff_name: String = str(ShelterData.affliction(ShelterState.affliction(aff_member)).get("name", ""))
+			var row_txt: String = ""
+			for lbl in (_bk.get("_family_box") as Node).find_children("*", "Label", true, false):
+				row_txt += str((lbl as Label).text) + " | "
+			_check("affliction_shown_in_family_row", row_txt.find(aff_name) != -1, "%s: %s" % [aff_name, row_txt.substr(0, 160)])
+			await _snap("p60_affliction")
+		var toast: Node = root.find_child("AchievementToast", true, false)
+		if toast != null and (toast.get("_panel") as Control).visible:
+			saw_toast = true
+			if not bool(_report.get("toast_shot", false)):
+				_report["toast_shot"] = true
+				await _snap("p70_achievement_toast")
 		await _snap("p40_day%02d" % s.day)
 		var day_before: int = s.day
 		await _key(KEY_ENTER)
@@ -251,6 +292,19 @@ func _run() -> void:
 	_check("explorer_came_back_with_a_receipt", saw_return or s.is_over())
 	_check("receipts_name_what_items_did", saw_used)
 	_check("item_options_show_needs_when_missing", saw_needs)
+	_check("undiscovered_item_options_stay_hidden", not saw_console_option, "the console was never found")
+	_check("house_meeting_came_up", saw_meeting)
+	var warn_day: int = -1
+	var onset_day: int = -1
+	for j in s.journal:
+		for l_v in (j as Dictionary)["lines"]:
+			var tx: String = str((l_v as Dictionary).get("text", ""))
+			if tx.begins_with("Maya") and tx.find(" now:") == -1 and str((l_v as Dictionary).get("kind", "")) == "warn" and warn_day < 0:
+				warn_day = int((j as Dictionary)["day"])
+			if tx.begins_with("Maya is ") and tx.find(" now:") != -1 and onset_day < 0:
+				onset_day = int((j as Dictionary)["day"])
+	_check("affliction_took_hold_after_a_warning", warn_day > 0 and onset_day > warn_day, "warning read on day %d, affliction on day %d" % [warn_day, onset_day])
+	_check("achievement_unlocked_with_a_toast", saw_toast or not (_gs.get("run_new_achievements") as Array).is_empty(), str(_gs.get("run_new_achievements")))
 	await _snap("p90_last")
 	var f := FileAccess.open("%s/play_shelter_report.json" % _out, FileAccess.WRITE)
 	f.store_string(JSON.stringify(_report, "\t"))

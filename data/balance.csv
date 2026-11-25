@@ -7,7 +7,7 @@ water_dehydrated_day,4,Days without water before Dehydrated
 water_death_roll_day,5,Days without water that bring a death roll
 water_death_roll_p,0.5,Chance of dying on the death-roll day
 water_death_day,6,Days without water that kill
-malnutrition_sick_p,0.30,Daily chance a Dehydrated or Starving person falls sick
+malnutrition_sick_p,0.40,Daily chance a Dehydrated or Starving person falls sick
 sick_diseased_day,7,Untreated sick days before Diseased
 sick_death_roll_day,10,Untreated sick days before daily death rolls
 sick_death_roll_p,0.10,Daily death chance from the roll day on
@@ -15,8 +15,8 @@ sick_death_day,18,Untreated sick days that kill
 relapse_vulnerable_days,5,Days after a cure with relapse risk
 relapse_p,0.01,Daily relapse chance while vulnerable
 injury_infection_day,6,Untreated injury days before infection rolls
-injury_infection_p,0.08,Daily chance an old injury turns into sickness
-trip_base_p_day,0.025,Base chance per day away of never returning
+injury_infection_p,0.12,Daily chance an old injury turns into sickness
+trip_base_p_day,0.03,Base chance per day away of never returning
 trip_mult_no_mask_heavy,2.0,Death multiplier without a gas mask in heavy fallout
 trip_mult_lethal_dose,1.5,Extra death multiplier for a Lethal dose band
 trip_mult_hungry,1.5,Death multiplier if Hungry or Thirsty
@@ -41,7 +41,7 @@ trip_followed_map_mult,0.5,Followed multiplier with a map
 trip_tired_min_days,3,Trips this long leave the survivor Tired
 trip_tired_days,2,Days Tired after a long trip
 carry_base,2,Carry slots without bags
-search_share,0.80,Share of a building's remaining stock a search turns up
+search_share,0.75,Share of a building's remaining stock a search turns up
 scout_extra_carry,1,Extra carry slots for a Knows the Area explorer (pockets a little extra)
 scout_extra_share,0.10,Extra search share for a Knows the Area explorer
 shutter_share_mult,0.6,Search share at a shuttered store without an axe
@@ -95,3 +95,16 @@ grab_budget_hard,7,Slots of items an expert grabs on Hard (simulation)
 story_stock_mult,1.5,Stock multiplier on Story
 hard_drain_mult,1.5,Drain multiplier on Hard
 hard_raid_interval_days,2,Raid interval on Hard
+rule_meeting_first_day,4,Day of the first House meeting
+rule_meeting_every,4,Days between House meetings
+rule_offers,2,House Rules on the table at a meeting
+finders_extra_share,0.10,Finders eat first: extra search share
+fair_game_share_mult,1.5,Occupied homes are fair game: search share multiplier
+kids_eat_last_cap,5,Kids eat last: children's morale cap
+pet_ration_dog,8,The pet is an emergency ration: food rations from the dog
+pet_ration_cat,4,The pet is an emergency ration: food rations from the cat
+pet_ration_morale,-3,Morale hit when the pet rule is carried out (children -2 more)
+affliction_warn_morale,1,Morale at which a survivor warns of an affliction
+affliction_clear_morale,3,Morale at which an affliction lifts
+guilt_morale_cap,6,Morale cap for a survivor carrying Guilt
+occupied_share,0.30,Share of neighbours' houses that are still lived in

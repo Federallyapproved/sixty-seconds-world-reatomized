@@ -47,16 +47,22 @@ func _run(write: bool) -> void:
 	var narration: Dictionary = _load_narration()
 	var rules: Dictionary = _load_simple_table("house_rules.csv", "id")
 	var achievements: Dictionary = _load_simple_table("achievements.csv", "id")
+	var afflictions: Dictionary = _load_simple_table("afflictions.csv", "id")
+	_check_rules(rules)
+	_check_afflictions(afflictions)
+	_check_achievements(achievements)
 	var manifest: Array = _load_manifest()
 	var events: Dictionary = _load_events(items)
 	_check_item_coverage(items, events)
 	_check_recipe_parts(items, loot, recipes)
-	_check_banned_text(items, events, narration, rules, achievements)
+	_check_banned_text(items, events, narration, rules, achievements, afflictions)
+	_check_strangers(events)
+	_check_later_triggers(events, narration)
 	_check_assets(items, manifest)
 	var gate_counts: Dictionary = out.get("item_gate_counts", {})
 	out = {
 		"items": items, "loot": loot, "balance": balance, "parts": parts, "recipes": recipes,
-		"narration": narration, "house_rules": rules, "achievements": achievements,
+		"narration": narration, "house_rules": rules, "achievements": achievements, "afflictions": afflictions,
 		"events": events, "assets": manifest, "item_gate_counts": gate_counts,
 	}
 	if write and errors.is_empty():
@@ -346,8 +352,8 @@ func _check_event(ev: Dictionary, events: Dictionary, items: Dictionary) -> void
 			fatal = true
 		if it == "" and bool(info["cost"]):
 			basic_cost = true
-	if n_basic < 1:
-		_err("event '%s' has no option that needs no item" % eid)
+	if n_basic < 2:
+		_err("event '%s' has %d option(s) that need no item (needs 2)" % [eid, n_basic])
 	if n_item > 2:
 		_err("event '%s' has %d item options (max 2)" % [eid, n_item])
 	if n_item > 0 and not basic_cost and not bool(ev.get("free_basic_ok", false)):
@@ -377,6 +383,17 @@ func _check_effects(eid: String, oid: String, effs: Array, events: Dictionary, i
 			"kill", "lose_run":
 				res["fatal"] = true
 				res["cost"] = true
+			"end_run":
+				res["cost"] = true
+				var ending: String = str(e.get("ending", ""))
+				if not ShelterSim.ENDINGS.has(ending) or str((ShelterSim.ENDINGS[ending] as Dictionary).get("kind", "")) != "maybe":
+					_err("event '%s' option '%s' ends the run with '%s', which is not a maybe ending" % [eid, oid, ending])
+			"later":
+				if str(e.get("text", "")) == "" and str(e.get("trigger", "")) == "":
+					_err("event '%s' option '%s' 'later' needs a text or a narration trigger" % [eid, oid])
+			"rule":
+				if not ShelterData.house_rules().is_empty() and str(e.get("rule", "")) == "":
+					_err("event '%s' option '%s' 'rule' names no rule" % [eid, oid])
 			"lose", "steal", "sick", "injure", "dose", "break", "break_fragile", "tired", "refuse_trip", "guilt", "pet_leaves", "followed":
 				res["cost"] = true
 			"rations", "morale":
@@ -405,6 +422,101 @@ func _check_effects(eid: String, oid: String, effs: Array, events: Dictionary, i
 					if not items.has(str(k)):
 						_err("event '%s' option '%s' %s names unknown item '%s'" % [eid, oid, op, str(k)])
 	return res
+
+
+## House Rules (section 7): a fixed order, a concrete bonus and cost, a morale hit, a narrator remark.
+func _check_rules(rules: Dictionary) -> void:
+	var orders: Dictionary = {}
+	for rid in rules.keys():
+		var r: Dictionary = rules[rid]
+		for k in ["name", "order", "bonus", "cost", "morale_hit", "narrator_line"]:
+			if str(r.get(k, "")) == "":
+				_err("house_rules.csv: '%s' has no %s" % [rid, k])
+		if not str(r.get("order", "")).is_valid_int() or orders.has(str(r.get("order", ""))):
+			_err("house_rules.csv: '%s' needs a unique whole-number order" % rid)
+		orders[str(r.get("order", ""))] = true
+		if not str(r.get("morale_hit", "")).is_valid_int():
+			_err("house_rules.csv: '%s' morale_hit must be a whole number" % rid)
+		if not (str(r.get("needs", "")) in DataSchema.RULE_NEEDS):
+			_err("house_rules.csv: '%s' has unknown needs '%s'" % [rid, str(r.get("needs", ""))])
+		if _word_count(str(r.get("narrator_line", ""))) > MAX_NARRATION_WORDS:
+			_err("house_rules.csv: '%s' narrator line is over %d words" % [rid, MAX_NARRATION_WORDS])
+	if not rules.is_empty() and rules.size() < 7:
+		_err("house_rules.csv: %d rules (section 7 lists 7)" % rules.size())
+
+
+func _check_afflictions(afflictions: Dictionary) -> void:
+	for a in DataSchema.AFFLICTIONS:
+		if not afflictions.has(a):
+			_err("afflictions.csv: missing '%s'" % a)
+	for aid in afflictions.keys():
+		var r: Dictionary = afflictions[aid]
+		if not (str(aid) in DataSchema.AFFLICTIONS):
+			_err("afflictions.csv: unknown affliction '%s'" % aid)
+		for k in ["name", "effect", "onset", "recover", "warning_1", "warning_2", "warning_3"]:
+			if str(r.get(k, "")) == "":
+				_err("afflictions.csv: '%s' has no %s" % [aid, k])
+		for k in ["warning_1", "warning_2", "warning_3"]:
+			if _word_count(str(r.get(k, ""))) > MAX_NARRATION_WORDS + 2:
+				_err("afflictions.csv: '%s' %s is too long" % [aid, k])
+			if str(r.get(k, "")).find("{name}") == -1:
+				_err("afflictions.csv: '%s' %s must name the person ({name})" % [aid, k])
+
+
+func _check_achievements(achievements: Dictionary) -> void:
+	for aid in achievements.keys():
+		var r: Dictionary = achievements[aid]
+		for k in ["name", "description", "condition"]:
+			if str(r.get(k, "")) == "":
+				_err("achievements.csv: '%s' has no %s" % [aid, k])
+		var ck: String = str(r.get("condition", "")).get_slice(":", 0)
+		if not (ck in Achievements.CONDITIONS):
+			_err("achievements.csv: '%s' has unknown condition '%s'" % [aid, ck])
+		if ck.begins_with("survive") or ck == "days":
+			_err("achievements.csv: '%s' rewards hiding in the shelter (section 14)" % aid)
+	if not achievements.is_empty() and achievements.size() < 30:
+		_err("achievements.csv: %d achievements (section 14 asks for 30+)" % achievements.size())
+
+
+## Strangers (section 7): rare, at most one per run (the director enforces it), each with an
+## item-gated option of its own.
+func _check_strangers(events: Dictionary) -> void:
+	var n: int = 0
+	for eid in events.keys():
+		var ev: Dictionary = events[eid]
+		if not bool(ev.get("stranger", false)):
+			continue
+		n += 1
+		if bool(ev.get("system", false)):
+			_err("stranger event '%s' can't be a system event" % eid)
+		var gated: bool = false
+		for o_v in ev.get("options", []):
+			if str((o_v as Dictionary).get("item", "")) != "":
+				gated = true
+		if not gated:
+			_err("stranger event '%s' needs an item-gated option" % eid)
+
+
+func _check_later_triggers(events: Dictionary, narration: Dictionary) -> void:
+	var triggers: Dictionary = {}
+	for nid in narration.keys():
+		triggers[str((narration[nid] as Dictionary).get("trigger", ""))] = true
+	for eid in events.keys():
+		for o_v in (events[eid] as Dictionary).get("options", []):
+			for e_v in _flat_effects((o_v as Dictionary).get("effects", [])):
+				var e: Dictionary = e_v
+				if str(e.get("do", "")) == "later" and e.has("trigger") and not triggers.has(str(e["trigger"])):
+					_err("event '%s' brings up narration trigger '%s', which has no lines" % [eid, str(e["trigger"])])
+
+
+static func _flat_effects(effs: Array) -> Array:
+	var out: Array = []
+	for e_v in effs:
+		if e_v is Dictionary:
+			out.append(e_v)
+			out.append_array(_flat_effects((e_v as Dictionary).get("then", [])))
+			out.append_array(_flat_effects((e_v as Dictionary).get("else", [])))
+	return out
 
 
 func _check_tokens(eid: String, text: String) -> void:
@@ -453,7 +565,7 @@ func _check_recipe_parts(items: Dictionary, loot: Dictionary, recipes: Dictionar
 				_err("recipe '%s': part '%s' comes from junk in %d place types (needs 2)" % [rid, str(part), n])
 
 
-func _check_banned_text(items: Dictionary, events: Dictionary, narration: Dictionary, rules: Dictionary, achievements: Dictionary) -> void:
+func _check_banned_text(items: Dictionary, events: Dictionary, narration: Dictionary, rules: Dictionary, achievements: Dictionary, afflictions: Dictionary = {}) -> void:
 	var texts: Array = []  # [where, text]
 	for iid in items.keys():
 		var it: Dictionary = items[iid]
@@ -469,7 +581,7 @@ func _check_banned_text(items: Dictionary, events: Dictionary, narration: Dictio
 			texts.append(["event %s" % eid, str(o.get("label", "")) + " " + str(o.get("outcome", "")) + " " + str(o.get("stakes", ""))])
 	for nid in narration.keys():
 		texts.append(["narration %s" % nid, str((narration[nid] as Dictionary)["text"])])
-	for t in [rules, achievements]:
+	for t in [rules, achievements, afflictions]:
 		for k in t.keys():
 			texts.append(["table row %s" % k, " ".join((t[k] as Dictionary).values())])
 	for pair in texts:
@@ -540,7 +652,7 @@ static func _word_count(s: String) -> int:
 
 func _write_all() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(BUILD_DIR))
-	for k in ["items", "loot", "balance", "parts", "recipes", "narration", "house_rules", "achievements", "events"]:
+	for k in ["items", "loot", "balance", "parts", "recipes", "narration", "house_rules", "achievements", "afflictions", "events"]:
 		_write_json(BUILD_DIR + "/" + k + ".json", out[k])
 	_write_credits()
 

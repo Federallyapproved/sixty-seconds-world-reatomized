@@ -8,8 +8,10 @@ extends RefCounted
 ## * at most `bad_streak_max` bad events in a row;
 ## * an event that can kill or end the run is only drawn once its warning kind was issued on an
 ##   earlier day (the director shows the event's "omen" line first);
-## * rescue requests and scheduled follow-ups take the slot on their day; everything else is a
-##   weighted draw over the events whose conditions hold today.
+## * rescue requests and scheduled follow-ups take the slot on their day; then a House meeting
+##   every few days (section 7); everything else is a weighted draw over the events whose
+##   conditions hold today;
+## * at most one stranger per run (events marked "stranger": true).
 
 const FRAGILE: Array[String] = ["gas_mask", "flashlight", "radio"]
 const REPAIRABLE_ORDER: Array[String] = ["radio", "gas_mask", "flashlight", "rifle", "axe", "map"]
@@ -37,6 +39,14 @@ static func draw(s: ShelterState) -> Dictionary:
 	var chain_ev: String = ShelterChains.due_event(s)
 	if chain_ev != "":
 		return _prepare(s, ShelterData.event(chain_ev))
+	# 2b. A House meeting every few days, while there is a rule left to argue about.
+	if s.day >= s.next_meeting_day and not actor(s).is_empty():
+		var mt: Dictionary = meeting_event(s)
+		if mt.is_empty():
+			s.next_meeting_day = 9999
+		else:
+			s.next_meeting_day = s.day + ShelterData.Bi("rule_meeting_every", 4)
+			return mt
 	# 3. A quiet day now and then.
 	if s.rng.randf() > ShelterData.B("event_day_p", 0.9):
 		return {}
@@ -50,6 +60,10 @@ static func draw(s: ShelterState) -> Dictionary:
 	for eid_v in ids:
 		var ev: Dictionary = all[eid_v]
 		if s.used_events.has(str(eid_v)) or bool(ev.get("system", false)) or ev.has("chain"):
+			continue
+		if bool(ev.get("stranger", false)) and str(s.stats.get("stranger", "")) != "":
+			continue
+		if bool(ev.get("contagion", false)) and s.has_rule("sick_sleep_upstairs"):
 			continue
 		if str(ev.get("mood", "")) == "bad" and s.bad_streak >= max_bad:
 			continue
@@ -121,6 +135,12 @@ static func _weight(s: ShelterState, ev: Dictionary) -> float:
 			hit = not s.owns(k.substr(8))
 		elif k.begins_with("place:"):
 			hit = _place_of(s, [k.substr(6)]) >= 0
+		elif k == "afflicted":
+			hit = _any(s.home(), func(m: Dictionary) -> bool: return ShelterState.affliction(m) != "")
+		elif k == "guilt":
+			hit = _any(s.living(), func(m: Dictionary) -> bool: return bool(m.get("guilt", false)))
+		elif k.begins_with("rule:"):
+			hit = s.has_rule(k.substr(5))
 		if hit:
 			w *= f
 	return w
@@ -181,6 +201,20 @@ static func _conditions_ok(s: ShelterState, ev: Dictionary, forced: bool) -> boo
 		return false
 	if bool(c.get("after_escalation", false)) and s.day < ShelterData.Bi("escalation_day", 8):
 		return false
+	if bool(c.get("trip_occupied", false)) and _occupied_trip(s).is_empty():
+		return false
+	if c.has("needs_rule") and not s.has_rule(str(c["needs_rule"])):
+		return false
+	if c.has("not_rule") and s.has_rule(str(c["not_rule"])):
+		return false
+	if c.has("needs_affliction"):
+		var want: String = str(c["needs_affliction"])
+		if not _any(s.home(), func(m: Dictionary) -> bool: return ShelterState.affliction(m) != "" and (want == "any" or ShelterState.affliction(m) == want)):
+			return false
+	if bool(c.get("needs_guilt", false)) and not _any(s.living(), func(m: Dictionary) -> bool: return bool(m.get("guilt", false))):
+		return false
+	if bool(c.get("needs_pet_any", false)) and s.pets.is_empty():
+		return false
 	# Somebody has to be home and able to act on a shelter event.
 	if not forced and actor(s).is_empty() and not c.has("trip_place"):
 		return false
@@ -202,6 +236,15 @@ static func _place_of(s: ShelterState, cats: Variant) -> int:
 	return best
 
 
+## The trip whose explorer is at a house where somebody still lives.
+static func _occupied_trip(s: ShelterState) -> Dictionary:
+	for t_v in s.trips:
+		var t: Dictionary = t_v
+		if not bool(t["dead"]) and bool((s.places[int(t["place_idx"])] as Dictionary).get("occupied", false)):
+			return t
+	return {}
+
+
 static func _trip_at(s: ShelterState, cats: Variant) -> Dictionary:
 	var arr: Array = cats if cats is Array else [cats]
 	for t_v in s.trips:
@@ -220,12 +263,12 @@ static func actor(s: ShelterState) -> Dictionary:
 	var home: Array = s.home()
 	for m_v in home:
 		var m: Dictionary = m_v
-		if bool(m.get("is_leader", false)) and _able(m):
+		if bool(m.get("is_leader", false)) and _able(m, s):
 			return m
 	var best: Dictionary = {}
 	for m_v in home:
 		var m: Dictionary = m_v
-		if not _able(m) or ShelterState.is_child(m):
+		if not _able(m, s) or ShelterState.is_child(m):
 			continue
 		if best.is_empty() or int(m.get("age", 0)) > int(best.get("age", 0)):
 			best = m
@@ -234,8 +277,12 @@ static func actor(s: ShelterState) -> Dictionary:
 	return best
 
 
-static func _able(m: Dictionary) -> bool:
-	return bool(m.get("alive", false)) and str(m.get("loc", "")) == "shelter" and int(m.get("morale", 5)) > 0
+static func _able(m: Dictionary, s: ShelterState = null) -> bool:
+	if not bool(m.get("alive", false)) or str(m.get("loc", "")) != "shelter":
+		return false
+	if ShelterState.affliction(m) == "withdrawn":
+		return s != null and s.has_rule("work_or_dont_eat")
+	return true
 
 
 ## Copies the event, picks its actor/subject/explorer, and fills the text placeholders.
@@ -247,7 +294,7 @@ static func _prepare(s: ShelterState, ev_src: Dictionary) -> Dictionary:
 	ctx["title"] = str(ev.get("title", ""))
 	var c: Dictionary = ev.get("conditions", {})
 	if c.has("trip_place"):
-		var t: Dictionary = _trip_at(s, c["trip_place"])
+		var t: Dictionary = _occupied_trip(s) if bool(c.get("trip_occupied", false)) else _trip_at(s, c["trip_place"])
 		ctx["explorer"] = str(t.get("member", ""))
 		ctx["place_idx"] = int(t.get("place_idx", -1))
 	elif ev.has("chain"):
@@ -280,10 +327,43 @@ static func _pick_subject(s: ShelterState, ev: Dictionary, a: Dictionary) -> Dic
 		for m_v in home:
 			if ShelterState.is_child(m_v as Dictionary):
 				return m_v
+	if c.has("needs_affliction"):
+		for m_v in home:
+			var aff: String = ShelterState.affliction(m_v as Dictionary)
+			if aff != "" and (str(c["needs_affliction"]) == "any" or aff == str(c["needs_affliction"])):
+				return m_v
+	if bool(c.get("needs_guilt", false)):
+		for m_v in s.living():
+			if bool((m_v as Dictionary).get("guilt", false)):
+				return m_v
 	var others: Array = home.filter(func(m: Dictionary) -> bool: return str(m["id"]) != str(a.get("id", "")))
 	if others.is_empty():
 		return a
 	return others[s.rng.randi_range(0, others.size() - 1)]
+
+
+## A House meeting (section 7): up to two rules on the table, or none. Built from house_rules.csv.
+static func meeting_event(s: ShelterState) -> Dictionary:
+	var offers: Array = ShelterSim.offered_rules(s)
+	if offers.is_empty():
+		return {}
+	var setup: String = ShelterData.line_for("house_meeting", s.lines_used, s.rng)
+	if setup == "":
+		setup = "Someone has written HOUSE RULES on the wall again. There's room for one more line."
+	var opts: Array = []
+	for rid_v in offers:
+		var rid: String = str(rid_v)
+		var r: Dictionary = ShelterData.house_rule(rid)
+		opts.append({
+			"id": "rule_" + rid, "label": "Adopt \"%s\"" % str(r.get("name", rid)),
+			"stakes": "%s · %s" % [str(r.get("bonus", "")), str(r.get("cost", ""))],
+			"effects": [{"do": "rule", "rule": rid}], "outcome": str(r.get("narrator_line", "")), "cinematic": "gloom",
+		})
+	opts.append({"id": "no_rule", "label": "No new rules this time", "stakes": "nothing changes",
+		"effects": [{"do": "rule_declined"}], "outcome": "The meeting ends without a vote. The wall keeps its space.", "cinematic": ""})
+	var ev: Dictionary = {"id": "house_meeting", "title": "House Meeting", "type": "house_rule", "mood": "neutral",
+		"system": true, "setup": setup, "options": opts}
+	return _prepare(s, ev)
 
 
 # ---------------------------------------------------------------- options
@@ -295,15 +375,25 @@ static func options_for(s: ShelterState, ev: Dictionary) -> Array:
 	if ev.is_empty():
 		return res
 	var ctx: Dictionary = ev.get("ctx", {})
+	var para: Dictionary = ShelterSim.paranoid_home(s)
 	for o_v in ev.get("options", []):
 		var o: Dictionary = o_v
 		var it: String = str(o.get("item", ""))
 		var avail: bool = true
 		var need: String = ""
 		if it != "":
+			if s.hide_unknown and not s.known_items.has(it) and not s.owns(it):
+				continue
 			avail = _item_ready(s, it, ctx)
 			if not avail:
 				need = "Needs: %s" % ShelterData.item_name(it)
+		if avail and bool(o.get("hatch", false)):
+			if s.has_rule("nobody_opens_hatch"):
+				avail = false
+				need = "House Rule: Nobody opens the hatch"
+			elif not para.is_empty():
+				avail = false
+				need = "Paranoid %s won't open the hatch" % str(para.get("name", ""))
 		res.append({
 			"id": str(o["id"]), "label": str(o.get("label", "")), "item": it, "available": avail,
 			"needs": need, "stakes": str(o.get("stakes", "")) if str(o.get("stakes", "")) != "" else stakes_for(o.get("effects", []), s.difficulty == "story"),
@@ -386,6 +476,8 @@ static func resolve(s: ShelterState, ev: Dictionary, option_id: String) -> Dicti
 	var it: String = str(opt.get("item", ""))
 	if it != "" and not _item_ready(s, it, ctx):
 		return {}
+	if bool(opt.get("hatch", false)) and (s.has_rule("nobody_opens_hatch") or not ShelterSim.paranoid_home(s).is_empty()):
+		return {}
 	var mark: int = s.receipt.size()
 	var eid: String = str(ev.get("id", ""))
 	s.used_events[eid] = s.day
@@ -397,6 +489,15 @@ static func resolve(s: ShelterState, ev: Dictionary, option_id: String) -> Dicti
 		s.bad_streak = 0
 	if it != "":
 		s.stats["item_options_used"] = int(s.stats["item_options_used"]) + 1
+		var ol: Dictionary = s.stats["item_option_labels"]
+		if not ol.has(it):
+			ol[it] = []
+		if not (ol[it] as Array).has(str(opt.get("label", ""))):
+			(ol[it] as Array).append(str(opt.get("label", "")))
+	if bool(ev.get("stranger", false)):
+		s.stats["stranger"] = eid
+		if it != "":
+			s.stats["stranger_helped"] = true
 	if bool(opt.get("loud", false)):
 		s.loud_bonus += 0.1
 	var tags: Array = []
@@ -564,8 +665,11 @@ static func apply_effect(s: ShelterState, e: Dictionary, ctx: Dictionary, tags: 
 				apply_effects(s, e.get("else", []), ctx, tags)
 		"followed":
 			if s.rng.randf() < float(e.get("p", 1.0)):
-				ShelterSim.become_followed(s, str(e.get("why", "somebody saw the hatch")))
-				tags.append("raid")
+				if s.has_rule("nobody_opens_hatch") and str(ctx.get("explorer", "")) == "":
+					s.say("good", "Nobody saw anything worth following: the hatch stayed shut (House Rule).")
+				else:
+					ShelterSim.become_followed(s, str(e.get("why", "somebody saw the hatch")))
+					tags.append("raid")
 		"unfollow":
 			if s.followed:
 				s.followed = false
@@ -581,6 +685,8 @@ static func apply_effect(s: ShelterState, e: Dictionary, ctx: Dictionary, tags: 
 		"pet":
 			var kind: String = str(e.get("kind", "dog"))
 			s.pets[kind] = {"since": s.day}
+			if not (s.stats["pets_adopted"] as Array).has(kind):
+				(s.stats["pets_adopted"] as Array).append(kind)
 			tags.append("companion")
 			s.say("good", "A %s lives in the shelter now." % kind)
 		"pet_leaves":
@@ -625,9 +731,14 @@ static func apply_effect(s: ShelterState, e: Dictionary, ctx: Dictionary, tags: 
 			for m_v in _targets(s, who, ctx):
 				var m: Dictionary = m_v
 				m["guilt"] = true
-				m["morale_cap"] = mini(int(m.get("morale_cap", 10)), 6)
+				m["morale_cap"] = mini(int(m.get("morale_cap", 10)), ShelterData.Bi("guilt_morale_cap", 6))
 				ShelterSim.add_morale(s, m, -2, "guilt")
+				ShelterState.note_cause(m, s.day, "carries the guilt of %s" % str(e.get("why", "what they did")), "decision")
 			s.harmed_innocents = s.harmed_innocents or bool(e.get("harm", false))
+			if bool(e.get("harm", false)):
+				s.stats["harmed"] = true
+			if bool(e.get("stole", false)):
+				s.stats["stole"] = int(s.stats["stole"]) + 1
 		"flag":
 			if e.has("set"):
 				s.flags[str(e["set"])] = s.day
@@ -640,9 +751,36 @@ static func apply_effect(s: ShelterState, e: Dictionary, ctx: Dictionary, tags: 
 				s.fallout_known_day = s.day
 				s.say("good", "The fallout is light enough to travel now.")
 		"house_quiet":
-			var hi: int = _place_of(s, ["neighbor_house"])
+			var hi: int = int(ctx.get("place_idx", -1))
+			if hi < 0 or hi >= s.places.size() or str((s.places[hi] as Dictionary)["category"]) != "neighbor_house":
+				hi = _place_of(s, ["neighbor_house"])
 			if hi >= 0:
 				(s.places[hi] as Dictionary)["quiet"] = true
+				(s.places[hi] as Dictionary)["occupied"] = false
+		"later":
+			# Something the narrator brings up days later (a narration trigger, or plain text).
+			var text: String = str(e.get("text", ""))
+			if e.has("trigger"):
+				var line: String = ShelterData.line_for(str(e["trigger"]), s.lines_used, s.rng)
+				if line != "":
+					text = line
+			var qp: int = int(ctx.get("place_idx", -1)) if bool(e.get("quiet_place", false)) else -1
+			s.later.append({"day": s.day + int(e.get("in", 3)), "kind": str(e.get("kind", "info")), "text": _fill(s, text, ctx), "quiet_place": qp})
+		"trip_flag":
+			for t_v in s.trips:
+				var t: Dictionary = t_v
+				if str(t["member"]) == str(ctx.get("explorer", "")):
+					t[str(e.get("set", "flag"))] = true
+		"rule":
+			ShelterSim.adopt_rule(s, str(e.get("rule", "")))
+			s.stats["meetings"] = int(s.stats["meetings"]) + 1
+			tags.append("house_rule")
+		"rule_declined":
+			s.stats["meetings"] = int(s.stats["meetings"]) + 1
+			s.stats["rules_declined"] = int(s.stats["rules_declined"]) + 1
+		"end_run":
+			ShelterSim.finish(s, str(e.get("ending", "maybe_walk_out")))
+			tags.append("gameover")
 		"junk":
 			pass
 		"say":
@@ -745,6 +883,7 @@ static func _repair(s: ShelterState, which: String, tags: Array, handy: bool = f
 	if target == "map":
 		if s.rng.randf() < ShelterData.B("manual_map_repair_p", 0.5) + (0.15 if handy else 0.0):
 			s.repair_one("map")
+			s.stats["repairs"] = int(s.stats["repairs"]) + 1
 			s.credit("manual", "the map was taped back together")
 		else:
 			s.discard_broken("map")
@@ -754,6 +893,7 @@ static func _repair(s: ShelterState, which: String, tags: Array, handy: bool = f
 		return
 	if s.rng.randf() < ShelterData.B("manual_repair_p", 0.85) + (0.1 if handy else 0.0):
 		s.repair_one(target)
+		s.stats["repairs"] = int(s.stats["repairs"]) + 1
 		s.credit("manual", "repaired the %s" % ShelterData.item_name(target).to_lower())
 		tags.append("item_repaired")
 	else:

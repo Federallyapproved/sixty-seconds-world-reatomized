@@ -24,6 +24,9 @@
 			{"id": "light", "label": "Flash the house number at the street", "item": "flashlight", "cinematic": "signal",
 				"effects": [{"do": "use", "item": "flashlight", "what": "flashed the house number"}, {"do": "chance", "p": 0.5, "then": [{"do": "chain", "chain": "convoy", "step": "advance"}], "else": [{"do": "chain", "chain": "convoy", "step": "miss"}]}],
 				"outcome": "Long, short, long, at every passing engine."},
+			{"id": "paint", "label": "Paint the headcount on the hatch", "cinematic": "signal",
+				"effects": [{"do": "dose", "who": "actor", "msv": 15}, {"do": "followed", "p": 0.3, "why": "the headcount was painted on the hatch"}, {"do": "chance", "p": 0.5, "then": [{"do": "chain", "chain": "convoy", "step": "advance"}], "else": [{"do": "chain", "chain": "convoy", "step": "miss"}]}],
+				"outcome": "Names and a headcount, in letters a foot high. The convoy might read it. So might anyone."},
 			{"id": "skip", "label": "Miss it", "cinematic": "gloom",
 				"effects": [{"do": "chain", "chain": "convoy", "step": "miss"}],
 				"outcome": "The roll call ends. The names keep going on without yours."}
@@ -75,12 +78,15 @@
 		"id": "neighbourhood_1_retry", "title": "The Runner Comes Back", "type": "rescue", "mood": "good", "chain": "neighbourhood", "step": 1, "retry": true,
 		"setup": "The runner from {place} tries once more. Anything to show the family will pull its weight.",
 		"options": [
-			{"id": "medkit", "label": "Send a medkit", "item": "medkit", "cinematic": "give",
+			{"id": "medkit", "label": "Send a medkit", "item": "medkit", "hatch": true, "cinematic": "give",
 				"effects": [{"do": "give", "item": "medkit", "what": "sent to the neighbourhood shelter"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
 				"outcome": "\"That'll do it.\" The name goes on the list."},
-			{"id": "water", "label": "Send a bottle of water", "item": "water", "cinematic": "give",
+			{"id": "water", "label": "Send a bottle of water", "item": "water", "hatch": true, "cinematic": "give",
 				"effects": [{"do": "use", "item": "water", "what": "sent to the neighbourhood shelter"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
 				"outcome": "Water is always welcome. The name goes on the list."},
+			{"id": "kitchen", "label": "Offer two days in their kitchen", "cinematic": "shrug",
+				"effects": [{"do": "tired", "who": "actor", "days": 2}, {"do": "dose", "who": "actor", "msv": 20}, {"do": "chance", "p": 0.5, "then": [{"do": "chain", "chain": "neighbourhood", "step": "advance"}, {"do": "say", "kind": "good", "text": "The cook vouches for {name}. The name goes on the list."}], "else": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}]}],
+				"outcome": "{name} peels, stirs and scrubs at {place} for two days, and walks home smelling of onions."},
 			{"id": "none", "label": "Send them away", "cinematic": "gloom",
 				"effects": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}],
 				"outcome": "The runner doesn't come back after that."}
@@ -126,6 +132,9 @@
 			{"id": "food", "label": "Pack a can instead", "item": "food", "cinematic": "give",
 				"effects": [{"do": "use", "item": "food", "what": "packed for the walk"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
 				"outcome": "A can of {food_label}, which will have to do."},
+			{"id": "scrape", "label": "Scrape together loose rations", "cinematic": "give",
+				"effects": [{"do": "rations", "kind": "water", "n": -1}, {"do": "rations", "kind": "food", "n": -2}, {"do": "chance", "p": 0.6, "then": [{"do": "chain", "chain": "neighbourhood", "step": "advance"}], "else": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}]}],
+				"outcome": "A ration of water and two of {food_label}, wrapped in a tea towel. The runner weighs it in one hand."},
 			{"id": "none", "label": "There's nothing left", "cinematic": "gloom",
 				"effects": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}],
 				"outcome": "The runner nods. They've heard it before."}
@@ -168,6 +177,9 @@
 			{"id": "torch", "label": "Shine a light up from the yard", "item": "flashlight", "cinematic": "signal",
 				"effects": [{"do": "use", "item": "flashlight", "what": "lit up the yard"}, {"do": "dose", "who": "actor", "msv": 20}, {"do": "chain", "chain": "airlift", "step": "advance"}],
 				"outcome": "A beam straight up, all night. They'll see that."},
+			{"id": "sos", "label": "Write SOS in the roof dust", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 30}, {"do": "chance", "p": 0.5, "then": [{"do": "chain", "chain": "airlift", "step": "advance"}], "else": [{"do": "chain", "chain": "airlift", "step": "miss"}]}],
+				"outcome": "{name} drags a broom through the dust until the letters are taller than the hatch."},
 			{"id": "skip", "label": "Leave it", "cinematic": "gloom",
 				"effects": [{"do": "chain", "chain": "airlift", "step": "miss"}],
 				"outcome": "The roof stays grey."}

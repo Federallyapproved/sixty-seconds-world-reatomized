@@ -89,6 +89,51 @@ static func narration() -> Dictionary:
 	return _table("narration")
 
 
+## A narration line for a trigger that hasn't played this run (section 15: no line plays twice).
+## `used` is the run's ShelterState.lines_used; returns "" when every line has played.
+static func line_for(trigger: String, used: Dictionary, rng: RandomNumberGenerator) -> String:
+	var pool: Array = []
+	var ids: Array = narration().keys()
+	ids.sort()
+	for nid in ids:
+		var r: Dictionary = narration()[nid]
+		if str(r.get("trigger", "")) == trigger and not used.has(nid):
+			pool.append(nid)
+	if pool.is_empty():
+		return ""
+	var pick: String = str(pool[rng.randi_range(0, pool.size() - 1)])
+	used[pick] = true
+	return str((narration()[pick] as Dictionary).get("text", ""))
+
+
+static func house_rules() -> Dictionary:
+	return _table("house_rules")
+
+
+static func house_rule(rule_id: String) -> Dictionary:
+	return house_rules().get(rule_id, {})
+
+
+## House Rules in the order the family meets them (each goes a little further than the last).
+static func house_rule_ids() -> Array:
+	var ids: Array = house_rules().keys()
+	ids.sort_custom(func(a: Variant, b: Variant) -> bool:
+		return int((house_rules()[a] as Dictionary).get("order", 0)) < int((house_rules()[b] as Dictionary).get("order", 0)))
+	return ids
+
+
+static func afflictions() -> Dictionary:
+	return _table("afflictions")
+
+
+static func affliction(aff_id: String) -> Dictionary:
+	return afflictions().get(aff_id, {})
+
+
+static func achievements() -> Dictionary:
+	return _table("achievements")
+
+
 static func balance() -> Dictionary:
 	return _table("balance")
 

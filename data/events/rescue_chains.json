@@ -78,12 +78,15 @@
 		"id": "neighbourhood_1_medicine", "title": "A Runner From {place}", "type": "rescue", "mood": "good", "chain": "neighbourhood", "step": 1,
 		"setup": "A runner from {place} has a list. The shelter there is short of medicine and takes families who help.",
 		"options": [
-			{"id": "medkit", "label": "Send a medkit back with them", "item": "medkit", "cinematic": "give",
+			{"id": "medkit", "label": "Send a medkit back with them", "item": "medkit", "hatch": true, "cinematic": "give",
 				"effects": [{"do": "give", "item": "medkit", "what": "sent to the neighbourhood shelter"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
 				"outcome": "The runner writes the family's name at the top of the page."},
-			{"id": "food", "label": "Send two cans instead", "item": "food", "cinematic": "give",
+			{"id": "food", "label": "Send two cans instead", "item": "food", "hatch": true, "cinematic": "give",
 				"effects": [{"do": "use", "item": "food", "what": "sent to the neighbourhood shelter"}, {"do": "lose", "item": "food", "n": 1}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
 				"outcome": "\"Food works too.\" The name goes on the list."},
+			{"id": "work", "label": "Offer two days' work instead", "cinematic": "shrug",
+				"effects": [{"do": "tired", "who": "actor", "days": 2}, {"do": "dose", "who": "actor", "msv": 20}, {"do": "chance", "p": 0.5, "then": [{"do": "chain", "chain": "neighbourhood", "step": "advance"}, {"do": "say", "kind": "good", "text": "They put the family's name on the list, in pencil."}], "else": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}]}],
+				"outcome": "{name} spends two days hauling water at {place}. Whether hands count as medicine is up to whoever keeps the list."},
 			{"id": "none", "label": "Say there's nothing to spare", "cinematic": "gloom",
 				"effects": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}],
 				"outcome": "The runner nods and checks the next house."}
@@ -99,6 +102,9 @@
 			{"id": "light", "label": "Agree a light signal", "item": "flashlight", "cinematic": "signal",
 				"effects": [{"do": "use", "item": "flashlight", "what": "agreed a light signal"}, {"do": "chain", "chain": "neighbourhood", "step": "advance"}],
 				"outcome": "Two long, one short. They practise it once, laughing."},
+			{"id": "walk", "label": "Promise to walk over and check in", "cinematic": "hazard",
+				"effects": [{"do": "tired", "who": "actor", "days": 2}, {"do": "dose", "who": "actor", "msv": 30}, {"do": "chance", "p": 0.75, "then": [{"do": "chain", "chain": "neighbourhood", "step": "advance"}], "else": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}]}],
+				"outcome": "{name} walks to {place} every third day to ask if it's time. It's a long walk to keep promising."},
 			{"id": "knock", "label": "Tell them to just knock", "cinematic": "shrug",
 				"effects": [{"do": "chance", "p": 0.3, "then": [{"do": "chain", "chain": "neighbourhood", "step": "advance"}], "else": [{"do": "chain", "chain": "neighbourhood", "step": "miss"}]}],
 				"outcome": "\"We'll try,\" she says, in the voice people use for maybe."}

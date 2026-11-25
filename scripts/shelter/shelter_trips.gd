@@ -25,6 +25,11 @@ static func make_place(poi: Dictionary, idx: int, rad_factor: float, stock_mult:
 	}
 	p["stock"] = generate_stock(p, stock_mult)
 	p["initial_total"] = stock_total(p)
+	if cat == "neighbor_house" and not bool(p["fictional"]):
+		var key: String = str(p["osm_id"]) if int(p["osm_id"]) != 0 else "%.5f,%.5f" % [float(p["lat"]), float(p["lon"])]
+		p["occupied"] = float(abs(hash(key + "#home")) % 1000) / 1000.0 < ShelterData.B("occupied_share", 0.3)
+		if bool(p["occupied"]):
+			p["rumour"] = "Lights at night: someone still lives here"
 	p["last_seen_total"] = -1
 	return p
 
@@ -190,8 +195,11 @@ static func can_go(s: ShelterState, m: Dictionary) -> String:
 		return "too dehydrated to walk"
 	if int(m.get("dwf", 0)) >= ShelterData.Bi("food_starving_day", 8):
 		return "too weak from hunger"
-	if int(m.get("morale", 5)) <= ShelterData.Bi("morale_withdrawn_at", 0):
+	var aff: String = ShelterState.affliction(m)
+	if aff == "withdrawn" and not s.has_rule("work_or_dont_eat"):
 		return "Withdrawn: won't leave their corner"
+	if aff == "paranoid":
+		return "Paranoid: won't open the hatch"
 	return ""
 
 
@@ -212,6 +220,8 @@ static func can_go_short(s: ShelterState, m: Dictionary) -> String:
 		return "Too weak"
 	if why.begins_with("Withdrawn"):
 		return "Withdrawn"
+	if why.begins_with("Paranoid"):
+		return "Paranoid"
 	return "Can't go"
 
 
@@ -246,7 +256,7 @@ static func preview(s: ShelterState, m: Dictionary, place_idx: int, gear: Array)
 		"loot_hint": loot_hint(p), "stocked": stocked, "rumour": str(p.get("rumour", "")), "tool": tool,
 		"followed_p": followed_p, "tired": days >= ShelterData.Bi("trip_tired_min_days", 3),
 		"overdue_p": ShelterData.B("trip_overdue_p", 0.25), "fallout_known": s.fallout_announced,
-		"remaining_hint": left,
+		"remaining_hint": left, "occupied": bool(p.get("occupied", false)), "quiet": bool(p.get("quiet", false)),
 	}
 
 
@@ -256,6 +266,20 @@ static func loot_hint(p: Dictionary) -> Array:
 	ids.sort_custom(func(a: Variant, b: Variant) -> bool:
 		return int((table[a] as Dictionary)["max"]) > int((table[b] as Dictionary)["max"]))
 	return ids.slice(0, 4)
+
+
+## The place farthest from home (a Reckless survivor's idea of a good trip).
+static func farthest_place(s: ShelterState) -> int:
+	var best: int = -1
+	var best_d: float = -1.0
+	for p_v in s.places:
+		var p: Dictionary = p_v
+		if bool(p.get("occupied", false)) or stock_total(p) <= 0:
+			continue
+		if float(p["walk_m"]) > best_d:
+			best_d = float(p["walk_m"])
+			best = int(p["idx"])
+	return best
 
 
 ## Carry for this explorer: the bag plus a Knows the Area explorer's extra pocket.
@@ -316,6 +340,8 @@ static func launch(s: ShelterState, m: Dictionary, place_idx: int, gear_in: Arra
 	if str(pv["dose_band"]) == "Lethal":
 		s.mistake("lethal_trip", "%s was sent into a lethal dose" % str(m["name"]))
 	s.trips.append(t)
+	if bool(p.get("occupied", false)) and not s.has_rule("occupied_fair_game") and not ShelterData.event("occupied_house").is_empty():
+		s.scheduled.append({"event": "occupied_house", "day": s.day + 1})
 	s.stats["trips"] = int(s.stats["trips"]) + 1
 	var tb: Dictionary = s.stats["trips_by_member"]
 	tb[str(m["id"])] = int(tb.get(str(m["id"]), 0)) + 1
@@ -330,7 +356,8 @@ static func place_label(p: Dictionary) -> String:
 	if str(p.get("category", "")) == "neighbor_house":
 		var st: String = str(p.get("street", "")).strip_edges()
 		var where: String = (" on " + st) if st != "" else ""
-		return "a neighbour's house%s (%d m %s)" % [where, int(round(float(p.get("walk_m", 0.0)))), str(p.get("bearing", ""))] if str(p.get("bearing", "")) != "" else "a neighbour's house%s" % where
+		var quiet: String = " (quiet now)" if bool(p.get("quiet", false)) else ""
+		return ("a neighbour's house%s (%d m %s)%s" % [where, int(round(float(p.get("walk_m", 0.0)))), str(p.get("bearing", "")), quiet]) if str(p.get("bearing", "")) != "" else "a neighbour's house%s%s" % [where, quiet]
 	var nm: String = str(p.get("name", "")).strip_edges()
 	if nm != "" and not nm.begins_with("Unnamed"):
 		return nm
@@ -431,6 +458,8 @@ static func _return(s: ShelterState, t: Dictionary, m: Dictionary) -> void:
 			s.missed("gas_mask", "%s got sick" % name)
 	elif sick_p > 0.0 and gear.has("gas_mask"):
 		s.credit("gas_mask", "%s came back clean" % name)
+	if bool(t["heavy"]) and not bool(m.get("sick", false)):
+		s.stats["heavy_clean"] = int(s.stats["heavy_clean"]) + 1
 	# Raiders on the road
 	var armed: bool = gear.has("rifle") or gear.has("axe")
 	var injury_p: float = ShelterData.B("trip_injury_p", 0.2)
@@ -447,6 +476,7 @@ static func _return(s: ShelterState, t: Dictionary, m: Dictionary) -> void:
 	if gear.has("map"):
 		lines_gear.append("Map: trip %d day shorter" % (base_days(p) - int(t["days"])))
 		s.credit("map", "trip to %s 1 day shorter" % label)
+		s.stats["map_trips"] = int(s.stats["map_trips"]) + 1
 	if bool(t["injured"]) or s.rng.randf() < injury_p:
 		if gear.has("medkit"):
 			s.credit("medkit", "patched %s up on the road" % name)
@@ -467,7 +497,26 @@ static func _return(s: ShelterState, t: Dictionary, m: Dictionary) -> void:
 		share += 0.15
 	if str(m.get("trait", "")) == "scout":
 		share += ShelterData.B("scout_extra_share", 0.1)   # knows the area: finds a little extra
-	var haul: Dictionary = raid_stock(s, p, carry, share)
+	if s.has_rule("finders_eat_first"):
+		share += ShelterData.B("finders_extra_share", 0.1)
+	# Somebody still lives here: their things are theirs unless the explorer took them.
+	var occupied: bool = bool(p.get("occupied", false))
+	if occupied and s.has_rule("occupied_fair_game"):
+		share *= ShelterData.B("fair_game_share_mult", 1.5)
+		m["guilt"] = true
+		m["morale_cap"] = mini(int(m.get("morale_cap", 10)), ShelterData.Bi("guilt_morale_cap", 6))
+		s.harmed_innocents = true
+		s.stats["harmed"] = true
+		ShelterState.note_cause(m, s.day, "took everything from an occupied home", "decision")
+		s.say("warn", "%s took what the family in %s had. The House Rule says that's fine." % [name, label], [], str(m["id"]))
+		s.later.append({"day": s.day + 4, "kind": "info", "text": ShelterData.line_for("house_quiet", s.lines_used, s.rng), "quiet_place": int(t["place_idx"])})
+	var haul: Dictionary = {}
+	if occupied and not s.has_rule("occupied_fair_game") and not bool(t.get("took", false)):
+		if (t["extra_loot"] as Dictionary).is_empty():
+			s.stats["occupied_left_alone"] = int(s.stats["occupied_left_alone"]) + 1
+			s.say("info", "Someone lives at %s. %s left their things alone." % [label, name], [], str(m["id"]))
+	else:
+		haul = raid_stock(s, p, carry, share)
 	for k in (t["extra_loot"] as Dictionary).keys():
 		haul[k] = int(haul.get(k, 0)) + int(t["extra_loot"][k])
 	# Collect revealed caches at this place
@@ -495,7 +544,15 @@ static func _return(s: ShelterState, t: Dictionary, m: Dictionary) -> void:
 	p["last_visit_day"] = s.day + 1
 	p["last_seen_total"] = stock_total(p)
 	var pl: Dictionary = s.stats["places_looted"]
-	pl[str(p["category"])] = true
+	if not haul.is_empty():
+		pl[str(p["category"])] = true
+	if str(p["category"]) == "pharmacy" and int(haul.get("medkit", 0)) > 0:
+		s.stats["pharmacy_medkit"] = true
+	if s.has_rule("finders_eat_first") and not s.home().is_empty():
+		for o_v in s.home():
+			if str((o_v as Dictionary)["id"]) != str(m["id"]):
+				ShelterSim.add_morale(s, o_v as Dictionary, -1, "")
+		s.say("morale", "Morale −1 for the others (finders ate first).")
 	# Gear comes home, unless it broke or was lost
 	for g_v in gear:
 		var g: String = str(g_v)

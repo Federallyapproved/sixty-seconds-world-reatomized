@@ -21,6 +21,8 @@ const ENDINGS: Dictionary = {
 	"loss_empty": {"kind": "loss", "title": "Taken While Empty", "text": "Everyone was out and the hatch was unlocked. Someone else lives here now."},
 	"loss_takeover": {"kind": "loss", "title": "The Gang Moved In", "text": "They came for the shelter, not the supplies. There was nothing left to stop them."},
 	"loss_no_adult": {"kind": "loss", "title": "Only the Children", "text": "The children are alone. A neighbour heard them through the vent; what happened next is not in the journal."},
+	"maybe_walk_out": {"kind": "maybe", "title": "The Long Walk", "text": "They left for the evacuation line with what they could carry. The journal ends at the city limits."},
+	"maybe_stranger": {"kind": "maybe", "title": "Gone With a Stranger", "text": "They climbed into a stranger's truck heading out of town. Nobody has heard from them since, which might be good news."},
 }
 
 
@@ -40,6 +42,9 @@ static func new_run(opts: Dictionary) -> ShelterState:
 	s.members = opts.get("members", [])
 	for m_v in s.members:
 		init_member(m_v as Dictionary)
+	s.known_items = (opts.get("known_items", {}) as Dictionary).duplicate()
+	s.hide_unknown = bool(opts.get("hide_unknown", false))
+	s.next_meeting_day = ShelterData.Bi("rule_meeting_first_day", 4)
 	var haul: Dictionary = opts.get("haul", {})
 	for k in haul.keys():
 		s.add_units(str(k), int(haul[k]))
@@ -51,6 +56,7 @@ static func new_run(opts: Dictionary) -> ShelterState:
 		s.places.append(ShelterTrips.make_place(pois[i] as Dictionary, i, f, stock_mult))
 	s.fallout_clear_day = compute_fallout_clear_day(s.h1_home_msv, s.rng)
 	ShelterChains.init(s)
+	s.start_count = s.home().size()
 	for m_v in s.home():
 		var m: Dictionary = m_v
 		s.last_rations[str(m["id"])] = {"food": false, "water": false}
@@ -87,6 +93,9 @@ static func init_member(m: Dictionary) -> void:
 	m["morale"] = ShelterData.Bi("morale_start", 7)
 	m["morale_cap"] = ShelterData.Bi("morale_max", 10)
 	m["guilt"] = false
+	m["affliction"] = ""
+	m["affliction_next"] = ""
+	m["affliction_warned_day"] = 0
 	m["causes"] = []
 	m["dose_hist"] = []
 	m["ars_warned"] = false
@@ -120,6 +129,8 @@ static func begin_day(s: ShelterState) -> Dictionary:
 	s.journal.append({"day": s.day, "lines": morning.duplicate()})
 	if s.is_over():
 		return {"day": s.day, "morning": morning, "event": {}, "options": [], "over": true}
+	_later_lines(s)
+	_morning_afflictions(s)
 	_morning_omens(s)
 	var omens: Array = s.receipt.duplicate()
 	s.receipt = []
@@ -199,11 +210,13 @@ static func end_day(s: ShelterState, plan: Dictionary) -> Dictionary:
 				break
 	if s.is_over():
 		return {"over": true}
+	s.night = true
 	_apply_treatment(s, plan.get("treat", {}))
 	_apply_rations(s, plan.get("rations", {}))
 	_apply_jobs(s, plan.get("jobs", {}))
 	if s.is_over():
 		_close_day(s)
+		s.night = false
 		return {"over": true}
 	_health_tick(s)
 	_weather_tick(s)
@@ -213,6 +226,7 @@ static func end_day(s: ShelterState, plan: Dictionary) -> Dictionary:
 	ShelterTrips.tick(s)
 	ShelterTrips.drain(s)
 	_close_day(s)
+	s.night = false
 	return {"over": s.is_over()}
 
 
@@ -249,6 +263,7 @@ static func _apply_treatment(s: ShelterState, treat: Dictionary) -> void:
 			what = "cured %s's fever and wounds" % str(m["name"])
 		cure(s, m)
 		s.credit("medkit", what)
+		s.stats["cures"] = int(s.stats["cures"]) + 1
 
 
 static func _apply_rations(s: ShelterState, rations: Dictionary) -> void:
@@ -279,6 +294,13 @@ static func _apply_rations(s: ShelterState, rations: Dictionary) -> void:
 			elif s.food() > 0 and int(m.get("dwf", 0)) + 1 >= ShelterData.Bi("food_starving_day", 8):
 				s.mistake("skipped_food", "%s went without food with %d rations on the shelf" % [str(m["name"]), s.food()])
 				ShelterState.note_cause(m, s.day, "skipped food (day %d without)" % (int(m.get("dwf", 0)) + 1), "decision")
+	for m_v in s.home():
+		var m: Dictionary = m_v
+		if ShelterState.affliction(m) == "selfish" and s.remove(ShelterState.FOOD, 1) == 1:
+			m["dwf"] = 0
+			m["ate_today"] = true
+			s.stats["selfish_meals"] = int(s.stats["selfish_meals"]) + 1
+			s.say("lost", "Selfish %s ate an extra ration in the night: −1 food ration." % str(m["name"]), ["food"], str(m["id"]))
 
 
 static func _apply_jobs(s: ShelterState, jobs: Dictionary) -> void:
@@ -290,9 +312,23 @@ static func _apply_jobs(s: ShelterState, jobs: Dictionary) -> void:
 		var m: Dictionary = s.member(str(mid))
 		if m.is_empty():
 			continue
-		var why: String = ShelterTrips.launch(s, m, int(j.get("place", -1)), j.get("gear", []))
+		var place: int = int(j.get("place", -1))
+		if ShelterState.affliction(m) == "reckless":
+			var far: int = ShelterTrips.farthest_place(s)
+			if far >= 0 and far != place:
+				place = far
+				s.say("warn", "Reckless %s wouldn't hear of the short trip and set off for the farthest place on the map." % str(m["name"]), [], str(m["id"]))
+		var why: String = ShelterTrips.launch(s, m, place, j.get("gear", []))
 		if why == "":
 			launched += 1
+	for m_v in s.home():
+		var m: Dictionary = m_v
+		if ShelterState.affliction(m) != "reckless" or s.home().size() <= 1 or ShelterTrips.can_go(s, m) != "":
+			continue
+		var far2: int = ShelterTrips.farthest_place(s)
+		if far2 >= 0 and ShelterTrips.launch(s, m, far2, []) == "":
+			launched += 1
+			s.say("warn", "Reckless %s slipped out in the night for %s, the farthest place on the map." % [str(m["name"]), ShelterTrips.place_label(s.places[far2])], [], str(m["id"]))
 	if launched > 0 and s.home().is_empty():
 		if s.has("padlock"):
 			s.remove("padlock", 1)
@@ -354,9 +390,12 @@ static func _health_tick(s: ShelterState) -> void:
 			s.say("warn", "%s is dehydrated (day %d without water)." % [name, dww], ["water"], mid)
 		elif dww == ShelterData.Bi("water_thirsty_day", 3):
 			s.say("status", "%s is thirsty (day %d without water)." % [name, dww], ["water"], mid)
-		# Food
+		if dww >= ShelterData.Bi("water_thirsty_day", 3):
+			s.stats["thirsty_ever"] = true
+		# Food ("Kids eat last": children live on scraps, so a skipped ration only counts every other day)
 		if not bool(m.get("ate_today", false)):
-			m["dwf"] = int(m.get("dwf", 0)) + 1
+			if not (s.has_rule("kids_eat_last") and ShelterState.is_child(m) and s.day % 2 == 1):
+				m["dwf"] = int(m.get("dwf", 0)) + 1
 		var dwf: int = int(m["dwf"])
 		if dwf >= ShelterData.Bi("food_death_day", 10):
 			_die(s, m, "starvation", "Starved after %d days without food." % dwf)
@@ -365,6 +404,8 @@ static func _health_tick(s: ShelterState) -> void:
 			s.say("warn", "%s is starving (day %d without food)." % [name, dwf], ["food"], mid)
 		elif dwf == ShelterData.Bi("food_hungry_day", 6):
 			s.say("status", "%s is hungry (day %d without food)." % [name, dwf], ["food"], mid)
+		if dwf >= ShelterData.Bi("food_hungry_day", 6):
+			s.stats["hungry_ever"] = true
 		# Sickness
 		if bool(m.get("sick", false)):
 			m["sick_days"] = int(m.get("sick_days", 0)) + 1
@@ -413,8 +454,10 @@ static func _health_tick(s: ShelterState) -> void:
 			var weak_p: float = ShelterData.B("malnutrition_sick_p", 0.1) * (0.5 if str(m.get("trait", "")) == "iron_stomach" else 1.0)
 			if weak and s.rng.randf() < weak_p:
 				make_sick(s, m, "weak from %s" % ("thirst" if dww >= ShelterData.Bi("water_dehydrated_day", 4) else "hunger"), "decision")
-			elif int(m.get("relapse_until", 0)) > s.day and s.rng.randf() < ShelterData.B("relapse_p", 0.06):
+			elif int(m.get("relapse_until", 0)) > s.day and not s.has_rule("sick_sleep_upstairs") and s.rng.randf() < ShelterData.B("relapse_p", 0.06):
 				make_sick(s, m, "the illness came back", "chance")
+		elif s.has_rule("sick_sleep_upstairs"):
+			add_morale(s, m, -1, "sleeping upstairs, alone")
 
 
 static func _morale_tick(s: ShelterState) -> void:
@@ -459,6 +502,14 @@ static func _morale_tick(s: ShelterState) -> void:
 
 
 static func _pets_tick(s: ShelterState) -> void:
+	if s.has_rule("pet_ration") and s.food() == 0 and not s.pets.is_empty():
+		var kind: String = "dog" if s.pets.has("dog") else str(s.pets.keys()[0])
+		s.pets.erase(kind)
+		s.add(ShelterState.FOOD, ShelterData.Bi("pet_ration_%s" % kind, 4))
+		s.say("death", "The House Rule was followed. Nobody talks about the %s." % kind, ["food"])
+		for m_v in s.home():
+			add_morale(s, m_v as Dictionary, ShelterData.Bi("pet_ration_morale", -3) - (2 if ShelterState.is_child(m_v as Dictionary) else 0), "")
+		return
 	if s.pets.has("dog") and (s.day - int((s.pets["dog"] as Dictionary).get("since", s.day))) % 3 == 2:
 		if s.remove(ShelterState.FOOD, 1) == 1:
 			s.say("info", "The dog had a ration.", ["food"])
@@ -494,6 +545,7 @@ static func _raid(s: ShelterState) -> void:
 	if s.home().is_empty() and bool(s.flags.get("locked_empty", false)):
 		stopped = true
 		s.say("used", "Used: Padlock → held the hatch while everyone was out", ["padlock"])
+		s.stats["padlock_stops"] = int(s.stats["padlock_stops"]) + 1
 	elif adult and s.has("rifle") and s.has("ammo"):
 		s.remove("ammo", 1)
 		s.credit("rifle", "raid stopped (−1 ammo)")
@@ -512,6 +564,7 @@ static func _raid(s: ShelterState) -> void:
 	elif s.has("padlock"):
 		s.remove("padlock", 1)
 		s.credit("padlock", "raid stopped (padlock gone)")
+		s.stats["padlock_stops"] = int(s.stats["padlock_stops"]) + 1
 		stopped = true
 	if stopped:
 		s.stats["raids_stopped"] = int(s.stats["raids_stopped"]) + 1
@@ -520,6 +573,7 @@ static func _raid(s: ShelterState) -> void:
 		if s.raids_stopped_streak >= ShelterData.Bi("raids_to_shake", 2):
 			s.followed = false
 			s.gang_warned = false
+			s.stats["gang_shaken"] = int(s.stats["gang_shaken"]) + 1
 			s.say("good", "The gang has stopped coming. Nobody is watching the hatch now.")
 		return
 	s.raids_stopped_streak = 0
@@ -541,6 +595,7 @@ static func _takeover(s: ShelterState) -> void:
 		elif w == "axe":
 			s.break_one("axe")
 		s.credit(w, "the gang was driven off for good")
+		s.stats["takeover_stopped"] = true
 		s.followed = false
 		s.gang_warned = false
 		s.say("good", "The gang came for the shelter itself and was driven off. They won't be back.")
@@ -550,6 +605,9 @@ static func _takeover(s: ShelterState) -> void:
 		s.gang_day = s.day + 4
 		return
 	s.missed("rifle", "nothing could stop the gang")
+	# Days of "Noticed" raids and a warning the morning before: an unanswered gang is a decision,
+	# not bad luck (the balance harness counts it as a mistake).
+	s.mistake("gang_unanswered", "the gang took the shelter %d days after the family was followed" % (s.day - s.followed_since))
 	finish(s, "loss_takeover")
 
 
@@ -560,6 +618,7 @@ static func _fallout_news(s: ShelterState) -> void:
 		s.fallout_announced = true
 		s.fallout_known_day = s.day
 		s.credit("radio", "the all-clear: fallout is light enough to travel")
+		s.stats["radio_all_clear"] = true
 	elif s.day >= s.fallout_clear_day + 4:
 		s.fallout_announced = true
 		s.fallout_known_day = s.day
@@ -605,6 +664,12 @@ static func ending_info(s: ShelterState) -> Dictionary:
 	e["text"] = str(e.get("text", "")).replace("{place}", place)
 	e["id"] = s.ending
 	e["day"] = s.ending_day
+	var passed: Array = []
+	for rid in s.rules:
+		passed.append(str(ShelterData.house_rule(str(rid)).get("name", rid)))
+	e["rules"] = passed
+	if not passed.is_empty():
+		e["rules_text"] = "House Rules passed: " + "; ".join(passed) + "."
 	return e
 
 
@@ -693,8 +758,8 @@ static func add_morale(s: ShelterState, m: Dictionary, n: int, why: String) -> v
 	m["morale"] = clampi(before + n, 0, cap)
 	if why != "" and int(m["morale"]) != before:
 		s.say("morale", "%s %+d morale (%s)." % [str(m["name"]), int(m["morale"]) - before, why], [], str(m["id"]))
-	if before > 0 and int(m["morale"]) == 0:
-		s.say("warn", "%s has stopped talking and won't work until things improve." % str(m["name"]), ["cards", "console"], str(m["id"]))
+	if int(m["morale"]) <= ShelterData.Bi("affliction_warn_morale", 1) and int(m["morale"]) < before:
+		_warn_affliction(s, m)
 
 
 static func _die(s: ShelterState, m: Dictionary, cause: String, reason: String) -> void:
@@ -774,6 +839,213 @@ static func steal(s: ShelterState, n: int) -> Array[String]:
 	return taken
 
 
+# ---------------------------------------------------------------- afflictions (section 7)
+
+## Morale has fallen to the warning line: pick what this person will do if it reaches 0, and let
+## them say so. The affliction can only take hold on a later morning (one day's warning).
+static func _warn_affliction(s: ShelterState, m: Dictionary) -> void:
+	if not bool(m.get("alive", false)) or ShelterState.affliction(m) != "" or str(m.get("affliction_next", "")) != "":
+		return
+	var a: String = pick_affliction(s, m)
+	m["affliction_next"] = a
+	# Lines written at night are read the next morning; the warning has to be seen for a day.
+	m["affliction_warned_day"] = s.day + (1 if s.night else 0)
+	s.say("warn", _aff_text(s, a, "warning", m), ["cards", "console"], str(m["id"]))
+
+
+## Which affliction: what the family is short of shapes what breaks first.
+static func pick_affliction(s: ShelterState, m: Dictionary) -> String:
+	var people: int = maxi(1, s.living().size())
+	var w: Dictionary = {"selfish": 1.0, "paranoid": 1.0, "reckless": 1.0, "withdrawn": 1.0}
+	if s.food() < people * 3:
+		w["selfish"] = 2.0
+	if s.followed:
+		w["paranoid"] = 2.0
+	if ShelterState.is_child(m):
+		w["reckless"] = 0.0
+	var total: float = 0.0
+	for k in w.keys():
+		total += float(w[k])
+	var r: float = s.rng.randf() * total
+	for k in ["selfish", "paranoid", "reckless", "withdrawn"]:
+		r -= float(w[k])
+		if r <= 0.0:
+			return k
+	return "withdrawn"
+
+
+static func _aff_text(s: ShelterState, aff: String, col: String, m: Dictionary) -> String:
+	var row: Dictionary = ShelterData.affliction(aff)
+	var text: String = ""
+	if col == "warning":
+		var opts: Array = []
+		for c in ["warning_1", "warning_2", "warning_3"]:
+			if str(row.get(c, "")) != "":
+				opts.append(str(row[c]))
+		if not opts.is_empty():
+			text = str(opts[s.rng.randi_range(0, opts.size() - 1)])
+	else:
+		text = str(row.get(col, ""))
+	if text == "":
+		text = "{name} is not doing well."
+	return text.replace("{name}", str(m.get("name", "")))
+
+
+static func _morning_afflictions(s: ShelterState) -> void:
+	var clear_at: int = ShelterData.Bi("affliction_clear_morale", 3)
+	for m_v in s.living():
+		var m: Dictionary = m_v
+		var mid: String = str(m["id"])
+		var aff: String = ShelterState.affliction(m)
+		var mo: int = int(m.get("morale", 5))
+		if aff != "":
+			if mo >= clear_at:
+				m["affliction"] = ""
+				m["affliction_next"] = ""
+				m["affliction_warned_day"] = 0
+				s.say("good", _aff_text(s, aff, "recover", m), [], mid)
+			continue
+		var nxt: String = str(m.get("affliction_next", ""))
+		if nxt == "":
+			continue
+		if mo > ShelterData.Bi("affliction_warn_morale", 1):
+			m["affliction_next"] = ""
+			m["affliction_warned_day"] = 0
+			continue
+		if mo <= 0 and str(m.get("loc", "")) == "shelter" and s.day > int(m.get("affliction_warned_day", 0)):
+			m["affliction"] = nxt
+			m["affliction_next"] = ""
+			s.stats["afflictions"] = int(s.stats["afflictions"]) + 1
+			ShelterState.note_cause(m, s.day, "became %s" % str(ShelterData.affliction(nxt).get("name", nxt)).to_lower(), "decision")
+			s.say("warn", _aff_text(s, nxt, "onset", m), ["cards", "console"], mid)
+	var home: Array = s.home()
+	var n_aff: int = 0
+	for m_v in home:
+		if ShelterState.affliction(m_v as Dictionary) != "":
+			n_aff += 1
+	s.stats["afflicted_max"] = maxi(int(s.stats["afflicted_max"]), n_aff)
+	if home.size() >= 2 and n_aff == home.size():
+		s.stats["afflicted_all"] = true
+
+
+## Anyone Paranoid at home keeps the hatch shut (options marked "hatch" in the event tables).
+static func paranoid_home(s: ShelterState) -> Dictionary:
+	for m_v in s.home():
+		if ShelterState.affliction(m_v as Dictionary) == "paranoid":
+			return m_v
+	return {}
+
+
+# ---------------------------------------------------------------- the narrator's memory
+
+## Things the narrator brings up days later ("the house is quiet now").
+static func _later_lines(s: ShelterState) -> void:
+	var keep: Array = []
+	for l_v in s.later:
+		var l: Dictionary = l_v
+		if int(l["day"]) > s.day:
+			keep.append(l)
+			continue
+		var qi: int = int(l.get("quiet_place", -1))
+		if qi >= 0 and qi < s.places.size():
+			var qp: Dictionary = s.places[qi]
+			qp["quiet"] = true
+			qp["occupied"] = false
+			qp["rumour"] = "Quiet now"
+		var text: String = str(l.get("text", ""))
+		if text != "":
+			s.say(str(l.get("kind", "info")), text, [])
+	s.later = keep
+
+
+# ---------------------------------------------------------------- House Rules (section 7)
+
+## Up to two rules the family could adopt now: the next ones in order whose needs are met.
+static func offered_rules(s: ShelterState) -> Array:
+	var out: Array = []
+	for rid_v in ShelterData.house_rule_ids():
+		var rid: String = str(rid_v)
+		if s.has_rule(rid):
+			continue
+		var need: String = str(ShelterData.house_rule(rid).get("needs", ""))
+		if need == "pet" and s.pets.is_empty():
+			continue
+		if need == "child" and not s.living().any(func(m: Dictionary) -> bool: return ShelterState.is_child(m)):
+			continue
+		out.append(rid)
+		if out.size() >= ShelterData.Bi("rule_offers", 2):
+			break
+	return out
+
+
+static func adopt_rule(s: ShelterState, rule_id: String) -> void:
+	if s.has_rule(rule_id):
+		return
+	var r: Dictionary = ShelterData.house_rule(rule_id)
+	s.rules.append(rule_id)
+	var hit: int = int(r.get("morale_hit", -1))
+	for m_v in s.home():
+		add_morale(s, m_v as Dictionary, hit, "")
+	if hit != 0 and not s.home().is_empty():
+		s.say("morale", "Morale %+d for everyone (a new House Rule)." % hit)
+	match rule_id:
+		"work_or_dont_eat":
+			for m_v in s.living():
+				var m: Dictionary = m_v
+				m["morale_cap"] = maxi(1, int(m.get("morale_cap", 10)) - 1)
+				m["morale"] = mini(int(m.get("morale", 5)), int(m["morale_cap"]))
+		"kids_eat_last":
+			for m_v in s.living():
+				var m: Dictionary = m_v
+				if ShelterState.is_child(m):
+					m["morale_cap"] = mini(int(m.get("morale_cap", 10)), ShelterData.Bi("kids_eat_last_cap", 5))
+					m["morale"] = mini(int(m.get("morale", 5)), int(m["morale_cap"]))
+	s.say("rule", "House Rule: %s. %s" % [str(r.get("name", rule_id)), str(r.get("bonus", ""))], [])
+
+
+# ---------------------------------------------------------------- end of run (section 8)
+
+## Each death as a chain of causes, with the turning point (the last decision before it went wrong).
+static func death_recap(s: ShelterState) -> Array:
+	var out: Array = []
+	for d_v in s.stats["deaths"]:
+		var d: Dictionary = d_v
+		var steps: Array = []
+		var turning: int = -1
+		for c_v in d.get("chain", []):
+			var c: Dictionary = c_v
+			steps.append("%s (day %d)" % [str(c.get("text", "")), int(c.get("day", 0))])
+			if str(c.get("root", "")) == "decision":
+				turning = steps.size() - 1
+		var last: String = {"thirst": "died of thirst", "starvation": "starved", "sickness": "died of the illness",
+			"radiation": "died of radiation sickness", "trip": "didn't return", "event": "died"}.get(str(d.get("cause", "")), "died")
+		if steps.is_empty() or not str(steps.back()).begins_with(last):
+			steps.append("%s (day %d)" % [last, int(d.get("day", 0))])
+		if turning < 0:
+			turning = 0
+		out.append({"name": str(d.get("name", "")), "day": int(d.get("day", 0)), "cause": str(d.get("cause", "")),
+			"root": str(d.get("root", "")), "steps": steps, "turning": turning, "text": " → ".join(steps)})
+	return out
+
+
+## The items that did the most, and the ones missed most when it counted.
+static func mvp_items(s: ShelterState) -> Dictionary:
+	var credits: Dictionary = s.stats["credits"]
+	var missing: Dictionary = s.stats["missing_when_counted"]
+	var by_credit: Array = credits.keys()
+	by_credit.sort_custom(func(a: Variant, b: Variant) -> bool: return int(credits[a]) > int(credits[b]))
+	var by_missing: Array = missing.keys()
+	by_missing.sort_custom(func(a: Variant, b: Variant) -> bool: return int(missing[a]) > int(missing[b]))
+	var mvp: Array = []
+	for k in by_credit.slice(0, 3):
+		var lines: Array = (s.stats["credit_lines"] as Dictionary).get(k, [])
+		mvp.append({"item": str(k), "count": int(credits[k]), "example": str(lines[0]) if not lines.is_empty() else ""})
+	var miss: Array = []
+	for k in by_missing.slice(0, 3):
+		miss.append({"item": str(k), "count": int(missing[k])})
+	return {"mvp": mvp, "missing": miss}
+
+
 # ---------------------------------------------------------------- visuals and text
 
 ## Keeps the fields the portraits and the shelter backdrop read in step with the rules.
@@ -820,8 +1092,11 @@ static func status_labels(m: Dictionary, day_n: int) -> Array[String]:
 		out.append("Radiation sickness")
 	if int(m.get("tired_until", 0)) > day_n:
 		out.append("Tired")
-	if int(m.get("morale", 5)) <= 0:
-		out.append("Withdrawn")
+	var aff: String = ShelterState.affliction(m)
+	if aff != "":
+		out.append(str(ShelterData.affliction(aff).get("name", aff.capitalize())))
+	if bool(m.get("guilt", false)):
+		out.append("Guilt")
 	if out.is_empty():
 		out.append("OK")
 	return out

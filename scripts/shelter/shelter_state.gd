@@ -66,6 +66,16 @@ var ending_day: int = 0
 # Defaults the ration row starts from: member_id -> {"food": bool, "water": bool}
 var last_rations: Dictionary = {}
 
+# House Rules, the Almanac and the narrator's memory (M2)
+var rules: Array = []                 # House Rules passed, in order
+var next_meeting_day: int = 4         # the next family meeting about a House Rule
+var known_items: Dictionary = {}      # items discovered in the Almanac (their options show greyed)
+var hide_unknown: bool = false        # hide the options of items never discovered
+var night: bool = false               # true while the night runs (its lines are read next morning)
+var later: Array = []                 # [{day, kind, text, quiet_place}]: things the narrator brings up later
+var lines_used: Dictionary = {}       # narration line ids already used this run (no line plays twice)
+var start_count: int = 0              # people who made it into the shelter
+
 # Measurements for the balance harness and the end-of-run screens
 var stats: Dictionary = {}
 
@@ -76,6 +86,13 @@ func _init() -> void:
 		"credits_makeshift": 0, "credits_total": 0, "mistakes": [], "raids": 0, "raids_stopped": 0,
 		"rescue_day": 0, "events": 0, "item_options_used": 0, "missing_when_counted": {},
 		"places_looted": {}, "followed_count": 0,
+		# M2: what the end-of-run screens, the Almanac and the achievements read
+		"meetings": 0, "rules_declined": 0, "afflictions": 0, "afflicted_max": 0, "afflicted_all": false,
+		"selfish_meals": 0, "padlock_stops": 0, "cures": 0, "map_trips": 0, "heavy_clean": 0,
+		"gang_shaken": 0, "takeover_stopped": false, "radio_all_clear": false, "repairs": 0,
+		"thirsty_ever": false, "hungry_ever": false, "pharmacy_medkit": false, "stranger": "", "stranger_helped": false,
+		"pets_adopted": [], "seen_items": {}, "credit_lines": {}, "item_option_labels": {},
+		"stole": 0, "harmed": false, "occupied_left_alone": 0,
 	}
 
 
@@ -128,6 +145,15 @@ func has_adult(group: Array) -> bool:
 	return false
 
 
+func has_rule(rule_id: String) -> bool:
+	return rules.has(rule_id)
+
+
+## The affliction a survivor has now ("" for none): selfish, paranoid, reckless or withdrawn.
+static func affliction(m: Dictionary) -> String:
+	return str(m.get("affliction", ""))
+
+
 # ---------------------------------------------------------------- the shelf
 
 func count(item_id: String) -> int:
@@ -151,6 +177,7 @@ func add(item_id: String, n: int = 1) -> void:
 	if n <= 0:
 		return
 	stock[item_id] = count(item_id) + n
+	(stats["seen_items"] as Dictionary)[item_id] = true
 
 
 ## Removes up to n working units; returns how many were removed.
@@ -229,6 +256,13 @@ func credit(item_id: String, what: String) -> void:
 	stats["credits_total"] = int(stats["credits_total"]) + 1
 	if str(ShelterData.item(item_id).get("category", "")) == "makeshift":
 		stats["credits_makeshift"] = int(stats["credits_makeshift"]) + 1
+	# The Almanac lists what each item has been seen doing.
+	var cl: Dictionary = stats["credit_lines"]
+	if not cl.has(item_id):
+		cl[item_id] = []
+	var seen_lines: Array = cl[item_id]
+	if not seen_lines.has(what) and seen_lines.size() < 12:
+		seen_lines.append(what)
 	say("used", "Used: %s → %s" % [ShelterData.item_name(item_id), what], [item_id])
 
 

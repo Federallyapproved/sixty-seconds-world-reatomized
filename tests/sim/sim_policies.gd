@@ -100,10 +100,18 @@ static func pick_option(s: ShelterState, policy: String, rng: RandomNumberGenera
 		"random":
 			return str((avail[rng.randi_range(0, avail.size() - 1)] as Dictionary)["id"])
 		"naive":
-			for o_v in avail:
+			# Naive players grab the item option, never vote on House Rules and never gamble the run.
+			var safe: Array = avail.filter(func(o: Dictionary) -> bool: return not _ends_run(s, str(o["id"])))
+			if safe.is_empty():
+				safe = avail
+			for o_v in safe:
 				if str((o_v as Dictionary)["item"]) != "":
 					return str((o_v as Dictionary)["id"])
-			return str((avail[0] as Dictionary)["id"])
+			for o_v in safe:
+				if str((o_v as Dictionary)["id"]).begins_with("rule_"):
+					continue
+				return str((o_v as Dictionary)["id"])
+			return str((safe[0] as Dictionary)["id"])
 	var best: String = ""
 	var best_v: float = -INF
 	for o_v in avail:
@@ -117,6 +125,36 @@ static func pick_option(s: ShelterState, policy: String, rng: RandomNumberGenera
 			best_v = v
 			best = str(o["id"])
 	return best
+
+
+static func _ends_run(s: ShelterState, option_id: String) -> bool:
+	for so in s.today_event.get("options", []):
+		if str((so as Dictionary)["id"]) == option_id:
+			for e_v in (so as Dictionary).get("effects", []):
+				if str((e_v as Dictionary).get("do", "")) == "end_run":
+					return true
+	return false
+
+
+## How much a House Rule is worth to a careful player right now (before its morale hit).
+static func rule_value(s: ShelterState, rule_id: String) -> float:
+	var has_child: bool = s.living().any(func(m: Dictionary) -> bool: return ShelterState.is_child(m))
+	match rule_id:
+		"finders_eat_first":
+			return 3.0
+		"nobody_opens_hatch":
+			return 2.0 if s.followed else 5.0
+		"work_or_dont_eat":
+			return 2.0
+		"sick_sleep_upstairs":
+			return 3.0 if s.count("medkit") < 2 else 1.5
+		"kids_eat_last":
+			return 4.0 if has_child else 0.0
+		"occupied_fair_game":
+			return -40.0   # loses the neighbourhood rescue and puts Guilt on every explorer
+		"pet_ration":
+			return 6.0 if not s.pets.is_empty() and s.food() < s.living().size() * 3 else 1.0
+	return 0.0
 
 
 static func _need_mult(s: ShelterState, item: String) -> float:
@@ -210,7 +248,12 @@ static func score_effects(s: ShelterState, effs: Array, ctx: Dictionary) -> floa
 			"lose_run":
 				v -= 200.0
 			"guilt":
-				v -= 3.0
+				v -= 25.0 if bool(e.get("harm", false)) else 3.0
+			"rule":
+				var rid: String = str(e.get("rule", ""))
+				v += rule_value(s, rid) + float(int(ShelterData.house_rule(rid).get("morale_hit", -1))) * 0.7 * float(s.home().size())
+			"end_run":
+				v -= 150.0
 			"fallout_news":
 				if not s.fallout_announced:
 					v += 3.0

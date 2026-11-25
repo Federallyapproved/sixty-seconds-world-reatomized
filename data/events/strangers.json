@@ -1,0 +1,95 @@
+[
+	{
+		"id": "stranger_prepper", "title": "The Prepper", "type": "stranger", "mood": "neutral", "weight": 1.2, "stranger": true,
+		"setup": "In a garage near {place}, a neighbour in full camouflage shows {name} his bunker. He has been ready for this for years.",
+		"conditions": {"trip_place": ["neighbor_house"], "min_day": 5},
+		"options": [
+			{"id": "briefing", "label": "Sit through the full briefing", "cinematic": "shrug",
+				"effects": [{"do": "tired", "who": "explorer", "days": 1}, {"do": "trip_loot", "item": "water", "n": 1}, {"do": "schedule", "event": "prepper_drill", "in": 3}],
+				"outcome": "Ninety minutes at a whiteboard, with handouts. He sends {name} off with a bottle and a promise to drop by for a drill."},
+			{"id": "map", "label": "Swap cache spots on the map", "item": "map", "cinematic": "gain",
+				"effects": [{"do": "use", "item": "map", "what": "marked a prepper's two caches"}, {"do": "reveal_cache", "items": {"food": 2, "water": 2}}, {"do": "schedule", "event": "prepper_drill", "in": 4}],
+				"outcome": "He marks two caches on {name}'s map in tiny, proud triangles. The map now knows things. So does he."},
+			{"id": "leave", "label": "Back out politely", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "explorer", "n": -1}, {"do": "followed", "p": 0.2, "why": "the prepper logged the hatch on his group channel"}],
+				"outcome": "He logs the family on his group channel as \"unprepared\". The channel has more listeners than he thinks."}
+		]
+	},
+	{
+		"id": "prepper_drill", "title": "Readiness Drill", "type": "chain_followup", "mood": "bad", "system": true,
+		"setup": "The camouflaged neighbour is at the hatch at 5 a.m. with a whistle and a clipboard. Surprise readiness drill.",
+		"options": [
+			{"id": "drill", "label": "Run his drill", "cinematic": "shrug",
+				"effects": [{"do": "tired", "who": "all", "days": 1}, {"do": "dose", "who": "all", "msv": 5}, {"do": "add", "item": "water", "n": 1}],
+				"outcome": "Everyone is out of the shelter in ninety seconds, then back in. He awards one bottle of water for participation."},
+			{"id": "inspect", "label": "Let him inspect the shelter", "hatch": true, "cinematic": "give",
+				"effects": [{"do": "lose", "item": "food", "n": 1}, {"do": "add", "item": "medkit", "n": 1}, {"do": "morale", "who": "all", "n": -1, "why": "audited"}],
+				"outcome": "He confiscates a dented can as \"a hazard\" and leaves a spare medkit. Everyone feels audited."},
+			{"id": "hide", "label": "Pretend nobody's home", "cinematic": "gloom",
+				"effects": [{"do": "followed", "p": 0.25, "why": "the prepper's whistle drew the whole street"}],
+				"outcome": "He blows the whistle at the hatch for an hour, for realism. The whole street hears it."}
+		]
+	},
+	{
+		"id": "stranger_santa", "title": "Off Season", "type": "stranger", "mood": "good", "weight": 0.7, "stranger": true,
+		"setup": "A man in a Santa suit is at the hatch with a sack. He worked the grotto at {nearest_grocery} and kept the suit on.",
+		"conditions": {"min_day": 4, "needs_place": ["grocery"]},
+		"options": [
+			{"id": "rest", "label": "Let him in to warm up", "hatch": true, "cinematic": "celebrate",
+				"effects": [{"do": "rations", "kind": "food", "n": -2}, {"do": "morale", "who": "all", "n": 2}, {"do": "schedule", "event": "nice_list", "in": 4}],
+				"outcome": "He eats two rations, tells grotto stories and checks everyone against a list. Everyone, it turns out, is on the Nice list."},
+			{"id": "console", "label": "Put the console in his sack", "item": "console", "hatch": true, "cinematic": "give",
+				"effects": [{"do": "give", "item": "console", "what": "went in Santa's sack for the next child on his list"}, {"do": "add", "item": "food", "n": 1}, {"do": "morale", "who": "all", "n": 2}, {"do": "schedule", "event": "nice_list", "in": 4}],
+				"outcome": "The console goes in the sack for whichever child is next on his list. He leaves a can of {food_label}, wrapped."},
+			{"id": "wave", "label": "Wave him on", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "He nods and moves on to the next hatch. Nobody enjoys being the house that turned Santa away."}
+		]
+	},
+	{
+		"id": "nice_list", "title": "The Nice List", "type": "chain_followup", "mood": "bad", "system": true,
+		"setup": "Word got round that this hatch is on Santa's Nice list. Two families are at the door, holding out stockings.",
+		"options": [
+			{"id": "fill", "label": "Fill the stockings", "hatch": true, "cinematic": "give",
+				"effects": [{"do": "lose", "item": "food", "n": 1}, {"do": "lose", "item": "water", "n": 1}, {"do": "morale", "who": "all", "n": 2}],
+				"outcome": "A can and a bottle, split between two stockings. Somewhere, a man in a red suit is very pleased with himself."},
+			{"id": "vent", "label": "Pass a ration each out through the vent", "cinematic": "give",
+				"effects": [{"do": "rations", "kind": "food", "n": -2}, {"do": "morale", "who": "all", "n": 1}],
+				"outcome": "Two rations of {food_label} go out through the vent, one per stocking. It isn't much. It is festive."},
+			{"id": "explain", "label": "Explain the list was a mistake", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}, {"do": "followed", "p": 0.25, "why": "the families told others about the hatch"}],
+				"outcome": "Nobody believes that Santa makes mistakes. They leave, and they remember the hatch."}
+		]
+	},
+	{
+		"id": "stranger_streamer", "title": "Going Live", "type": "stranger", "mood": "neutral", "weight": 1.2, "stranger": true,
+		"setup": "In {place}, a woman in a sequinned poncho is livestreaming the apocalypse off a satellite dish. Her follower count is still climbing.",
+		"conditions": {"trip_place": ["park", "school"], "min_day": 5},
+		"options": [
+			{"id": "interview", "label": "Give her an interview", "cinematic": "celebrate",
+				"effects": [{"do": "trip_loot", "item": "water", "n": 1}, {"do": "morale", "who": "explorer", "n": 1}, {"do": "followed", "p": 0.25, "why": "the livestream showed which street the family lives on"}, {"do": "schedule", "event": "streamer_visit", "in": 4}],
+				"outcome": "{name} answers eleven questions about shelter life on camera. She pays in sponsored water and says she'll be in touch."},
+			{"id": "mask", "label": "Lend her the gas mask for the thumbnail", "item": "gas_mask", "cinematic": "gain",
+				"effects": [{"do": "use", "item": "gas_mask", "what": "starred in a livestream thumbnail"}, {"do": "fallout_news"}, {"do": "trip_loot", "item": "water", "n": 2}, {"do": "schedule", "event": "streamer_visit", "in": 4}],
+				"outcome": "The gas mask stars in her thumbnail. She pays in sponsored water and a look at the real fallout map on her uplink."},
+			{"id": "dodge", "label": "Stay out of shot", "cinematic": "gloom",
+				"effects": [{"do": "tired", "who": "explorer", "days": 1}, {"do": "dose", "who": "explorer", "msv": 10}],
+				"outcome": "{name} takes the long way round her shot, through the dustiest corner of {place}."}
+		]
+	},
+	{
+		"id": "streamer_visit", "title": "Special Guest", "type": "chain_followup", "mood": "bad", "system": true,
+		"setup": "The livestreamer is at the hatch at night with a ring light and a fresh battery. She wants to film a real family shelter.",
+		"options": [
+			{"id": "film", "label": "Let her film for an hour", "hatch": true, "cinematic": "celebrate",
+				"effects": [{"do": "morale", "who": "all", "n": 2}, {"do": "followed", "p": 0.4, "why": "the ring light lit up the hatch for an hour"}],
+				"outcome": "Everyone is briefly famous. The ring light can be seen from three streets away, which is a problem for longer."},
+			{"id": "audio", "label": "Do it audio-only, hatch shut", "cinematic": "shrug",
+				"effects": [{"do": "morale", "who": "all", "n": 1}, {"do": "followed", "p": 0.1, "why": "her stream named the street"}],
+				"outcome": "An audio-only segment, shouted through the hatch. Her viewers call it atmospheric. She calls it a compromise."},
+			{"id": "refuse", "label": "Turn her away", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}, {"do": "followed", "p": 0.2, "why": "she filmed the hatch from the street anyway"}],
+				"outcome": "She films the hatch from the street instead, with a sad caption. Everyone feels judged by strangers they'll never meet."}
+		]
+	}
+]

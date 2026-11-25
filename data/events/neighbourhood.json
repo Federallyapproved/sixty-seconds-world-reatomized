@@ -1,0 +1,251 @@
+[
+	{
+		"id": "ice_machine", "title": "The Ice Machine", "type": "discovery", "mood": "good", "weight": 0.8,
+		"setup": "Word through the vent: the ice machine at {nearest_fuel} melted into a sealed bin. That's a lot of water, just sitting there.",
+		"conditions": {"min_day": 4},
+		"weight_mods": {"place:auto": 2.5},
+		"options": [
+			{"id": "jugs", "label": "Go with every jug you own", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 25}, {"do": "tired", "who": "actor", "days": 1}, {"do": "add", "item": "water", "n": 2}],
+				"outcome": "{name} makes two trips with sloshing jugs. Two bottles' worth, faintly flavoured like the inside of an ice machine."},
+			{"id": "night", "label": "Go after dark with one jug", "cinematic": "attack",
+				"effects": [{"do": "dose", "who": "actor", "msv": 10}, {"do": "add", "item": "water", "n": 1}, {"do": "followed", "p": 0.15, "why": "someone watched the jug go into the hatch"}],
+				"outcome": "One jug, one quiet trip, and somebody on a porch watching the whole way."},
+			{"id": "wait", "label": "Wait a few days for the dust to settle", "cinematic": "shrug",
+				"effects": [{"do": "chance", "p": 0.4, "then": [{"do": "add", "item": "water", "n": 1}, {"do": "dose", "who": "actor", "msv": 5}, {"do": "say", "kind": "good", "text": "Some of it is still there."}], "else": [{"do": "morale", "who": "all", "n": -1}, {"do": "say", "kind": "info", "text": "The bin is empty by the time anyone goes."}]}],
+				"outcome": "Three days later, {name} goes over with one jug and low expectations."}
+		]
+	},
+	{
+		"id": "pharmacy_noon", "title": "One Bag Per Family", "type": "discovery", "mood": "good", "weight": 0.8,
+		"setup": "A note through the vent: {nearest_pharmacy} is handing out what's left at noon. One bag per family, while it lasts.",
+		"conditions": {"min_day": 5},
+		"weight_mods": {"place:pharmacy": 2.5},
+		"options": [
+			{"id": "dawn", "label": "Queue from dawn", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 30}, {"do": "tired", "who": "actor", "days": 1}, {"do": "add", "item": "medkit", "n": 1}],
+				"outcome": "{name} is fourth in line by sunrise. The bag has bandages, antibiotics and a leaflet about flu season."},
+			{"id": "noon", "label": "Go at noon and hope", "cinematic": "shrug",
+				"effects": [{"do": "dose", "who": "actor", "msv": 15}, {"do": "chance", "p": 0.4, "then": [{"do": "add", "item": "medkit", "n": 1}, {"do": "say", "kind": "good", "text": "The last bags are going as {name} arrives. One of them is theirs."}], "else": [{"do": "say", "kind": "info", "text": "The bags ran out two people ahead of {name}."}]}],
+				"outcome": "{name} walks over at noon, into a queue that already goes round the corner."},
+			{"id": "skip", "label": "Stay in; it isn't worth the dose", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "Nobody goes. Everyone spends the afternoon thinking about antibiotics."}
+		]
+	},
+	{
+		"id": "generator_day", "title": "Charging Station", "type": "discovery", "mood": "neutral", "weight": 0.8,
+		"setup": "Someone has wheeled a generator out to the kerb by {nearest_hardware} and is charging phones. One can buys an hour.",
+		"conditions": {"min_day": 5},
+		"weight_mods": {"place:hardware": 2.5},
+		"options": [
+			{"id": "every", "label": "Pay a can to charge every phone", "cinematic": "celebrate",
+				"effects": [{"do": "lose", "item": "food", "n": 1}, {"do": "dose", "who": "actor", "msv": 15}, {"do": "morale", "who": "all", "n": 2}],
+				"outcome": "No signal, but the photos still open. Everyone spends the evening scrolling through last summer. Forty-one updates install themselves."},
+			{"id": "one", "label": "Charge one phone for the offline maps", "cinematic": "signal",
+				"effects": [{"do": "rations", "kind": "food", "n": -2}, {"do": "dose", "who": "actor", "msv": 15}, {"do": "chance", "p": 0.4, "then": [{"do": "fallout_news"}, {"do": "say", "kind": "good", "text": "A cached alert has a fallout map in it, three days stale."}], "else": [{"do": "say", "kind": "info", "text": "The maps need an update. The update needs a signal."}]}],
+				"outcome": "Half a can's worth buys half a charge. {name} watches the battery icon creep upward for an hour."},
+			{"id": "keep", "label": "Keep the cans", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "The phones stay dark in a drawer. Somebody keeps opening the drawer to check anyway."}
+		]
+	},
+	{
+		"id": "the_cafeteria", "title": "Lunches for Six Hundred", "type": "discovery", "mood": "good", "weight": 0.8,
+		"setup": "A neighbour shouts through the vent: the cafeteria at {nearest_school} stocked lunches for six hundred. Nobody has been in yet.",
+		"conditions": {"min_day": 5},
+		"weight_mods": {"place:school": 2.5},
+		"options": [
+			{"id": "tonight", "label": "Go tonight, before the street does", "cinematic": "attack",
+				"effects": [{"do": "dose", "who": "actor", "msv": 25}, {"do": "tired", "who": "actor", "days": 1}, {"do": "add", "item": "food", "n": 2}, {"do": "followed", "p": 0.2, "why": "someone saw the cans go into the hatch"}],
+				"outcome": "{name} comes back at 2 a.m. with two cans of {food_label} and a crate of milk cartons nobody trusts."},
+			{"id": "mark", "label": "Mark it for a proper trip", "cinematic": "signal",
+				"effects": [{"do": "chance", "p": 0.6, "then": [{"do": "supply_drop", "category": ["school"], "items": {"food": 3, "water": 1}}], "else": [{"do": "morale", "who": "all", "n": -1}, {"do": "say", "kind": "info", "text": "By the time the trip is planned, the street has been through the cafeteria."}]}],
+				"outcome": "It goes on the map in red pen, with a note: kitchen door, round the back."}
+		]
+	},
+	{
+		"id": "soup_at_noon", "title": "Soup at Noon", "type": "discovery", "mood": "good", "weight": 0.8,
+		"setup": "The bell at {nearest_church} rings at noon. A volunteer passing the vent says there's soup, one bowl each, no questions.",
+		"conditions": {"min_day": 6},
+		"weight_mods": {"place:church": 2.5},
+		"options": [
+			{"id": "everyone", "label": "Everyone goes", "cinematic": "celebrate",
+				"effects": [{"do": "dose", "who": "all", "msv": 15}, {"do": "rations", "kind": "food", "n": 3}, {"do": "morale", "who": "all", "n": 2}],
+				"outcome": "The whole family walks over together for the first time since the flash. Hot soup, a long table, a short walk home."},
+			{"id": "pot", "label": "Send one person with a pot", "cinematic": "give",
+				"effects": [{"do": "dose", "who": "actor", "msv": 15}, {"do": "rations", "kind": "food", "n": 2}],
+				"outcome": "{name} carries the pot home with both hands, very slowly, as if it's full of something precious. It is."},
+			{"id": "cans", "label": "Send two cans for the pot instead", "cinematic": "give",
+				"effects": [{"do": "lose", "item": "food", "n": 2}, {"do": "morale", "who": "all", "n": 2}],
+				"outcome": "Two cans go into the soup for whoever comes next. The volunteer adds the family to a thank-you list."}
+		]
+	},
+	{
+		"id": "the_census", "title": "Household Return", "type": "visitor", "mood": "neutral", "weight": 0.8,
+		"setup": "A volunteer from the station house has taped a form to the hatch: names, ages, supplies on hand. Block capitals, please.",
+		"conditions": {"min_day": 6},
+		"weight_mods": {"place:civic": 2.5},
+		"options": [
+			{"id": "honest", "label": "Fill it in honestly", "cinematic": "shrug",
+				"effects": [{"do": "chance", "p": 0.5, "then": [{"do": "supply_drop", "category": ["civic"], "items": {"water": 2, "food": 1}}]}, {"do": "followed", "p": 0.2, "why": "someone read the household form on the hatch"}],
+				"outcome": "Names, ages and an honest count of cans, in capitals. It stays taped to the hatch until collected, legible to anyone."},
+			{"id": "down", "label": "Round the supplies down", "cinematic": "shrug",
+				"effects": [{"do": "chance", "p": 0.6, "then": [{"do": "supply_drop", "category": ["civic"], "items": {"water": 2, "food": 2}}]}, {"do": "morale", "who": "actor", "n": -1, "why": "fibbed on a form"}, {"do": "followed", "p": 0.1, "why": "someone read the household form on the hatch"}],
+				"outcome": "Fewer cans on paper than on the shelf. {name} writes it very neatly, which somehow makes it worse."},
+			{"id": "blank", "label": "Leave it blank", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}, {"do": "later", "in": 4, "text": "A second copy of the household form appears on the hatch, stamped REMINDER."}],
+				"outcome": "Nobody fills it in. The household does not, officially, exist."}
+		]
+	},
+	{
+		"id": "water_heater", "title": "The Water Heater", "type": "dirty_water", "mood": "good", "weight": 1.0,
+		"setup": "The water heater upstairs still holds a full tank. It has also spent a week in a house full of dust.",
+		"conditions": {"min_day": 3},
+		"options": [
+			{"id": "boil", "label": "Drain it slowly and boil it", "cinematic": "repair",
+				"effects": [{"do": "dose", "who": "actor", "msv": 15}, {"do": "tired", "who": "actor", "days": 1}, {"do": "add", "item": "water", "n": 1}],
+				"outcome": "A whole day of draining, straining and boiling. One bottle, clean, and a kitchen that smells of rust."},
+			{"id": "shirt", "label": "Strain it through a T-shirt", "cinematic": "sickness",
+				"effects": [{"do": "dose", "who": "actor", "msv": 15}, {"do": "add", "item": "water", "n": 2}, {"do": "chance", "p": 0.3, "then": [{"do": "sick", "who": "random", "why": "sediment from the water heater", "root": "decision"}]}],
+				"outcome": "Two bottles, faintly orange. The T-shirt will never be white again."},
+			{"id": "valve", "label": "Drink it straight from the valve", "cinematic": "sickness",
+				"effects": [{"do": "dose", "who": "actor", "msv": 15}, {"do": "add", "item": "water", "n": 3}, {"do": "chance", "p": 0.6, "then": [{"do": "sick", "who": "random", "why": "drank from the water heater", "root": "decision"}]}],
+				"outcome": "Three bottles: all of it, rust and grit included. It tastes like the inside of a pipe."}
+		]
+	},
+	{
+		"id": "tracked_in", "title": "Tracked In", "type": "contamination", "mood": "bad", "weight": 1.0,
+		"setup": "{subject} came down the ladder without brushing off. Grey dust is on the steps, the rug and the blankets.",
+		"conditions": {"min_day": 3, "needs_heavy_fallout": true, "min_people": 2},
+		"options": [
+			{"id": "wash", "label": "Wash everything with drinking water", "cinematic": "repair",
+				"effects": [{"do": "rations", "kind": "water", "n": -3}],
+				"outcome": "Three rations of water, a lot of scrubbing, and a very clean rug. Nobody steps on the rug for a day."},
+			{"id": "bag", "label": "Bag the blankets and take them upstairs", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 10}, {"do": "morale", "who": "all", "n": -1, "why": "cold nights"}],
+				"outcome": "The blankets go up the ladder in bin bags. The nights get longer and colder."},
+			{"id": "shake", "label": "Shake it off and carry on", "cinematic": "sickness",
+				"effects": [{"do": "dose", "who": "all", "msv": 10}, {"do": "chance", "p": 0.25, "then": [{"do": "sick", "who": "random", "why": "fallout dust tracked into the shelter", "root": "decision"}]}],
+				"outcome": "A quick shake at the ladder and a sweep under the rug. The dust is still there, just better organised."}
+		]
+	},
+	{
+		"id": "insurance_policy", "title": "Insurance Policy", "type": "discovery", "mood": "neutral", "weight": 1.0,
+		"setup": "{subject} suggests burying two cans in the garden, in case the shelter is ever raided. It's not a bad idea, which is unsettling.",
+		"conditions": {"min_day": 6, "min_people": 2},
+		"weight_mods": {"followed": 2.0},
+		"options": [
+			{"id": "bury", "label": "Bury two cans under the roses", "cinematic": "hazard",
+				"effects": [{"do": "lose", "item": "food", "n": 2}, {"do": "dose", "who": "subject", "msv": 15}, {"do": "schedule", "event": "insurance_claim", "in": 6}],
+				"outcome": "Two cans of {food_label}, double-bagged, under the roses. {subject} marks the spot with a stick and a long stare."},
+			{"id": "shelf", "label": "Keep everything where you can see it", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "The cans stay on the shelf where everyone can count them. Everyone does, twice a day."}
+		]
+	},
+	{
+		"id": "insurance_claim", "title": "Under the Roses", "type": "chain_followup", "mood": "good", "system": true,
+		"setup": "Six nights on, the garden looks different in the dark. Somebody has to remember which stick was the stick.",
+		"options": [
+			{"id": "dig", "label": "Dig them up tonight", "cinematic": "gain",
+				"effects": [{"do": "dose", "who": "actor", "msv": 10}, {"do": "chance", "p": 0.7, "then": [{"do": "add", "item": "food", "n": 2}, {"do": "say", "kind": "good", "text": "Both cans, a little muddy, entirely intact."}], "else": [{"do": "add", "item": "food", "n": 1}, {"do": "say", "kind": "info", "text": "One can. Something with whiskers dug up the other."}]}],
+				"outcome": "{name} digs by feel under three wrong sticks before finding the right one."},
+			{"id": "daylight", "label": "Dig in daylight, where you can see", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 25}, {"do": "add", "item": "food", "n": 2}, {"do": "followed", "p": 0.15, "why": "a neighbour watched someone dig cans out of the garden"}],
+				"outcome": "Right stick, first try, both cans. It takes twenty minutes in the open, and the house across the road has curtains that move."}
+		]
+	},
+	{
+		"id": "out_for_delivery", "title": "Out for Delivery", "type": "visitor", "mood": "neutral", "weight": 1.0,
+		"setup": "A courier is still working his route on foot. He has a parcel for next door and asks if you'll sign for it.",
+		"conditions": {"min_day": 3, "max_day": 20},
+		"options": [
+			{"id": "sign", "label": "Sign for it", "hatch": true, "cinematic": "give",
+				"effects": [{"do": "dose", "who": "actor", "msv": 10}, {"do": "schedule", "event": "parcel_collected", "in": 4}],
+				"outcome": "{name} signs with a fingertip on a cracked screen. The parcel is heavy and rattles. The courier asks for five stars."},
+			{"id": "open", "label": "Sign for it, then open it", "hatch": true, "cinematic": "gain",
+				"effects": [{"do": "dose", "who": "actor", "msv": 10}, {"do": "morale", "who": "actor", "n": -1, "why": "opened a neighbour's parcel"}, {"do": "chance", "p": 0.5, "then": [{"do": "add", "item": "flashlight", "n": 1}, {"do": "say", "kind": "good", "text": "A camping torch, still in the box, batteries included."}], "else": [{"do": "say", "kind": "info", "text": "It's a smart toaster. It wants a network and a firmware update."}]}],
+				"outcome": "{name} signs, waits for the courier to turn the corner, and opens it on the steps."},
+			{"id": "decline", "label": "Decline the delivery", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "He marks it ATTEMPTED and walks on. He has fourteen more stops and no van."}
+		]
+	},
+	{
+		"id": "parcel_collected", "title": "Any Parcels for Me?", "type": "chain_followup", "mood": "neutral", "system": true,
+		"setup": "The neighbour from next door is at the hatch. The tracking said delivered. They'd like their parcel.",
+		"options": [
+			{"id": "give", "label": "Hand it over", "hatch": true, "cinematic": "give",
+				"effects": [{"do": "morale", "who": "all", "n": 1}, {"do": "chance", "p": 0.6, "then": [{"do": "add", "item": "water", "n": 1}, {"do": "say", "kind": "good", "text": "It was water filters and a bottle. They insist on leaving the bottle."}]}],
+				"outcome": "They open it right there on the step. Everyone pretends not to look."},
+			{"id": "lie", "label": "Say it never came", "cinematic": "gloom",
+				"effects": [{"do": "add", "item": "medkit", "n": 1}, {"do": "guilt", "who": "actor", "why": "keeping a neighbour's parcel", "stole": true}],
+				"outcome": "They nod slowly and go. The parcel turns out to be a first-aid kit, which doesn't help as much as it should."}
+		]
+	},
+	{
+		"id": "birthday", "title": "Many Happy Returns", "type": "family", "mood": "good", "weight": 1.0,
+		"setup": "It's {subject}'s birthday. Nobody planned for it, least of all {subject}.",
+		"conditions": {"min_day": 4, "min_people": 2},
+		"options": [
+			{"id": "cake", "label": "Make a cake out of a can of {food_label}", "cinematic": "celebrate",
+				"effects": [{"do": "lose", "item": "food", "n": 1}, {"do": "morale", "who": "subject", "n": 3, "why": "a birthday cake"}, {"do": "morale", "who": "all", "n": 1}],
+				"outcome": "It's a cake in the sense that it has a candle in it. {subject} blows it out and makes a wish nobody asks about."},
+			{"id": "sing", "label": "Sing, loudly", "cinematic": "celebrate",
+				"effects": [{"do": "morale", "who": "subject", "n": 1}, {"do": "morale", "who": "all", "n": 1}, {"do": "followed", "p": 0.15, "why": "the singing carried up the vent"}],
+				"outcome": "Three verses, two keys, one very red face. The singing carries further up the vent than anyone meant it to."},
+			{"id": "promise", "label": "Promise a proper party later", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "subject", "n": -1}, {"do": "later", "in": 8, "text": "Somebody remembers the promised birthday party. It is still promised."}],
+				"outcome": "{subject} says it's fine, the way people say fine when it isn't, quite."}
+		]
+	},
+	{
+		"id": "emergency_alert", "title": "Emergency Alert", "type": "cabin_fever", "mood": "neutral", "weight": 1.0,
+		"setup": "Every phone in the shelter buzzes at once. EMERGENCY ALERT: possible nuclear event in your area. It's day {day}.",
+		"conditions": {"min_day": 6},
+		"options": [
+			{"id": "complaint", "label": "Write a strongly worded complaint", "cinematic": "celebrate",
+				"effects": [{"do": "tired", "who": "actor", "days": 1}, {"do": "morale", "who": "all", "n": 2}],
+				"outcome": "Four pages, double-sided, addressed To Whom It May Concern. It concerns nobody. Morale is briefly excellent."},
+			{"id": "bar", "label": "Climb up for one bar and read the rest", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 20}, {"do": "chance", "p": 0.5, "then": [{"do": "fallout_news"}, {"do": "say", "kind": "info", "text": "A second alert follows, with a fallout map. It's only slightly late."}], "else": [{"do": "say", "kind": "info", "text": "The rest of the alert is a link. The link needs a signal."}]}],
+				"outcome": "{name} stands on the hatch, holding a phone up at the sky until the bar comes back."},
+			{"id": "off", "label": "Turn every phone off for good", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "One by one, the screens go dark and go in a drawer. The group chat ends on a thumbs-up."}
+		]
+	},
+	{
+		"id": "home_haircut", "title": "Short Back and Sides", "type": "cabin_fever", "mood": "neutral", "weight": 1.0,
+		"setup": "{subject} has found the kitchen scissors and is offering haircuts. They watched a lot of tutorials, once.",
+		"conditions": {"min_day": 8, "min_people": 3},
+		"options": [
+			{"id": "line", "label": "Everybody lines up", "cinematic": "celebrate",
+				"effects": [{"do": "morale", "who": "all", "n": 1}, {"do": "chance", "p": 0.4, "then": [{"do": "morale", "who": "random", "n": -2, "why": "the fringe"}]}],
+				"outcome": "Everyone gets the same haircut, which is a choice. One fringe will take a month to forgive."},
+			{"id": "first", "label": "{name} goes first, alone", "cinematic": "shrug",
+				"effects": [{"do": "morale", "who": "actor", "n": -1, "why": "the haircut"}, {"do": "morale", "who": "subject", "n": 2, "why": "a satisfied barber"}],
+				"outcome": "{name} sits very still for forty minutes. The result is described, generously, as practical."},
+			{"id": "hide", "label": "Hide the scissors", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "subject", "n": -2, "why": "scissors confiscated"}],
+				"outcome": "The scissors go on the top shelf. {subject} sulks with the air of an artist who has been censored."}
+		]
+	},
+	{
+		"id": "one_cup", "title": "One Cup", "type": "sickness", "mood": "bad", "weight": 1.0, "contagion": true,
+		"setup": "{subject} is running a fever, and the whole family has been drinking from the same cup since day two.",
+		"conditions": {"min_day": 4, "needs_sick": true, "min_people": 2},
+		"options": [
+			{"id": "corner", "label": "Give {subject} their own cup and a corner", "cinematic": "sickness",
+				"effects": [{"do": "morale", "who": "subject", "n": -1, "why": "a corner of their own"}, {"do": "chance", "p": 0.2, "then": [{"do": "sick", "who": "random", "why": "caught it from the shared cup", "root": "chance"}]}],
+				"outcome": "{subject} gets a cup with their name on it in marker, and a corner behind the shelves. It's lonely back there."},
+			{"id": "boil", "label": "Boil the cup after every sip", "cinematic": "repair",
+				"effects": [{"do": "rations", "kind": "water", "n": -2}, {"do": "tired", "who": "actor", "days": 1}],
+				"outcome": "{name} boils the cup so often it starts to look nervous. Two rations of water go up as steam."},
+			{"id": "share", "label": "Keep sharing; it's only a cold", "cinematic": "sickness",
+				"effects": [{"do": "chance", "p": 0.6, "then": [{"do": "sick", "who": "random", "why": "caught it from the shared cup", "root": "decision"}]}],
+				"outcome": "It's only a cold, everyone agrees, passing the cup."}
+		]
+	}
+]

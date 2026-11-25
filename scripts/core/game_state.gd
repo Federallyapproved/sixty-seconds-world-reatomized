@@ -12,6 +12,7 @@ signal inventory_changed()
 signal family_changed()
 signal osm_house_selected(house_data: Dictionary)
 signal nuke_configured(nuke_data: Dictionary)
+signal achievement_unlocked(achievement_id: String)
 
 const SCREEN_TITLE := "title"
 const SCREEN_FAMILY := "family"
@@ -20,6 +21,8 @@ const SCREEN_NUKE := "nuke"
 const SCREEN_SCAVENGE := "scavenge"
 const SCREEN_BUNKER := "bunker"
 const SCREEN_SUMMARY := "summary"
+const SCREEN_ALMANAC := "almanac"
+const SCREEN_ACHIEVEMENTS := "achievements"
 
 ## Feature flags. The car escape and the radiation-mutation perk are kept in the code but switched
 ## off (section 4: modern setting; section 15: no jokes about radiation sickness).
@@ -81,6 +84,16 @@ var grab_haul: Dictionary = {}
 # The shelter run (null until the hatch closes).
 var shelter: ShelterState = null
 
+# Meta-progression (section 14): the Survival Almanac and the achievements, kept in user://.
+# Demo and test runs never write them (meta_persist is off with --demo-showcase or --no-meta-save).
+var almanac: Dictionary = {}
+var achievements_unlocked: Dictionary = {}
+var meta_persist: bool = true
+var meta_recorded: bool = false
+var run_new_achievements: Array = []
+# Seconds left on the grab timer when the last family member got down (-1: someone was left behind).
+var grab_all_down_left: float = -1.0
+
 # Radiation model state shared with RadiationModel (rain-out hotspots, later strikes)
 var surface_radiation_sv: float = 4.5
 var rad_hotspots: Array = []
@@ -102,6 +115,7 @@ var game_over: bool = false
 var victory: bool = false
 var ending_title: String = ""
 var ending_description: String = ""
+var ending_kind: String = ""          # "win" | "loss" | "maybe"
 
 var _day_pre_shelter: int = 1
 
@@ -208,15 +222,29 @@ func _checked_out(item_id: String) -> bool:
 func _ready() -> void:
 	rng.randomize()
 	_parse_cli_args()
+	if meta_persist:
+		almanac = Almanac.load_data()
+		achievements_unlocked = Achievements.load_unlocked()
+	else:
+		almanac = Almanac.blank()
+		achievements_unlocked = {}
 	reset_to_defaults()
 
 
 func _parse_cli_args() -> void:
+	# Test scripts run the game from a scripted SceneTree (-s): they must never touch the player's
+	# saved Almanac or achievements.
+	var ml: MainLoop = Engine.get_main_loop()
+	if ml != null and ml.get_script() != null:
+		meta_persist = false
 	var args: PackedStringArray = OS.get_cmdline_args() + OS.get_cmdline_user_args()
 	for a in args:
 		if a == "--demo-showcase":
 			demo_mode = true
+			meta_persist = false
 			rng.seed = 60602026
+		elif a == "--no-meta-save":
+			meta_persist = false
 		elif a.begins_with("--seed="):
 			rng.seed = int(a.split("=")[1])
 		elif a.begins_with("--difficulty="):
@@ -243,11 +271,15 @@ func grab_seconds() -> float:
 
 func reset_to_defaults() -> void:
 	shelter = null
+	meta_recorded = false
+	run_new_achievements = []
+	grab_all_down_left = -1.0
 	_day_pre_shelter = 1
 	game_over = false
 	victory = false
 	ending_title = ""
 	ending_description = ""
+	ending_kind = ""
 	grab_haul = {}
 	bunker_structural_integrity = 100.0
 	scavenge_stats = {"items_collected": 0, "family_saved": 0, "leader_escaped": false, "time_remaining": 0.0}
@@ -265,6 +297,54 @@ func reset_to_defaults() -> void:
 		init_default_house()
 	if nuke_config.is_empty():
 		init_default_nuke()
+
+
+# ---------------------------------------------------------------- Almanac and achievements
+
+## An item was seen in the grab (aimed at) or reached the shelter.
+func almanac_seen(item_id: String) -> void:
+	if not Almanac.is_known(almanac, item_id):
+		Almanac.mark_seen(almanac, item_id)
+
+
+## A stable key for "this real address" (Hometown Hero).
+func address_key() -> String:
+	var oid: int = int(selected_house.get("osm_id", 0))
+	if oid != 0:
+		return "osm:%d" % oid
+	return "%.4f,%.4f" % [float(selected_house.get("lat", 0.0)), float(selected_house.get("lon", 0.0))]
+
+
+func meta_ctx() -> Dictionary:
+	return {
+		"grab_all_down_left": grab_all_down_left,
+		"nearest_store_m": Achievements.nearest_store_m(shelter) if shelter != null else 99999.0,
+		"address_key": address_key(),
+	}
+
+
+## Unlocks whatever the run has earned so far (after each day, and at the end). Returns new ids.
+func check_achievements() -> Array:
+	var fresh: Array = Achievements.evaluate(shelter, meta_ctx(), almanac, achievements_unlocked)
+	for a in fresh:
+		run_new_achievements.append(a)
+		achievement_unlocked.emit(str(a))
+	if not fresh.is_empty() and meta_persist:
+		Achievements.save_unlocked(achievements_unlocked)
+	return fresh
+
+
+## Once per run, when it ends: fold it into the Almanac, unlock achievements, save both.
+func finish_run_meta() -> Array:
+	if meta_recorded:
+		return []
+	meta_recorded = true
+	if shelter != null:
+		Almanac.record_run(almanac, shelter, meta_ctx())
+	var fresh: Array = check_achievements()
+	if meta_persist:
+		Almanac.save_data(almanac)
+	return fresh
 
 
 func init_default_family() -> void:

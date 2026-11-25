@@ -14,3 +14,13 @@ break_radio_01,item_break_radio,narrator,"The radio's last words were a mattress
 success_01,success,narrator,"Back with supplies, and only a mild glow.",res://assets/voice/success_01.ogg,pending
 success_02,success,narrator,"Everyone ate today. Write it down; it may be a record.",res://assets/voice/success_02.ogg,pending
 success_03,success,narrator,"The plan worked. Nobody knows what to do with this feeling.",res://assets/voice/success_03.ogg,pending
+house_meeting_01,house_meeting,narrator,"House meeting. Someone has written HOUSE RULES on the wall and underlined it twice.",res://assets/voice/house_meeting_01.ogg,pending
+house_meeting_02,house_meeting,narrator,"Another house meeting. The agenda is one line long.",res://assets/voice/house_meeting_02.ogg,pending
+house_meeting_03,house_meeting,narrator,"The family gathers at the rules wall. There is room for one more line.",res://assets/voice/house_meeting_03.ogg,pending
+house_meeting_04,house_meeting,narrator,"The meeting starts with a cough and a marker pen. Nobody makes eye contact.",res://assets/voice/house_meeting_04.ogg,pending
+house_meeting_05,house_meeting,narrator,"Time to decide what kind of shelter this is going to be.",res://assets/voice/house_meeting_05.ogg,pending
+house_meeting_06,house_meeting,narrator,"The rules wall is getting crowded. Somebody brought a smaller marker.",res://assets/voice/house_meeting_06.ogg,pending
+house_meeting_07,house_meeting,narrator,"One more meeting. The family has learned to vote without looking up.",res://assets/voice/house_meeting_07.ogg,pending
+house_quiet_01,house_quiet,narrator,"The neighbour's house has gone quiet. Nobody mentions the medicine.",res://assets/voice/house_quiet_01.ogg,pending
+house_quiet_02,house_quiet,narrator,"No lights at the neighbour's house tonight. Or last night.",res://assets/voice/house_quiet_02.ogg,pending
+house_quiet_03,house_quiet,narrator,"The house down the street is quiet now. So is the family.",res://assets/voice/house_quiet_03.ogg,pending

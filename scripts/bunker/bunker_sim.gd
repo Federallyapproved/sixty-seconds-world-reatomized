@@ -33,8 +33,11 @@ static func start_bunker_run() -> void:
 		"members": GameState.family_members, "haul": GameState.grab_haul.duplicate(), "places": targets,
 		"rad_factors": factors, "h1_home_msv": RadiationModel.h1_home_msv(), "difficulty": GameState.difficulty,
 		"seed": GameState.rng.randi(), "temp_c": GameState.bunker_temp_c, "zone": str(nuke.get("zone", "")),
+		"known_items": Almanac.known_items(GameState.almanac), "hide_unknown": not GameState.demo_mode,
 	})
 	GameState.shelter = s
+	for k in GameState.grab_haul.keys():
+		GameState.almanac_seen(str(k))
 	if GameState.FEATURE_CAR_ESCAPE:
 		VehicleSystem.init_for_run()
 	sync_outcome()
@@ -61,6 +64,7 @@ static func sync_outcome() -> void:
 	var info: Dictionary = ShelterSim.ending_info(s)
 	GameState.game_over = true
 	GameState.victory = s.ending_kind == "win"
+	GameState.ending_kind = s.ending_kind
 	GameState.ending_title = str(info.get("title", ""))
 	GameState.ending_description = str(info.get("text", ""))
 

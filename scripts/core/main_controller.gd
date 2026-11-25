@@ -27,6 +27,10 @@ func _ready() -> void:
 
 	GameState.screen_requested.connect(_on_screen_requested)
 
+	var toast := AchievementToast.new()
+	toast.name = "AchievementToast"
+	add_child(toast)
+
 	var start_screen: String = GameState.SCREEN_TITLE
 	var args: PackedStringArray = OS.get_cmdline_args() + OS.get_cmdline_user_args()
 	for arg in args:
@@ -94,6 +98,18 @@ func _mount_screen(screen_name: String) -> void:
 		GameState.SCREEN_SUMMARY:
 			SoundManager.set_ambience("menu")
 			var s := SummaryScreen.new()
+			s.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			_screen_holder.add_child(s)
+			_active_node = s
+		GameState.SCREEN_ALMANAC:
+			SoundManager.set_ambience("menu")
+			var s := AlmanacScreen.new()
+			s.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			_screen_holder.add_child(s)
+			_active_node = s
+		GameState.SCREEN_ACHIEVEMENTS:
+			SoundManager.set_ambience("menu")
+			var s := AchievementsScreen.new()
 			s.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			_screen_holder.add_child(s)
 			_active_node = s

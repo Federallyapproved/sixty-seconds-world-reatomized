@@ -1,3 +1,72 @@
 {
-
+	"finders_eat_first": {
+		"bonus": "explorers search 10% harder",
+		"cost": "everyone else loses 1 morale when they come home",
+		"id": "finders_eat_first",
+		"morale_hit": "-1",
+		"name": "Finders eat first",
+		"narrator_line": "Finders eat first. The shelter now has a class system.",
+		"needs": "",
+		"order": "1"
+	},
+	"kids_eat_last": {
+		"bonus": "a skipped child's ration only counts every other day",
+		"cost": "children's morale stays at 5 or below",
+		"id": "kids_eat_last",
+		"morale_hit": "-2",
+		"name": "Kids eat last",
+		"narrator_line": "The children were not consulted. They noticed anyway.",
+		"needs": "child",
+		"order": "5"
+	},
+	"nobody_opens_hatch": {
+		"bonus": "events can't give the hatch away",
+		"cost": "no visitors, trades or favours at the door",
+		"id": "nobody_opens_hatch",
+		"morale_hit": "-2",
+		"name": "Nobody opens the hatch",
+		"narrator_line": "The hatch is now a wall with ambitions.",
+		"needs": "",
+		"order": "2"
+	},
+	"occupied_fair_game": {
+		"bonus": "trips take 50% more from homes people still live in",
+		"cost": "the explorer carries Guilt and the neighbourhood rescue is lost",
+		"id": "occupied_fair_game",
+		"morale_hit": "-2",
+		"name": "Occupied homes are fair game",
+		"narrator_line": "The street has stopped waving.",
+		"needs": "",
+		"order": "6"
+	},
+	"pet_ration": {
+		"bonus": "when the food runs out, the dog becomes 8 rations (the cat 4)",
+		"cost": "everyone loses 3 morale when it happens",
+		"id": "pet_ration",
+		"morale_hit": "-3",
+		"name": "The pet is an emergency ration",
+		"narrator_line": "Nobody voted for it. Nobody voted against it either.",
+		"needs": "pet",
+		"order": "7"
+	},
+	"sick_sleep_upstairs": {
+		"bonus": "sickness can't spread or come back",
+		"cost": "the sick lose 1 morale every night",
+		"id": "sick_sleep_upstairs",
+		"morale_hit": "-2",
+		"name": "The sick sleep upstairs",
+		"narrator_line": "Upstairs has a draft, a view, and very few visitors.",
+		"needs": "",
+		"order": "4"
+	},
+	"work_or_dont_eat": {
+		"bonus": "Withdrawn people still take jobs",
+		"cost": "everyone's morale cap drops by 1",
+		"id": "work_or_dont_eat",
+		"morale_hit": "-1",
+		"name": "Work or don't eat",
+		"narrator_line": "Productivity is up. Nobody can say what is being produced.",
+		"needs": "",
+		"order": "3"
+	}
 }

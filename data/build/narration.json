@@ -95,6 +95,86 @@
 		"trigger": "death",
 		"voice": "narrator"
 	},
+	"house_meeting_01": {
+		"audio": "res://assets/voice/house_meeting_01.ogg",
+		"id": "house_meeting_01",
+		"status": "pending",
+		"text": "House meeting. Someone has written HOUSE RULES on the wall and underlined it twice.",
+		"trigger": "house_meeting",
+		"voice": "narrator"
+	},
+	"house_meeting_02": {
+		"audio": "res://assets/voice/house_meeting_02.ogg",
+		"id": "house_meeting_02",
+		"status": "pending",
+		"text": "Another house meeting. The agenda is one line long.",
+		"trigger": "house_meeting",
+		"voice": "narrator"
+	},
+	"house_meeting_03": {
+		"audio": "res://assets/voice/house_meeting_03.ogg",
+		"id": "house_meeting_03",
+		"status": "pending",
+		"text": "The family gathers at the rules wall. There is room for one more line.",
+		"trigger": "house_meeting",
+		"voice": "narrator"
+	},
+	"house_meeting_04": {
+		"audio": "res://assets/voice/house_meeting_04.ogg",
+		"id": "house_meeting_04",
+		"status": "pending",
+		"text": "The meeting starts with a cough and a marker pen. Nobody makes eye contact.",
+		"trigger": "house_meeting",
+		"voice": "narrator"
+	},
+	"house_meeting_05": {
+		"audio": "res://assets/voice/house_meeting_05.ogg",
+		"id": "house_meeting_05",
+		"status": "pending",
+		"text": "Time to decide what kind of shelter this is going to be.",
+		"trigger": "house_meeting",
+		"voice": "narrator"
+	},
+	"house_meeting_06": {
+		"audio": "res://assets/voice/house_meeting_06.ogg",
+		"id": "house_meeting_06",
+		"status": "pending",
+		"text": "The rules wall is getting crowded. Somebody brought a smaller marker.",
+		"trigger": "house_meeting",
+		"voice": "narrator"
+	},
+	"house_meeting_07": {
+		"audio": "res://assets/voice/house_meeting_07.ogg",
+		"id": "house_meeting_07",
+		"status": "pending",
+		"text": "One more meeting. The family has learned to vote without looking up.",
+		"trigger": "house_meeting",
+		"voice": "narrator"
+	},
+	"house_quiet_01": {
+		"audio": "res://assets/voice/house_quiet_01.ogg",
+		"id": "house_quiet_01",
+		"status": "pending",
+		"text": "The neighbour's house has gone quiet. Nobody mentions the medicine.",
+		"trigger": "house_quiet",
+		"voice": "narrator"
+	},
+	"house_quiet_02": {
+		"audio": "res://assets/voice/house_quiet_02.ogg",
+		"id": "house_quiet_02",
+		"status": "pending",
+		"text": "No lights at the neighbour's house tonight. Or last night.",
+		"trigger": "house_quiet",
+		"voice": "narrator"
+	},
+	"house_quiet_03": {
+		"audio": "res://assets/voice/house_quiet_03.ogg",
+		"id": "house_quiet_03",
+		"status": "pending",
+		"text": "The house down the street is quiet now. So is the family.",
+		"trigger": "house_quiet",
+		"voice": "narrator"
+	},
 	"success_01": {
 		"audio": "res://assets/voice/success_01.ogg",
 		"id": "success_01",

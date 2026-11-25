@@ -98,6 +98,42 @@
 				"outcome": "Chapter four is about pests. It's also heavy."
 			},
 			{
+				"id": "trap",
+				"label": "Set a sugar-water trap",
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": -1
+					},
+					{
+						"do": "chance",
+						"p": 0.6,
+						"then": [
+							{
+								"do": "say",
+								"kind": "good",
+								"text": "The trap works. The shelf is clear by morning."
+							}
+						],
+						"else": [
+							{
+								"do": "lose",
+								"item": "food",
+								"n": 1
+							},
+							{
+								"do": "say",
+								"kind": "info",
+								"text": "They drink the trap and finish a can anyway."
+							}
+						]
+					}
+				],
+				"outcome": "A saucer of sweet water beside the shelf. Everyone watches it like television."
+			},
+			{
 				"id": "live",
 				"label": "Live with them",
 				"cinematic": "gloom",
@@ -183,6 +219,7 @@
 		"type": "sickness",
 		"mood": "bad",
 		"weight": 1.0,
+		"contagion": true,
 		"setup": "{subject} has a dry cough this morning. By noon, so does the person next to them.",
 		"conditions": {
 			"min_day": 6,
@@ -615,6 +652,39 @@
 				"outcome": "Antibiotics, a cold cloth, and sleep. {subject} is through the worst."
 			},
 			{
+				"id": "cloths",
+				"label": "Cool cloths and small sips",
+				"cinematic": "medical",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": -2
+					},
+					{
+						"do": "tired",
+						"who": "actor",
+						"days": 1
+					},
+					{
+						"do": "chance",
+						"p": 0.35,
+						"then": [
+							{
+								"do": "cure",
+								"who": "subject"
+							},
+							{
+								"do": "say",
+								"kind": "good",
+								"text": "The fever breaks a little before dawn."
+							}
+						]
+					}
+				],
+				"outcome": "{name} sits up with {subject} all night, wringing cloths and counting sips."
+			},
+			{
 				"id": "wait",
 				"label": "Let the fever run",
 				"cinematic": "sickness",
@@ -740,6 +810,26 @@
 					}
 				],
 				"outcome": "The rules change every hand. Everybody wins eventually, then sleeps."
+			},
+			{
+				"id": "fort",
+				"label": "Build a blanket fort",
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "morale",
+						"who": "all",
+						"n": -1,
+						"why": "gave up their blankets"
+					},
+					{
+						"do": "morale",
+						"who": "subject",
+						"n": 2,
+						"why": "a fort"
+					}
+				],
+				"outcome": "Every blanket in the shelter goes into the fort. {subject} sleeps like a stone. Everyone else shivers."
 			},
 			{
 				"id": "stories",

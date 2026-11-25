@@ -96,12 +96,36 @@ func _build_ui() -> void:
 	_btn_quick_scavenge.pressed.connect(_on_quick_scavenge_pressed)
 	vbox.add_child(_btn_quick_scavenge)
 
+	# Demo, the Survival Almanac and the achievements share the last row.
+	var row := HBoxContainer.new()
+	row.name = "MetaRow"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	vbox.add_child(row)
 	_btn_demo = Button.new()
-	_btn_demo.text = "WATCH THE AUTOPILOT DEMO"
-	_btn_demo.custom_minimum_size = Vector2(520.0, 44.0)
+	_btn_demo.text = "WATCH THE DEMO"
+	_btn_demo.custom_minimum_size = Vector2(168.0, 44.0)
 	_btn_demo.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_btn_demo.pressed.connect(_on_watch_demo_pressed)
-	vbox.add_child(_btn_demo)
+	row.add_child(_btn_demo)
+	var btn_almanac := Button.new()
+	btn_almanac.name = "AlmanacButton"
+	btn_almanac.text = "ALMANAC"
+	btn_almanac.custom_minimum_size = Vector2(168.0, 44.0)
+	btn_almanac.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn_almanac.pressed.connect(func() -> void:
+		SoundManager.play_sfx("button_click")
+		GameState.request_screen(GameState.SCREEN_ALMANAC))
+	row.add_child(btn_almanac)
+	var btn_ach := Button.new()
+	btn_ach.name = "AchievementsButton"
+	btn_ach.text = "ACHIEVEMENTS %d/%d" % [GameState.achievements_unlocked.size(), ShelterData.achievements().size()]
+	btn_ach.custom_minimum_size = Vector2(168.0, 44.0)
+	btn_ach.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn_ach.pressed.connect(func() -> void:
+		SoundManager.play_sfx("button_click")
+		GameState.request_screen(GameState.SCREEN_ACHIEVEMENTS))
+	row.add_child(btn_ach)
 
 	# Bottom Telemetry Strip (y = 650..688)
 	var footer_panel := ThemeHelper.make_card_panel(Color(0.10, 0.12, 0.14, 0.92), ThemeHelper.COLOR_BORDER)

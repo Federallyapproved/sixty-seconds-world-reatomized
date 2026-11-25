@@ -25,10 +25,17 @@
 13. **Dehydration sickness 35% → 30%/day, relapse 2% → 1%/day, wound infection 10% → 8%/day.** The expert also skips marginal trips and keeps a spare medkit. Final: random 0.1%, naive 11.1%, expert 49.2%, 5.2 trips per expert run, sickness 38% of expert deaths.
 14. **Knows the Area carries one more slot home** (`scout_extra_carry`), on top of its +10% search share. A final audit showed the share alone changed nothing: trips are nearly always limited by the bag, not by what is found. The harness family's scout is the child, who doesn't go on trips, so the numbers above are unchanged.
 
+## M2: events and drama (numbers from 1,000-run checks; the tables above are the final 10,000-run sweep)
+
+15. **M2 rules and 33 new events, no retuning: expert 59%, naive 19%, and thirst 45% of expert deaths** (over the 40% limit). Switching the harness's House Rules off showed the events, not the rules, drove most of it (expert 56%, naive 18% without rules). The new options hand out more medkits and cures, so sickness fell from 38% to about 20% of expert deaths and thirst took its place.
+16. **Old wounds turn septic at 12%/day (was 8%) and Dehydrated or Starving people fall sick at 40%/day (was 30%); searches turn up 75% of what's left (was 80%).** Weak bodies are where careless rationing gets punished, so this hits the naive policy hardest. Thirst 36%, expert 57%, naive 15%. A trial with relapses at 2%/day raised losses to pure chance above 10% and was dropped.
+17. **"Nobody opens the hatch" costs 2 morale (was 1).** The harness expert adopted it at the first meeting nearly every run; it then lost the water trades the rule blocks and thirst went back to 45%. At 2 it is a real trade-off. Trips are a little more dangerous too (never returning: 3%/night, was 2.5%).
+18. **An unanswered gang counts as a mistake.** A takeover comes after 20–30 days of "Noticed" raids and a warning the morning before, so the harness now records it as a decision (`gang_unanswered`) instead of bad luck; before, a takeover with nobody dead counted as a loss to dice. Final (1,000 runs): random 0.2%, naive 14.6%, expert 55.8%, thirst 37% of expert deaths.
+
 ## Known limits
 
 - The expert is a heuristic, not an optimal player: it never takes a second expedition while one is out, and it can't see hidden rolls. Human experts should do better.
-- Gang takeovers end about 15% of expert runs. They are always preceded by a warning and by days of "Noticed" raids. That's fine for M1; M2's House Rules and strangers add more ways to deal with a gang.
+- Gang takeovers end about 15% of expert runs in M1 and about 20% in M2. They are always preceded by a warning and by days of "Noticed" raids. The harness expert rarely passes "Nobody opens the hatch" at its M2 cost, and it never keeps a weapon back for the gang's night; a human who does both should lose far fewer runs this way.
 - 0.2% of expert runs survive to the 120-day cap without a rescue (every chain went silent); the harness counts them as losses.
 - Mid-game gaps: the neighbourhood rescue needs a real church or school and a visit after the all-clear, so it is the rarest of the three rescues (2.5% of expert runs).
 - Fixtures are US neighbourhoods (city, suburb, small town, farmland). Other countries' OSM tagging should behave the same, but that hasn't been measured.

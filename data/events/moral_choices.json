@@ -1,0 +1,37 @@
+[
+	{
+		"id": "occupied_house", "title": "Somebody Lives Here", "type": "moral", "mood": "neutral", "system": true,
+		"setup": "{name} reaches {place}. A candle in the kitchen, a cough upstairs. The medicine cabinet is by the back door.",
+		"conditions": {"trip_place": ["neighbor_house"], "trip_occupied": true},
+		"options": [
+			{"id": "knock", "label": "Knock and offer to trade", "cinematic": "give",
+				"effects": [
+					{"do": "tired", "who": "explorer", "days": 1},
+					{"do": "chance", "p": 0.6,
+						"then": [{"do": "trip_loot", "item": "water", "n": 1}, {"do": "say", "kind": "good", "text": "They traded a bottle of water for news from the street."}],
+						"else": [{"do": "say", "kind": "info", "text": "Nobody answered. The cough stopped while {name} waited."}]}
+				],
+				"outcome": "{name} knocks twice and waits on the step with empty hands."},
+			{"id": "leave", "label": "Leave them be", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "explorer", "n": 1, "why": "left a family in peace"}, {"do": "tired", "who": "explorer", "days": 1}],
+				"outcome": "{name} walks on. Somebody upstairs never knows how close it was."},
+			{"id": "steal", "label": "Take their medicine while they sleep", "cinematic": "attack",
+				"effects": [
+					{"do": "trip_loot", "item": "medkit", "n": 1},
+					{"do": "guilt", "who": "explorer", "why": "stealing a family's medicine", "stole": true},
+					{"do": "later", "in": 4, "trigger": "house_quiet", "quiet_place": true}
+				],
+				"outcome": "The cabinet opens without a sound. {name} doesn't look at the photos on the fridge."},
+			{"id": "rob", "label": "Take everything at gunpoint", "item": "rifle", "cinematic": "combat",
+				"effects": [
+					{"do": "use", "item": "rifle", "what": "a family handed over everything"},
+					{"do": "trip_loot", "item": "medkit", "n": 1},
+					{"do": "trip_loot", "item": "food", "n": 2},
+					{"do": "trip_flag", "set": "took"},
+					{"do": "guilt", "who": "explorer", "why": "robbing a family at gunpoint", "harm": true, "stole": true},
+					{"do": "later", "in": 3, "trigger": "house_quiet", "quiet_place": true}
+				],
+				"outcome": "They hand it over without a word. The neighbourhood will hear about this."}
+		]
+	}
+]

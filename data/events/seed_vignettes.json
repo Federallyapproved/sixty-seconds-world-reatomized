@@ -23,10 +23,13 @@
 			{"id": "lock", "label": "Keep it locked", "item": "padlock",
 				"effects": [],
 				"outcome": "He tapes a violation notice to it. Fines are now theoretical."},
-			{"id": "treat", "label": "Treat his cough", "item": "medkit", "cinematic": "medical",
+			{"id": "treat", "label": "Treat his cough", "item": "medkit", "hatch": true, "cinematic": "medical",
 				"effects": [{"do": "use", "item": "medkit", "what": "the HOA president's cough"}, {"do": "add", "item": "flashlight", "n": 1}],
 				"outcome": "He waives the fine and leaves his flashlight."},
-			{"id": "talk", "label": "Let him in to talk", "cinematic": "give",
+			{"id": "variance", "label": "Apply for a variance", "cinematic": "shrug",
+				"effects": [{"do": "tired", "who": "actor", "days": 1}, {"do": "later", "in": 5, "text": "A note under the hatch: the variance hearing has been postponed indefinitely."}],
+				"outcome": "{name} spends a day on four pages and a diagram. He promises a ruling in six to eight weeks."},
+			{"id": "talk", "label": "Let him in to talk", "hatch": true, "cinematic": "give",
 				"effects": [{"do": "lose", "item": "food", "n": 1}],
 				"outcome": "He eats a can \"as a courtesy\" and leaves a copy of the bylaws."}
 		]
@@ -58,6 +61,9 @@
 			{"id": "manual", "label": "Look up the hard reset", "item": "manual", "cinematic": "gain",
 				"effects": [{"do": "use", "item": "manual", "what": "found the hard reset"}, {"do": "add", "item": "food", "n": 2}],
 				"outcome": "Factory settings restored. Two cans, and a chirpy welcome tune."},
+			{"id": "plug", "label": "Pull the plug mid-update", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 10}, {"do": "chance", "p": 0.5, "then": [{"do": "add", "item": "food", "n": 1}, {"do": "say", "kind": "good", "text": "The door pops open on the reboot. One can, quickly."}], "else": [{"do": "say", "kind": "info", "text": "The fridge reboots into a language nobody speaks, doors still locked."}]}],
+				"outcome": "{name} goes upstairs and pulls the plug at 47%. The fridge takes it personally."},
 			{"id": "wait", "label": "Wait for the update", "cinematic": "shrug",
 				"effects": [{"do": "schedule", "event": "update_complete", "in": 3}],
 				"outcome": "The progress bar says 2%. It has said 2% for an hour."}
@@ -68,7 +74,7 @@
 		"setup": "A man in a hazmat suit with a ring light is livestreaming \"Day 6\". Nobody has told him the internet is gone.",
 		"conditions": {"min_day": 5},
 		"options": [
-			{"id": "tour", "label": "Give him a tour", "cinematic": "celebrate",
+			{"id": "tour", "label": "Give him a tour", "hatch": true, "cinematic": "celebrate",
 				"effects": [{"do": "rations", "kind": "food", "n": -1}, {"do": "morale", "who": "all", "n": 1}],
 				"outcome": "He eats a ration \"for the content.\" Everyone feels oddly famous."},
 			{"id": "truth", "label": "Tell him the truth", "cinematic": "gloom",
@@ -106,6 +112,9 @@
 			{"id": "feed", "label": "Feed him and send him off", "item": "food", "cinematic": "give",
 				"effects": [{"do": "use", "item": "food", "what": "fed a stray"}, {"do": "schedule", "event": "good_boy_returns", "in": 1}],
 				"outcome": "He eats the whole can and trots off, looking pleased with himself."},
+			{"id": "home", "label": "Walk him to the address on his collar", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 20}, {"do": "chance", "p": 0.5, "then": [{"do": "pet", "kind": "dog"}, {"do": "say", "kind": "info", "text": "Nobody answered at the address. He followed {name} all the way back."}], "else": [{"do": "morale", "who": "all", "n": 1}, {"do": "say", "kind": "good", "text": "A neighbour at the address takes his lead, gratefully."}]}],
+				"outcome": "The collar app says HOME, 0.4 miles. {name} walks him there through the dust."},
 			{"id": "let_in", "label": "Let him in as he is", "cinematic": "pet",
 				"effects": [{"do": "pet", "kind": "dog"}, {"do": "morale", "who": "all", "n": 2}, {"do": "schedule", "event": "fleas", "in": 1}],
 				"outcome": "Everyone's spirits lift. The fleas arrive tomorrow."}
@@ -123,6 +132,9 @@
 			{"id": "lock", "label": "Lock up and wait", "item": "padlock", "cinematic": "shrug",
 				"effects": [],
 				"outcome": "He tries the hatch twice and moves on. The lock holds."},
+			{"id": "speaker", "label": "Talk to him through the doorbell", "cinematic": "signal",
+				"effects": [{"do": "followed", "p": 0.2, "why": "the doorbell told him someone was home"}, {"do": "chance", "p": 0.6, "then": [{"do": "say", "kind": "good", "text": "He apologises to the doorbell and moves on."}], "else": [{"do": "lose", "item": "food", "n": 1}, {"do": "say", "kind": "warn", "text": "It doesn't work. He visits tonight and leaves with a can."}]}],
+				"outcome": "{name} speaks through the doorbell in their most official voice: \"This property is monitored.\""},
 			{"id": "nothing", "label": "Do nothing", "cinematic": "attack",
 				"effects": [{"do": "lose", "item": "water", "n": 1}],
 				"outcome": "He visits tonight. A padlock would have stopped him."}

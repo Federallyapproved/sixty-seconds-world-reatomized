@@ -8,16 +8,16 @@ _Measured by `tests/sim/sim_harness.gd` (the game's own rules, headless) and sum
 
 | Check | Result | |
 |---|---|---|
-| Random win rate ≤ 5% | 0.1% | ✅ |
+| Random win rate ≤ 5% | 0.0% | ✅ |
 | Random median death day 15–25 | day 17.0 | ✅ |
-| Naive win rate 10–20% | 11.1% | ✅ |
-| Expert win rate 45–60% | 49.2% | ✅ |
-| Expert − random ≥ 40 points | 49.1 points | ✅ |
-| Expert: everyone dead before day 15 in < 10% | 1.4% | ✅ |
-| Expert: no cause > 40% of deaths | largest: sickness 38% | ✅ |
-| Expert makes 3–6 expeditions | mean 5.2, median 5.0 | ✅ |
-| Expert runs lost to dice with zero mistakes < 10% | 5.1% (zero-mistake losses of any kind: 50.5%) | ✅ |
-| Expert win-rate spread across distance quartiles ≤ 20 points | 4.7 points | ✅ |
+| Naive win rate 10–20% | 14.9% | ✅ |
+| Expert win rate 45–60% | 56.5% | ✅ |
+| Expert − random ≥ 40 points | 56.5 points | ✅ |
+| Expert: everyone dead before day 15 in < 10% | 0.3% | ✅ |
+| Expert: no cause > 40% of deaths | largest: thirst 39% | ✅ |
+| Expert makes 3–6 expeditions | mean 4.4, median 4.0 | ✅ |
+| Expert runs lost to dice with zero mistakes < 10% | 0.0% (zero-mistake losses of any kind: 23.9%) | ✅ |
+| Expert win-rate spread across distance quartiles ≤ 20 points | 5.6 points | ✅ |
 | Crafted items ≤ 25% of expert Used: credits | 0.0% | ✅ |
 | Expert median winning day 30–45 | day 38.0 (earliest 27) | ✅ |
 
@@ -25,41 +25,49 @@ _Measured by `tests/sim/sim_harness.gd` (the game's own rules, headless) and sum
 
 | Policy | Win rate | Median losing day | Median winning day | Earliest win | Median run (days) | Expeditions / run | Trip death rate |
 |---|---|---|---|---|---|---|---|
-| Random | 0.1% | 17.0 | 35.5 | 27 | 17.0 | 2.68 | 12.4% |
-| Naive | 11.1% | 28.0 | 37.0 | 27 | 30.0 | 1.01 | 11.3% |
-| Expert | 49.2% | 34.0 | 38.0 | 27 | 37.0 | 5.16 | 3.3% |
+| Random | 0.0% | 17.0 | 36.0 | 33 | 17.0 | 2.72 | 14.3% |
+| Naive | 14.9% | 28.0 | 38.0 | 27 | 30.0 | 0.92 | 14.4% |
+| Expert | 56.5% | 36.0 | 38.0 | 27 | 38.0 | 4.36 | 3.7% |
 
 ## Win rate by distance to the nearest store (quartiles)
 
 | Policy | Q1 (closest) | Q2 | Q3 | Q4 (farthest) | Spread |
 |---|---|---|---|---|---|
 | Random | 0% | 0% | 0% | 0% | 0 points |
-| Naive | 13% | 11% | 10% | 11% | 3 points |
-| Expert | 50% | 50% | 50% | 46% | 5 points |
+| Naive | 15% | 15% | 16% | 14% | 2 points |
+| Expert | 58% | 58% | 57% | 53% | 6 points |
 
 ## Cause of death
 
 | Policy | Causes (share of all deaths) |
 |---|---|
-| Random | thirst 69%, starvation 16%, trip 9%, sickness 6%, air 0% |
-| Naive | thirst 60%, sickness 34%, trip 3%, starvation 3% |
-| Expert | sickness 38%, starvation 28%, thirst 26%, trip 8% |
+| Random | thirst 65%, starvation 19%, trip 10%, sickness 5%, air 0% |
+| Naive | thirst 61%, sickness 32%, starvation 4%, trip 4% |
+| Expert | thirst 39%, starvation 26%, sickness 23%, trip 11% |
 
 ## When people die (all deaths, by day)
 
 | Policy | 00-04 | 05-09 | 10-14 | 15-19 | 20-24 | 25-29 | 30-34 | 35-39 | 40-44 | 45-49 | 50-54 | 55-59 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Random | 54 | 12484 | 10980 | 7770 | 3923 | 1512 | 428 | 115 | 29 | 7 | 0 | 0 |
-| Naive | 0 | 20043 | 436 | 3261 | 4918 | 2935 | 2324 | 1448 | 754 | 391 | 162 | 84 |
-| Expert | 0 | 175 | 1769 | 1201 | 2629 | 4599 | 3519 | 3576 | 1805 | 763 | 514 | 260 |
+| Random | 47 | 12194 | 10689 | 7970 | 4222 | 1594 | 498 | 134 | 37 | 16 | 3 | 1 |
+| Naive | 0 | 20185 | 705 | 3397 | 4790 | 2548 | 1887 | 1236 | 665 | 315 | 199 | 113 |
+| Expert | 0 | 45 | 791 | 715 | 1207 | 2308 | 2129 | 2742 | 1808 | 788 | 542 | 298 |
+
+## Drama (M2)
+
+| Policy | House Rules passed / run | Afflictions / run | Gamble endings | Stole from neighbours | Met a stranger |
+|---|---|---|---|---|---|
+| Random | 2.45 | 0.77 | 0.3% | 9.0% | 13.8% |
+| Naive | 0.00 | 0.52 | 0.0% | 1.4% | 24.9% |
+| Expert | 1.90 | 0.28 | 0.0% | 0.0% | 28.6% |
 
 ## Endings
 
 | Policy | Endings |
 |---|---|
-| Random |  loss_all_dead: 7567, loss_no_adult: 1297, loss_empty: 1050, loss_takeover: 76, rescue_airlift: 10  |
-| Naive |  loss_all_dead: 7046, loss_no_adult: 1758, rescue_airlift: 1049, loss_takeover: 89, rescue_convoy: 58  |
-| Expert |  loss_all_dead: 2836, loss_takeover: 1519, loss_no_adult: 705, rescue_airlift: 3107, rescue_convoy: 1564, rescue_neighbourhood: 246, timeout: 23  |
+| Random |  loss_all_dead: 7653, loss_empty: 885, loss_no_adult: 1346, maybe_walk_out: 29, loss_takeover: 83, rescue_airlift: 4  |
+| Naive |  rescue_convoy: 135, loss_all_dead: 6408, rescue_airlift: 1351, loss_no_adult: 1723, loss_takeover: 381, rescue_neighbourhood: 2  |
+| Expert |  loss_all_dead: 2000, rescue_airlift: 3482, rescue_convoy: 2050, loss_takeover: 1892, loss_no_adult: 397, rescue_neighbourhood: 117, timeout: 62  |
 
 ## What was wrong before (measured on `main`)
 
@@ -88,10 +96,17 @@ _Measured by `tests/sim/sim_harness.gd` (the game's own rules, headless) and sum
 13. **Dehydration sickness 35% → 30%/day, relapse 2% → 1%/day, wound infection 10% → 8%/day.** The expert also skips marginal trips and keeps a spare medkit. Final: random 0.1%, naive 11.1%, expert 49.2%, 5.2 trips per expert run, sickness 38% of expert deaths.
 14. **Knows the Area carries one more slot home** (`scout_extra_carry`), on top of its +10% search share. A final audit showed the share alone changed nothing: trips are nearly always limited by the bag, not by what is found. The harness family's scout is the child, who doesn't go on trips, so the numbers above are unchanged.
 
+## M2: events and drama (numbers from 1,000-run checks; the tables above are the final 10,000-run sweep)
+
+15. **M2 rules and 33 new events, no retuning: expert 59%, naive 19%, and thirst 45% of expert deaths** (over the 40% limit). Switching the harness's House Rules off showed the events, not the rules, drove most of it (expert 56%, naive 18% without rules). The new options hand out more medkits and cures, so sickness fell from 38% to about 20% of expert deaths and thirst took its place.
+16. **Old wounds turn septic at 12%/day (was 8%) and Dehydrated or Starving people fall sick at 40%/day (was 30%); searches turn up 75% of what's left (was 80%).** Weak bodies are where careless rationing gets punished, so this hits the naive policy hardest. Thirst 36%, expert 57%, naive 15%. A trial with relapses at 2%/day raised losses to pure chance above 10% and was dropped.
+17. **"Nobody opens the hatch" costs 2 morale (was 1).** The harness expert adopted it at the first meeting nearly every run; it then lost the water trades the rule blocks and thirst went back to 45%. At 2 it is a real trade-off. Trips are a little more dangerous too (never returning: 3%/night, was 2.5%).
+18. **An unanswered gang counts as a mistake.** A takeover comes after 20–30 days of "Noticed" raids and a warning the morning before, so the harness now records it as a decision (`gang_unanswered`) instead of bad luck; before, a takeover with nobody dead counted as a loss to dice. Final (1,000 runs): random 0.2%, naive 14.6%, expert 55.8%, thirst 37% of expert deaths.
+
 ## Known limits
 
 - The expert is a heuristic, not an optimal player: it never takes a second expedition while one is out, and it can't see hidden rolls. Human experts should do better.
-- Gang takeovers end about 15% of expert runs. They are always preceded by a warning and by days of "Noticed" raids. That's fine for M1; M2's House Rules and strangers add more ways to deal with a gang.
+- Gang takeovers end about 15% of expert runs in M1 and about 20% in M2. They are always preceded by a warning and by days of "Noticed" raids. The harness expert rarely passes "Nobody opens the hatch" at its M2 cost, and it never keeps a weapon back for the gang's night; a human who does both should lose far fewer runs this way.
 - 0.2% of expert runs survive to the 120-day cap without a rescue (every chain went silent); the harness counts them as losses.
 - Mid-game gaps: the neighbourhood rescue needs a real church or school and a visit after the all-clear, so it is the rarest of the three rescues (2.5% of expert runs).
 - Fixtures are US neighbourhoods (city, suburb, small town, farmland). Other countries' OSM tagging should behave the same, but that hasn't been measured.

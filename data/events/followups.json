@@ -57,7 +57,7 @@
 			{"id": "take", "label": "Take the sack", "cinematic": "gain",
 				"effects": [{"do": "add", "item": "food", "n": 1}, {"do": "add", "item": "water", "n": 1}],
 				"outcome": "A can and a bottle. They're gone before anyone can say thanks."},
-			{"id": "share", "label": "Invite them to eat", "cinematic": "celebrate",
+			{"id": "share", "label": "Invite them to eat", "hatch": true, "cinematic": "celebrate",
 				"effects": [{"do": "add", "item": "food", "n": 1}, {"do": "add", "item": "water", "n": 1}, {"do": "rations", "kind": "food", "n": -2}, {"do": "morale", "who": "all", "n": 2}],
 				"outcome": "The shelter is loud for an hour. It's a good loud."}
 		]
