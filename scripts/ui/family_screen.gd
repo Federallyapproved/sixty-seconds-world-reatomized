@@ -1,36 +1,39 @@
 class_name FamilyScreen
 extends Control
 
-## 1950s Civil Defense Personnel Dossier — Interactive Family Customization Screen (1280x720).
-## Built purely in code in _ready() with zero .tscn dependencies.
+## Family creator (1280x720), styled as a phone app with no signal: status bar, dark cards,
+## rounded controls. Built purely in code in _ready() with zero .tscn dependencies.
 
-const COL_BG_DARK := Color("#1a1d1a")
-const COL_BG_PANEL := Color("#242924")
-const COL_PARCHMENT := Color("#efe3c8")
-const COL_PARCHMENT_DARK := Color("#dccba6")
-const COL_INK := Color("#1d1a16")
-const COL_HAZARD_YELLOW := Color("#f2b82e")
-const COL_ATOMIC_ORANGE := Color("#d94c2a")
-const COL_TOXIC_GREEN := Color("#7ec850")
-const COL_WATER_BLUE := Color("#3b8ec2")
+const COL_BG_DARK := Color("#0f1115")
+const COL_BG_PANEL := Color("#1a1e24")
+const COL_CARD := Color("#262c34")
+const COL_CARD_DIM := Color("#1f242b")
+const COL_BORDER := Color("#39414b")
+const COL_TEXT := Color("#e8eaed")
+const COL_TEXT_MUTED := Color("#9aa3ad")
+const COL_INK := Color("#0f1115")
+const COL_AMBER := Color("#ffb020")
+const COL_RED := Color("#ff4d4f")
+const COL_GREEN := Color("#4cc38a")
+const COL_BLUE := Color("#4aa3ff")
 
 const TRAIT_LIST: Array[Dictionary] = [
-	{"id": "handy", "name": "Handy Mechanic", "desc": "Repairs broken bunker gear faster & safer."},
-	{"id": "sprinter", "name": "60s Sprinter", "desc": "+15% top movement speed during house scavenge."},
-	{"id": "iron_stomach", "name": "Iron Stomach", "desc": "Resists sickness from stale rations & fallout."},
-	{"id": "scout", "name": "Neighborhood Scout", "desc": "Finds extra supplies at real-world OSM landmarks."},
-	{"id": "bookworm", "name": "Civil Bookworm", "desc": "Keeps sanity steadier during long bunker lockups."},
-	{"id": "optimist", "name": "Atomic Optimist", "desc": "Boosts household morale during dark events."}
+	{"id": "handy", "name": "Handy", "desc": "Fixes broken gear faster and with fewer mishaps."},
+	{"id": "sprinter", "name": "Sprinter", "desc": "Moves 15% faster during the grab."},
+	{"id": "iron_stomach", "name": "Iron Stomach", "desc": "Less likely to get sick from old food."},
+	{"id": "scout", "name": "Knows the Area", "desc": "Finds a little extra on trips to real nearby places."},
+	{"id": "bookworm", "name": "Bookworm", "desc": "Stays steadier through long days in the shelter."},
+	{"id": "optimist", "name": "Optimist", "desc": "Keeps everyone's spirits up when things go badly."}
 ]
 
 const RANDOM_FIRST_NAMES: Array[String] = [
-	"Arthur", "Betty", "Clarence", "Dorothy", "Eugene", "Francine", "George", "Hazel",
-	"Howard", "Irene", "Junior", "Lorraine", "Milton", "Nancy", "Otis", "Peggy",
-	"Raymond", "Shirley", "Stanley", "Virginia", "Walter", "Wanda", "Billy", "Susie"
+	"Alex", "Jordan", "Aisha", "Mateo", "Chloe", "Ethan", "Sofia", "Noah",
+	"Zoe", "Omar", "Hana", "Lucas", "Nia", "Ravi", "Emma", "Diego",
+	"Mei", "Kai", "Amara", "Owen", "Isla", "Yusuf", "Grace", "Theo"
 ]
 
 var selected_index: int = 0
-var condition_preview_mode: String = "healthy" # "healthy", "starving", "sick", "insane", "mutant"
+var condition_preview_mode: String = "healthy" # "healthy", "starving", "sick", "withdrawn", "injured"
 var anim_clock: float = 0.0
 var _updating_ui: bool = false
 
@@ -94,52 +97,46 @@ func _draw() -> void:
 	var vp := Rect2(Vector2.ZERO, Vector2(1280, 720))
 	draw_rect(vp, COL_BG_DARK, true)
 
-	# Subtle bunker concrete grid lines
-	var grid_col := Color(1.0, 0.96, 0.88, 0.03)
-	for gx in range(0, 1280, 64):
-		draw_line(Vector2(float(gx), 56.0), Vector2(float(gx), 654.0), grid_col, 1.0)
-	for gy in range(64, 654, 64):
-		draw_line(Vector2(0.0, float(gy)), Vector2(1280.0, float(gy)), grid_col, 1.0)
-
-	# Top Civil Defense Header Bar
+	# Header (app bar) with the phone status bar along its top edge
 	var top_rect := Rect2(0, 0, 1280, 56)
 	draw_rect(top_rect, COL_BG_PANEL, true)
-	draw_line(Vector2(0, 55), Vector2(1280, 55), COL_HAZARD_YELLOW, 3.0)
+	draw_line(Vector2(0, 55), Vector2(1280, 55), COL_BORDER, 1.0)
+	_draw_status_bar()
 
-	# Hazard diagonal stripes accent on top-right & top-left
-	_draw_hazard_strip(Rect2(0, 0, 110, 8))
-	_draw_hazard_strip(Rect2(1170, 0, 110, 8))
+	# App icon: rounded amber tile with a little house
+	var icon_r := Rect2(18, 21, 32, 30)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = COL_AMBER
+	sb.set_corner_radius_all(8)
+	sb.anti_aliasing = true
+	draw_style_box(sb, icon_r)
+	var hc := icon_r.get_center() + Vector2(0, 2)
+	draw_colored_polygon(PackedVector2Array([hc + Vector2(-9, -1), hc + Vector2(0, -9), hc + Vector2(9, -1)]), COL_INK)
+	draw_rect(Rect2(hc + Vector2(-6, -1), Vector2(12, 9)), COL_INK, true)
+	draw_rect(Rect2(hc + Vector2(-2, 3), Vector2(4, 5)), COL_AMBER, true)
 
-	# CONELRAD Civil Defense Triangle-in-Circle emblem at (38, 28)
-	var emb_c := Vector2(36, 29)
-	draw_circle(emb_c, 18.0, COL_HAZARD_YELLOW)
-	draw_arc(emb_c, 18.0, 0.0, TAU, 24, COL_INK, 2.2)
-	var tri := PackedVector2Array([
-		emb_c + Vector2(0, -12),
-		emb_c + Vector2(11, 8),
-		emb_c + Vector2(-11, 8)
-	])
-	draw_colored_polygon(tri, COL_ATOMIC_ORANGE)
-	draw_polyline(PackedVector2Array([tri[0], tri[1], tri[2], tri[0]]), COL_INK, 1.8)
-
-	# Bottom Navigation Bar backdrop
+	# Bottom bar
 	var bot_rect := Rect2(0, 654, 1280, 66)
 	draw_rect(bot_rect, COL_BG_PANEL, true)
-	draw_line(Vector2(0, 654), Vector2(1280, 654), COL_HAZARD_YELLOW, 2.5)
+	draw_line(Vector2(0, 654), Vector2(1280, 654), COL_BORDER, 1.0)
 
-func _draw_hazard_strip(rect: Rect2) -> void:
-	draw_rect(rect, COL_HAZARD_YELLOW, true)
-	var step: float = 16.0
-	var x: float = rect.position.x
-	while x < rect.end.x:
-		var p := PackedVector2Array([
-			Vector2(x, rect.end.y),
-			Vector2(minf(x + 8.0, rect.end.x), rect.end.y),
-			Vector2(minf(x + 14.0, rect.end.x), rect.position.y),
-			Vector2(minf(x + 6.0, rect.end.x), rect.position.y)
-		])
-		draw_colored_polygon(p, COL_INK)
-		x += step
+func _draw_status_bar() -> void:
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return
+	# Left: carrier slot, which has nothing to say today
+	draw_string(font, Vector2(66, 14), "No Service", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, COL_TEXT_MUTED)
+	# Right: empty signal bars, the alerts-only note, a battery that has seen better days
+	var x0: float = 1092.0
+	for b in range(4):
+		var bh: float = 3.0 + float(b) * 2.5
+		draw_rect(Rect2(x0 + float(b) * 5.0, 14.0 - bh, 3.5, bh), Color(0.60, 0.64, 0.68, 0.30), true)
+	draw_string(font, Vector2(x0 + 26.0, 14), "SOS only", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_TEXT_MUTED)
+	var bat := Rect2(1236, 5, 24, 11)
+	draw_rect(bat, COL_TEXT_MUTED, false, 1.2)
+	draw_rect(Rect2(bat.end.x, bat.position.y + 3.5, 2.0, 4.0), COL_TEXT_MUTED, true)
+	draw_rect(Rect2(bat.position.x + 2.0, bat.position.y + 2.0, 5.0, bat.size.y - 4.0), COL_AMBER, true)
+	draw_string(font, Vector2(1203, 14), "23%", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, COL_TEXT_MUTED)
 
 # ==============================================================================
 # HOUSEHOLD INTEGRITY & HELPERS
@@ -190,12 +187,12 @@ func _get_selected_member() -> Dictionary:
 
 func _get_age_perk_summary(age: int, role: String) -> String:
 	if role == "child" or age <= 12:
-		return "Child (2 Carry Slots) • Light eater, cannot lead 60s scavenge"
+		return "Child (2 carry slots) • Eats less; can't lead the grab"
 	elif role == "teen" or age <= 17:
-		return "Teen (2 Carry Slots) • Agile, eligible Scavenge Leader & Scout"
+		return "Teen (2 carry slots) • Quick; can lead the grab"
 	elif role == "elder" or age >= 60:
-		return "Elder (3 Carry Slots) • Wise morale anchor, eligible Leader"
-	return "Adult (3 Carry Slots) • Strong carrier, prime Scavenge Leader"
+		return "Elder (3 carry slots) • Steady; can lead the grab"
+	return "Adult (3 carry slots) • Strong carrier; can lead the grab"
 
 func _get_trait_info(trait_id: String) -> Dictionary:
 	for t in TRAIT_LIST:
@@ -212,7 +209,6 @@ func _build_preview_member_dict(base_member: Dictionary) -> Dictionary:
 	copy_m["sickness"] = 0
 	copy_m["injury"] = 0
 	copy_m["sanity"] = 0
-	copy_m["is_mutant"] = false
 
 	match condition_preview_mode:
 		"starving":
@@ -220,11 +216,10 @@ func _build_preview_member_dict(base_member: Dictionary) -> Dictionary:
 			copy_m["thirst"] = 2
 		"sick":
 			copy_m["sickness"] = 2
-			copy_m["injury"] = 1
-		"insane":
+		"withdrawn":
 			copy_m["sanity"] = 3
-		"mutant":
-			copy_m["is_mutant"] = true
+		"injured":
+			copy_m["injury"] = 2
 	return copy_m
 
 func _play_sfx(sfx_name: String) -> void:
@@ -232,7 +227,7 @@ func _play_sfx(sfx_name: String) -> void:
 		SoundManager.play_sfx(sfx_name)
 
 # ==============================================================================
-# UI CONSTRUCTION (1280x720 NON-OVERLAPPING DOSSIER LAYOUT)
+# UI CONSTRUCTION (1280x720 NON-OVERLAPPING LAYOUT)
 # ==============================================================================
 func _make_stylebox(bg: Color, border: Color, border_w: int = 2, radius: int = 4, pad_h: int = 8, pad_v: int = 5) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -246,16 +241,16 @@ func _make_stylebox(bg: Color, border: Color, border_w: int = 2, radius: int = 4
 	sb.content_margin_bottom = float(pad_v)
 	return sb
 
-func _style_button(btn: Button, bg: Color, fg: Color, border: Color = COL_INK, font_sz: int = 13) -> void:
-	btn.add_theme_stylebox_override("normal", _make_stylebox(bg, border, 2, 4, 8, 4))
-	btn.add_theme_stylebox_override("hover", _make_stylebox(bg.lightened(0.12), border, 2, 4, 8, 4))
-	btn.add_theme_stylebox_override("pressed", _make_stylebox(bg.darkened(0.12), border, 2, 4, 8, 4))
-	btn.add_theme_stylebox_override("disabled", _make_stylebox(Color("#333832"), COL_INK, 2, 4, 8, 4))
+func _style_button(btn: Button, bg: Color, fg: Color, border: Color = COL_BORDER, font_sz: int = 13) -> void:
+	btn.add_theme_stylebox_override("normal", _make_stylebox(bg, border, 1, 8, 8, 4))
+	btn.add_theme_stylebox_override("hover", _make_stylebox(bg.lightened(0.10), COL_AMBER, 1, 8, 8, 4))
+	btn.add_theme_stylebox_override("pressed", _make_stylebox(bg.darkened(0.12), COL_AMBER, 1, 8, 8, 4))
+	btn.add_theme_stylebox_override("disabled", _make_stylebox(COL_CARD_DIM, Color("#2a3039"), 1, 8, 8, 4))
 	btn.add_theme_color_override("font_color", fg)
 	btn.add_theme_color_override("font_hover_color", fg)
 	btn.add_theme_color_override("font_pressed_color", fg)
 	btn.add_theme_color_override("font_focus_color", fg)
-	btn.add_theme_color_override("font_disabled_color", Color("#c5beae"))
+	btn.add_theme_color_override("font_disabled_color", Color("#5d6671"))
 	if fg.get_luminance() < 0.25:
 		btn.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	btn.add_theme_font_size_override("font_size", font_sz)
@@ -264,32 +259,32 @@ func _style_button(btn: Button, bg: Color, fg: Color, border: Color = COL_INK, f
 func _build_ui() -> void:
 	# Header Title Labels
 	var title_lbl := Label.new()
-	title_lbl.text = "CIVIL DEFENSE FORM CD-60  //  FAMILY SURVIVOR DOSSIER"
-	title_lbl.position = Vector2(66, 9)
-	title_lbl.size = Vector2(760, 24)
-	title_lbl.add_theme_font_size_override("font_size", 19)
-	title_lbl.add_theme_color_override("font_color", COL_HAZARD_YELLOW)
+	title_lbl.text = "Your household"
+	title_lbl.position = Vector2(62, 16)
+	title_lbl.size = Vector2(680, 24)
+	title_lbl.add_theme_font_size_override("font_size", 18)
+	title_lbl.add_theme_color_override("font_color", COL_TEXT)
 	add_child(title_lbl)
 
 	var sub_lbl := Label.new()
-	sub_lbl.text = "CUSTOMIZE AGES, HAIR, OUTFITS & SCAVENGE LEADER BEFORE SELECTING YOUR REAL-WORLD HOUSE"
-	sub_lbl.position = Vector2(66, 32)
-	sub_lbl.size = Vector2(820, 18)
+	sub_lbl.text = "Names, ages, looks, and who leads the grab. Then pick your real house."
+	sub_lbl.position = Vector2(62, 36)
+	sub_lbl.size = Vector2(680, 18)
 	sub_lbl.add_theme_font_size_override("font_size", 11)
-	sub_lbl.add_theme_color_override("font_color", COL_PARCHMENT)
+	sub_lbl.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	add_child(sub_lbl)
 
 	# Demo Mode Top Right/Center Banner
 	_demo_banner_panel = PanelContainer.new()
-	_demo_banner_panel.position = Vector2(760, 9)
-	_demo_banner_panel.size = Vector2(502, 38)
-	_demo_banner_panel.add_theme_stylebox_override("panel", _make_stylebox(COL_ATOMIC_ORANGE, COL_HAZARD_YELLOW, 2, 4, 10, 4))
+	_demo_banner_panel.position = Vector2(760, 22)
+	_demo_banner_panel.size = Vector2(320, 28)
+	_demo_banner_panel.add_theme_stylebox_override("panel", _make_stylebox(COL_AMBER, COL_AMBER, 1, 14, 10, 2))
 	_demo_banner_label = Label.new()
-	_demo_banner_label.text = "DEMO: CUSTOMIZING FAMILY AGES, HAIR & LOOKS..."
+	_demo_banner_label.text = "DEMO: SETTING UP THE FAMILY..."
 	_demo_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_demo_banner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_demo_banner_label.add_theme_font_size_override("font_size", 13)
-	_demo_banner_label.add_theme_color_override("font_color", Color.WHITE)
+	_demo_banner_label.add_theme_font_size_override("font_size", 12)
+	_demo_banner_label.add_theme_color_override("font_color", COL_INK)
 	_demo_banner_panel.add_child(_demo_banner_label)
 	_demo_banner_panel.visible = GameState.demo_mode
 	add_child(_demo_banner_panel)
@@ -300,7 +295,7 @@ func _build_ui() -> void:
 	var left_panel := PanelContainer.new()
 	left_panel.position = Vector2(16, 64)
 	left_panel.size = Vector2(342, 580)
-	left_panel.add_theme_stylebox_override("panel", _make_stylebox(COL_PARCHMENT_DARK, COL_INK, 3, 5, 10, 10))
+	left_panel.add_theme_stylebox_override("panel", _make_stylebox(COL_BG_PANEL, COL_BORDER, 1, 12, 10, 10))
 	add_child(left_panel)
 
 	var left_vbox := VBoxContainer.new()
@@ -308,9 +303,9 @@ func _build_ui() -> void:
 	left_panel.add_child(left_vbox)
 
 	var roster_hdr := Label.new()
-	roster_hdr.text = "HOUSEHOLD ROSTER (1-4 SURVIVORS)"
-	roster_hdr.add_theme_font_size_override("font_size", 14)
-	roster_hdr.add_theme_color_override("font_color", COL_INK)
+	roster_hdr.text = "HOUSEHOLD (1-4 PEOPLE)"
+	roster_hdr.add_theme_font_size_override("font_size", 13)
+	roster_hdr.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	roster_hdr.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	left_vbox.add_child(roster_hdr)
 
@@ -328,7 +323,7 @@ func _build_ui() -> void:
 	_add_member_btn.text = "+ ADD MEMBER"
 	_add_member_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_add_member_btn.custom_minimum_size = Vector2(0, 32)
-	_style_button(_add_member_btn, Color("#4b7844"), Color.WHITE, COL_INK, 12)
+	_style_button(_add_member_btn, Color("#2a6b4d"), Color.WHITE, COL_BORDER, 12)
 	_add_member_btn.pressed.connect(_on_add_member_pressed)
 	add_rem_row.add_child(_add_member_btn)
 
@@ -336,7 +331,7 @@ func _build_ui() -> void:
 	_remove_member_btn.text = "- REMOVE"
 	_remove_member_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_remove_member_btn.custom_minimum_size = Vector2(0, 32)
-	_style_button(_remove_member_btn, Color("#a83b2c"), Color.WHITE, COL_INK, 12)
+	_style_button(_remove_member_btn, Color("#8a2f31"), Color.WHITE, COL_BORDER, 12)
 	_remove_member_btn.pressed.connect(_on_remove_member_pressed)
 	add_rem_row.add_child(_remove_member_btn)
 
@@ -346,10 +341,10 @@ func _build_ui() -> void:
 	left_vbox.add_child(preset_row)
 
 	var classic_btn := Button.new()
-	classic_btn.text = "CLASSIC FAMILY"
+	classic_btn.text = "DEFAULT FAMILY"
 	classic_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	classic_btn.custom_minimum_size = Vector2(0, 32)
-	_style_button(classic_btn, COL_BG_PANEL, COL_PARCHMENT, COL_INK, 11)
+	_style_button(classic_btn, COL_CARD, COL_TEXT, COL_BORDER, 11)
 	classic_btn.pressed.connect(_on_classic_preset_pressed)
 	preset_row.add_child(classic_btn)
 
@@ -357,7 +352,7 @@ func _build_ui() -> void:
 	random_btn.text = "RANDOMIZE HOUSEHOLD"
 	random_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	random_btn.custom_minimum_size = Vector2(0, 32)
-	_style_button(random_btn, COL_HAZARD_YELLOW, COL_INK, COL_INK, 11)
+	_style_button(random_btn, COL_AMBER, COL_INK, COL_AMBER, 11)
 	random_btn.pressed.connect(_on_randomize_household_pressed)
 	preset_row.add_child(random_btn)
 
@@ -367,7 +362,7 @@ func _build_ui() -> void:
 	var center_panel := PanelContainer.new()
 	center_panel.position = Vector2(370, 64)
 	center_panel.size = Vector2(396, 580)
-	center_panel.add_theme_stylebox_override("panel", _make_stylebox(COL_PARCHMENT, COL_INK, 3, 5, 12, 10))
+	center_panel.add_theme_stylebox_override("panel", _make_stylebox(COL_BG_PANEL, COL_BORDER, 1, 12, 12, 10))
 	add_child(center_panel)
 
 	var center_vbox := VBoxContainer.new()
@@ -375,10 +370,10 @@ func _build_ui() -> void:
 	center_panel.add_child(center_vbox)
 
 	var prev_hdr := Label.new()
-	prev_hdr.text = "PERSONNEL VISUAL INSPECTION"
+	prev_hdr.text = "PREVIEW"
 	prev_hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	prev_hdr.add_theme_font_size_override("font_size", 14)
-	prev_hdr.add_theme_color_override("font_color", COL_INK)
+	prev_hdr.add_theme_font_size_override("font_size", 13)
+	prev_hdr.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	prev_hdr.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	center_vbox.add_child(prev_hdr)
 
@@ -390,20 +385,20 @@ func _build_ui() -> void:
 
 	# Age / Carry Slots / Perk summary banner
 	var info_box := PanelContainer.new()
-	info_box.add_theme_stylebox_override("panel", _make_stylebox(COL_BG_PANEL, COL_INK, 2, 4, 8, 5))
+	info_box.add_theme_stylebox_override("panel", _make_stylebox(COL_CARD, COL_BORDER, 1, 8, 8, 5))
 	center_vbox.add_child(info_box)
 
 	_role_perk_label = Label.new()
 	_role_perk_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_role_perk_label.custom_minimum_size = Vector2(340, 36)
 	_role_perk_label.add_theme_font_size_override("font_size", 11)
-	_role_perk_label.add_theme_color_override("font_color", COL_PARCHMENT)
+	_role_perk_label.add_theme_color_override("font_color", COL_TEXT)
 	info_box.add_child(_role_perk_label)
 
 	var cond_title := Label.new()
-	cond_title.text = "CONDITION SIMULATOR (VISUAL PREVIEW ONLY):"
+	cond_title.text = "PREVIEW A CONDITION (LOOKS ONLY):"
 	cond_title.add_theme_font_size_override("font_size", 11)
-	cond_title.add_theme_color_override("font_color", COL_INK)
+	cond_title.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	cond_title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	center_vbox.add_child(cond_title)
 
@@ -412,11 +407,11 @@ func _build_ui() -> void:
 	center_vbox.add_child(cond_row)
 
 	var cond_defs: Array[Dictionary] = [
-		{"id": "healthy", "label": "Healthy"},
+		{"id": "healthy", "label": "OK"},
 		{"id": "starving", "label": "Starving"},
 		{"id": "sick", "label": "Sick"},
-		{"id": "insane", "label": "Insane"},
-		{"id": "mutant", "label": "Mutant!"}
+		{"id": "injured", "label": "Injured"},
+		{"id": "withdrawn", "label": "Withdrawn"}
 	]
 	for cd in cond_defs:
 		var cid: String = str(cd["id"])
@@ -434,7 +429,7 @@ func _build_ui() -> void:
 	var right_panel := PanelContainer.new()
 	right_panel.position = Vector2(778, 64)
 	right_panel.size = Vector2(486, 580)
-	right_panel.add_theme_stylebox_override("panel", _make_stylebox(COL_PARCHMENT, COL_INK, 3, 5, 14, 10))
+	right_panel.add_theme_stylebox_override("panel", _make_stylebox(COL_BG_PANEL, COL_BORDER, 1, 12, 14, 10))
 	add_child(right_panel)
 
 	var rv := VBoxContainer.new()
@@ -442,9 +437,9 @@ func _build_ui() -> void:
 	right_panel.add_child(rv)
 
 	var edit_hdr := Label.new()
-	edit_hdr.text = "BIOGRAPHIC & APPEARANCE RECORD"
-	edit_hdr.add_theme_font_size_override("font_size", 14)
-	edit_hdr.add_theme_color_override("font_color", COL_INK)
+	edit_hdr.text = "DETAILS & LOOKS"
+	edit_hdr.add_theme_font_size_override("font_size", 13)
+	edit_hdr.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	edit_hdr.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	rv.add_child(edit_hdr)
 
@@ -458,14 +453,14 @@ func _build_ui() -> void:
 
 	_name_edit = LineEdit.new()
 	_name_edit.max_length = 18
-	_name_edit.placeholder_text = "Survivor Name"
+	_name_edit.placeholder_text = "Name"
 	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_name_edit.custom_minimum_size = Vector2(150, 32)
-	_name_edit.add_theme_stylebox_override("normal", _make_stylebox(Color("#fbf6ea"), COL_INK, 2, 3, 8, 4))
-	_name_edit.add_theme_stylebox_override("focus", _make_stylebox(Color.WHITE, COL_ATOMIC_ORANGE, 2, 3, 8, 4))
-	_name_edit.add_theme_color_override("font_color", COL_INK)
-	_name_edit.add_theme_color_override("font_placeholder_color", Color("#6e6556"))
-	_name_edit.add_theme_color_override("caret_color", COL_INK)
+	_name_edit.add_theme_stylebox_override("normal", _make_stylebox(COL_BG_DARK, COL_BORDER, 1, 8, 8, 4))
+	_name_edit.add_theme_stylebox_override("focus", _make_stylebox(COL_BG_DARK, COL_AMBER, 2, 8, 8, 4))
+	_name_edit.add_theme_color_override("font_color", COL_TEXT)
+	_name_edit.add_theme_color_override("font_placeholder_color", Color("#6b7580"))
+	_name_edit.add_theme_color_override("caret_color", COL_AMBER)
 	_name_edit.add_theme_font_size_override("font_size", 14)
 	_name_edit.text_changed.connect(_on_name_changed)
 	r_name.add_child(_name_edit)
@@ -497,13 +492,13 @@ func _build_ui() -> void:
 	_age_value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_age_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_age_value_label.add_theme_font_size_override("font_size", 13)
-	_age_value_label.add_theme_color_override("font_color", COL_INK)
+	_age_value_label.add_theme_color_override("font_color", COL_TEXT)
 	_age_value_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	r_age.add_child(_age_value_label)
 
 	# Row 3: Perk / Trait Selector + Description
 	var trait_box := PanelContainer.new()
-	trait_box.add_theme_stylebox_override("panel", _make_stylebox(COL_PARCHMENT_DARK, COL_INK, 2, 4, 8, 5))
+	trait_box.add_theme_stylebox_override("panel", _make_stylebox(COL_CARD, COL_BORDER, 1, 8, 8, 5))
 	rv.add_child(trait_box)
 
 	var trait_v := VBoxContainer.new()
@@ -523,7 +518,7 @@ func _build_ui() -> void:
 
 	_trait_desc_label = Label.new()
 	_trait_desc_label.add_theme_font_size_override("font_size", 11)
-	_trait_desc_label.add_theme_color_override("font_color", Color("#2b251e"))
+	_trait_desc_label.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	_trait_desc_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	trait_v.add_child(_trait_desc_label)
 
@@ -561,7 +556,7 @@ func _build_ui() -> void:
 		r_hcol.add_child(hb)
 		_hair_color_btns.append(hb)
 
-	# Row 7: Eye Color Swatches (6) + Horn-Rimmed Glasses CheckBox
+	# Row 7: Eye Color Swatches (6) + Glasses CheckBox
 	var r_eyes := HBoxContainer.new()
 	r_eyes.add_theme_constant_override("separation", 5)
 	rv.add_child(r_eyes)
@@ -580,17 +575,17 @@ func _build_ui() -> void:
 	_glasses_check = CheckBox.new()
 	_glasses_check.text = "Glasses"
 	_glasses_check.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	_glasses_check.add_theme_stylebox_override("normal", _make_stylebox(Color("#faf5e8"), COL_INK, 2, 4, 8, 4))
-	_glasses_check.add_theme_stylebox_override("hover", _make_stylebox(Color("#f5ebcf"), COL_INK, 2, 4, 8, 4))
-	_glasses_check.add_theme_stylebox_override("pressed", _make_stylebox(Color("#f2b82e"), COL_INK, 2, 4, 8, 4))
-	_glasses_check.add_theme_stylebox_override("hover_pressed", _make_stylebox(Color("#f5c43d"), COL_INK, 2, 4, 8, 4))
+	_glasses_check.add_theme_stylebox_override("normal", _make_stylebox(COL_CARD, COL_BORDER, 1, 8, 8, 4))
+	_glasses_check.add_theme_stylebox_override("hover", _make_stylebox(Color("#2f3640"), COL_AMBER, 1, 8, 8, 4))
+	_glasses_check.add_theme_stylebox_override("pressed", _make_stylebox(COL_CARD, COL_AMBER, 1, 8, 8, 4))
+	_glasses_check.add_theme_stylebox_override("hover_pressed", _make_stylebox(Color("#2f3640"), COL_AMBER, 1, 8, 8, 4))
 	_glasses_check.add_theme_icon_override("checked", ThemeHelper.make_checkbox_icon(true))
 	_glasses_check.add_theme_icon_override("unchecked", ThemeHelper.make_checkbox_icon(false))
-	_glasses_check.add_theme_color_override("font_color", COL_INK)
-	_glasses_check.add_theme_color_override("font_pressed_color", COL_INK)
-	_glasses_check.add_theme_color_override("font_hover_color", COL_INK)
-	_glasses_check.add_theme_color_override("font_hover_pressed_color", COL_INK)
-	_glasses_check.add_theme_color_override("font_focus_color", COL_INK)
+	_glasses_check.add_theme_color_override("font_color", COL_TEXT)
+	_glasses_check.add_theme_color_override("font_pressed_color", COL_TEXT)
+	_glasses_check.add_theme_color_override("font_hover_color", COL_TEXT)
+	_glasses_check.add_theme_color_override("font_hover_pressed_color", COL_TEXT)
+	_glasses_check.add_theme_color_override("font_focus_color", COL_TEXT)
 	_glasses_check.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	_glasses_check.add_theme_font_size_override("font_size", 13)
 	_glasses_check.toggled.connect(_on_glasses_toggled)
@@ -630,9 +625,9 @@ func _build_ui() -> void:
 
 	# Quick Randomize Selected Member Look button at bottom of Right Column
 	var rand_one_btn := Button.new()
-	rand_one_btn.text = "SHUFFLE THIS SURVIVOR'S LOOK"
+	rand_one_btn.text = "SHUFFLE THIS PERSON'S LOOK"
 	rand_one_btn.custom_minimum_size = Vector2(0, 32)
-	_style_button(rand_one_btn, COL_PARCHMENT_DARK, COL_INK, COL_INK, 12)
+	_style_button(rand_one_btn, COL_CARD, COL_TEXT, COL_BORDER, 12)
 	rand_one_btn.pressed.connect(_on_shuffle_selected_look)
 	rv.add_child(rand_one_btn)
 
@@ -643,7 +638,7 @@ func _build_ui() -> void:
 	back_btn.text = "< BACK TO TITLE"
 	back_btn.position = Vector2(18, 665)
 	back_btn.size = Vector2(210, 44)
-	_style_button(back_btn, Color("#353b35"), COL_PARCHMENT, COL_PARCHMENT_DARK, 14)
+	_style_button(back_btn, COL_CARD, COL_TEXT, COL_BORDER, 14)
 	back_btn.pressed.connect(_on_back_pressed)
 	add_child(back_btn)
 
@@ -653,14 +648,14 @@ func _build_ui() -> void:
 	_footer_summary_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_footer_summary_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_footer_summary_label.add_theme_font_size_override("font_size", 13)
-	_footer_summary_label.add_theme_color_override("font_color", COL_PARCHMENT)
+	_footer_summary_label.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	add_child(_footer_summary_label)
 
 	var next_btn := Button.new()
-	next_btn.text = "SELECT REAL-WORLD HOUSE ON OPENSTREETMAP >"
+	next_btn.text = "PICK YOUR REAL HOUSE ON OPENSTREETMAP  >"
 	next_btn.position = Vector2(746, 664)
 	next_btn.size = Vector2(518, 46)
-	_style_button(next_btn, COL_HAZARD_YELLOW, COL_INK, COL_ATOMIC_ORANGE, 15)
+	_style_button(next_btn, COL_AMBER, COL_INK, COL_AMBER, 15)
 	next_btn.pressed.connect(_on_confirm_next_pressed)
 	add_child(next_btn)
 
@@ -670,7 +665,7 @@ func _make_field_label(txt: String, min_w: float) -> Label:
 	l.custom_minimum_size = Vector2(min_w, 26)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.add_theme_font_size_override("font_size", 12)
-	l.add_theme_color_override("font_color", COL_INK)
+	l.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	return l
 
@@ -678,7 +673,7 @@ func _make_cycle_btn(txt: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = txt
 	b.custom_minimum_size = Vector2(36, 30)
-	_style_button(b, COL_BG_PANEL, COL_HAZARD_YELLOW, COL_INK, 14)
+	_style_button(b, COL_CARD, COL_AMBER, COL_BORDER, 14)
 	b.pressed.connect(cb)
 	return b
 
@@ -689,9 +684,9 @@ func _make_cycle_value_label() -> Label:
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	l.custom_minimum_size = Vector2(120, 30)
-	l.add_theme_stylebox_override("normal", _make_stylebox(Color("#faf5e8"), COL_INK, 1, 3, 6, 3))
+	l.add_theme_stylebox_override("normal", _make_stylebox(COL_BG_DARK, COL_BORDER, 1, 8, 6, 3))
 	l.add_theme_font_size_override("font_size", 13)
-	l.add_theme_color_override("font_color", COL_INK)
+	l.add_theme_color_override("font_color", COL_TEXT)
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	return l
 
@@ -703,11 +698,11 @@ func _make_swatch_button(col: Color, min_sz: Vector2) -> Button:
 	return b
 
 func _apply_swatch_selected_state(btn: Button, col: Color, is_sel: bool) -> void:
-	var border_col: Color = COL_HAZARD_YELLOW if is_sel else COL_INK
-	var bw: int = 3 if is_sel else 2
-	btn.add_theme_stylebox_override("normal", _make_stylebox(col, border_col, bw, 4, 2, 2))
-	btn.add_theme_stylebox_override("hover", _make_stylebox(col.lightened(0.1), COL_HAZARD_YELLOW, 3, 4, 2, 2))
-	btn.add_theme_stylebox_override("pressed", _make_stylebox(col.darkened(0.1), COL_ATOMIC_ORANGE, 3, 4, 2, 2))
+	var border_col: Color = COL_AMBER if is_sel else COL_BORDER
+	var bw: int = 3 if is_sel else 1
+	btn.add_theme_stylebox_override("normal", _make_stylebox(col, border_col, bw, 8, 2, 2))
+	btn.add_theme_stylebox_override("hover", _make_stylebox(col.lightened(0.1), COL_AMBER, 2, 8, 2, 2))
+	btn.add_theme_stylebox_override("pressed", _make_stylebox(col.darkened(0.1), COL_AMBER, 3, 8, 2, 2))
 	btn.text = "✓" if is_sel else ""
 	var lum: float = col.get_luminance()
 	var mark_col: Color = COL_INK if lum > 0.52 else Color.WHITE
@@ -738,14 +733,15 @@ func _on_draw_roster_card(card: Control, idx: int) -> void:
 	var is_sel: bool = (idx == selected_index)
 	var r := Rect2(Vector2.ZERO, card.size)
 
-	var bg_col: Color = Color("#fff9ec") if is_sel else COL_PARCHMENT
-	var border_col: Color = COL_ATOMIC_ORANGE if is_sel else COL_INK
-	card.draw_rect(Rect2(r.position + Vector2(2, 3), r.size), Color(0, 0, 0, 0.2), true)
-	card.draw_rect(r, bg_col, true)
-	card.draw_rect(r, border_col, false, 3.0 if is_sel else 2.0)
-
-	if is_sel:
-		card.draw_rect(Rect2(0, 0, 7, r.size.y), COL_ATOMIC_ORANGE, true)
+	var bg_col: Color = Color("#2f3640") if is_sel else COL_CARD
+	var border_col: Color = COL_AMBER if is_sel else COL_BORDER
+	var card_sb := StyleBoxFlat.new()
+	card_sb.bg_color = bg_col
+	card_sb.border_color = border_col
+	card_sb.set_border_width_all(2 if is_sel else 1)
+	card_sb.set_corner_radius_all(10)
+	card_sb.anti_aliasing = true
+	card.draw_style_box(card_sb, r)
 
 	# Mini Portrait
 	var port_rect := Rect2(12, 9, 76, 84)
@@ -762,22 +758,25 @@ func _on_draw_roster_card(card: Control, idx: int) -> void:
 	var is_leader: bool = bool(m.get("is_leader", false))
 	var trait_info: Dictionary = _get_trait_info(str(m.get("trait", "handy")))
 
-	card.draw_string(font, Vector2(98, 28), p_name, HORIZONTAL_ALIGNMENT_LEFT, 130, 15, COL_INK)
+	card.draw_string(font, Vector2(98, 28), p_name, HORIZONTAL_ALIGNMENT_LEFT, 130, 15, COL_TEXT)
 
 	if is_leader:
 		var badge_r := Rect2(r.size.x - 88, 9, 80, 22)
-		card.draw_rect(badge_r, COL_HAZARD_YELLOW, true)
-		card.draw_rect(badge_r, COL_INK, false, 1.5)
+		var badge_sb := StyleBoxFlat.new()
+		badge_sb.bg_color = COL_AMBER
+		badge_sb.set_corner_radius_all(11)
+		badge_sb.anti_aliasing = true
+		card.draw_style_box(badge_sb, badge_r)
 		card.draw_string(font, Vector2(badge_r.position.x + 2, badge_r.position.y + 15), "★ LEADER", HORIZONTAL_ALIGNMENT_CENTER, badge_r.size.x - 4, 11, COL_INK)
 
-	var meta_line: String = "Age %d • %s • %d Slots" % [age, role, slots]
-	card.draw_string(font, Vector2(98, 49), meta_line, HORIZONTAL_ALIGNMENT_LEFT, 210, 12, Color("#3f382e"))
+	var meta_line: String = "Age %d • %s • %d slots" % [age, role, slots]
+	card.draw_string(font, Vector2(98, 49), meta_line, HORIZONTAL_ALIGNMENT_LEFT, 210, 12, COL_TEXT_MUTED)
 
 	var perk_line: String = "Trait: " + str(trait_info.get("name", "Handy"))
-	card.draw_string(font, Vector2(98, 68), perk_line, HORIZONTAL_ALIGNMENT_LEFT, 210, 12, Color("#24523b"))
+	card.draw_string(font, Vector2(98, 68), perk_line, HORIZONTAL_ALIGNMENT_LEFT, 210, 12, COL_GREEN)
 
-	var cap_note: String = "Leads 60s Run!" if is_leader else ("Carry Weight: %d Slots" % slots)
-	card.draw_string(font, Vector2(98, 87), cap_note, HORIZONTAL_ALIGNMENT_LEFT, 210, 11, COL_ATOMIC_ORANGE if is_leader else Color("#5c5244"))
+	var cap_note: String = "Leads the grab" if is_leader else ("Carries %d slots" % slots)
+	card.draw_string(font, Vector2(98, 87), cap_note, HORIZONTAL_ALIGNMENT_LEFT, 210, 11, COL_AMBER if is_leader else COL_TEXT_MUTED)
 
 func _on_draw_preview_stage() -> void:
 	var c: Control = _preview_canvas
@@ -793,42 +792,41 @@ func _on_draw_preview_stage() -> void:
 	var port_rect := Rect2(port_x, 4.0, port_w, port_h)
 	CharacterArtist.draw_portrait(c, port_rect, prev_m, true)
 
-	# Nameplate Stamp under main portrait
+	# Name chip under the main portrait
 	var plate_rect := Rect2(port_x - 14.0, port_rect.end.y - 12.0, port_w + 28.0, 28.0)
-	c.draw_rect(plate_rect, COL_BG_PANEL, true)
-	c.draw_rect(plate_rect, COL_HAZARD_YELLOW, false, 2.0)
+	var plate_sb := StyleBoxFlat.new()
+	plate_sb.bg_color = COL_CARD
+	plate_sb.border_color = COL_BORDER
+	plate_sb.set_border_width_all(1)
+	plate_sb.set_corner_radius_all(14)
+	plate_sb.anti_aliasing = true
+	c.draw_style_box(plate_sb, plate_rect)
 	if font != null:
 		var title_txt: String = "%s (%d, %s)" % [
 			str(base_m.get("name", "Survivor")).to_upper(),
 			int(base_m.get("age", 35)),
 			str(base_m.get("role", "adult")).to_upper()
 		]
-		c.draw_string(font, Vector2(plate_rect.position.x + 6, plate_rect.position.y + 19), title_txt, HORIZONTAL_ALIGNMENT_CENTER, plate_rect.size.x - 12, 13, COL_HAZARD_YELLOW)
+		c.draw_string(font, Vector2(plate_rect.position.x + 6, plate_rect.position.y + 19), title_txt, HORIZONTAL_ALIGNMENT_CENTER, plate_rect.size.x - 12, 13, COL_TEXT)
 
-	# 2. Bottom Split Mini-Stages: Left = 60s Top-Down Scavenge, Right = Bunker Seated
+	# 2. Bottom split mini-stages: left = top-down in the house, right = seated in the shelter
 	var mini_y: float = 264.0
 	var mini_h: float = maxf(138.0, sz.y - mini_y - 4.0)
 	var mini_w: float = (sz.x - 12.0) * 0.5
 
-	# Left Mini-Stage: 60s House Floor Tiles + Rotating Walking Top-Down Character
+	# Left mini-stage: light laminate floor + a walking top-down character
 	var td_rect := Rect2(0.0, mini_y, mini_w, mini_h)
-	c.draw_rect(td_rect, Color("#d8c8a8"), true)
-	# Retro 1950s kitchen checkerboard tiles
-	var tile_sz: float = 22.0
-	var cols: int = int(td_rect.size.x / tile_sz) + 1
-	var rows: int = int(td_rect.size.y / tile_sz) + 1
+	c.draw_rect(td_rect, Color("#c9c3b8"), true)
+	var plank_h: float = 16.0
+	var rows: int = int(td_rect.size.y / plank_h) + 1
 	for ty in range(rows):
-		for tx in range(cols):
-			if (tx + ty) % 2 == 0:
-				var tr := Rect2(
-					td_rect.position.x + float(tx) * tile_sz,
-					td_rect.position.y + float(ty) * tile_sz,
-					minf(tile_sz, td_rect.end.x - (td_rect.position.x + float(tx) * tile_sz)),
-					minf(tile_sz, td_rect.end.y - (td_rect.position.y + float(ty) * tile_sz))
-				)
-				if tr.size.x > 0.0 and tr.size.y > 0.0:
-					c.draw_rect(tr, Color("#c7b491"), true)
-	c.draw_rect(td_rect, COL_INK, false, 2.0)
+		var py: float = td_rect.position.y + float(ty) * plank_h
+		if py > td_rect.end.y:
+			break
+		c.draw_line(Vector2(td_rect.position.x, py), Vector2(td_rect.end.x, py), Color("#b3ac9f"), 1.0)
+		var seam_x: float = td_rect.position.x + fmod(float(ty) * 53.0, td_rect.size.x)
+		c.draw_line(Vector2(seam_x, py), Vector2(seam_x, minf(py + plank_h, td_rect.end.y)), Color("#b3ac9f"), 1.0)
+	c.draw_rect(td_rect, COL_BORDER, false, 1.0)
 
 	var facing_ang: float = anim_clock * 1.35
 	var facing_vec := Vector2(cos(facing_ang), sin(facing_ang))
@@ -837,27 +835,27 @@ func _on_draw_preview_stage() -> void:
 
 	c.draw_rect(Rect2(td_rect.position.x, td_rect.position.y, td_rect.size.x, 20.0), COL_BG_PANEL, true)
 	if font != null:
-		c.draw_string(font, td_rect.position + Vector2(4, 14), "60s TOP-DOWN VIEW", HORIZONTAL_ALIGNMENT_CENTER, td_rect.size.x - 8, 10, COL_PARCHMENT)
+		c.draw_string(font, td_rect.position + Vector2(4, 14), "IN THE HOUSE", HORIZONTAL_ALIGNMENT_CENTER, td_rect.size.x - 8, 10, COL_TEXT_MUTED)
 
-	# Right Mini-Stage: Bunker Concrete Wall + Wooden Supply Crate + Seated Character
+	# Right mini-stage: shelter wall + a plastic storage tote as a seat + seated character
 	var bk_rect := Rect2(mini_w + 12.0, mini_y, mini_w, mini_h)
-	c.draw_rect(bk_rect, Color("#2a302a"), true)
-	c.draw_rect(Rect2(bk_rect.position.x, bk_rect.end.y - 30.0, bk_rect.size.x, 30.0), Color("#1e221e"), true)
-	c.draw_line(Vector2(bk_rect.position.x, bk_rect.end.y - 30.0), Vector2(bk_rect.end.x, bk_rect.end.y - 30.0), COL_INK, 2.0)
+	c.draw_rect(bk_rect, Color("#232a33"), true)
+	c.draw_rect(Rect2(bk_rect.position.x, bk_rect.end.y - 30.0, bk_rect.size.x, 30.0), Color("#161a20"), true)
+	c.draw_line(Vector2(bk_rect.position.x, bk_rect.end.y - 30.0), Vector2(bk_rect.end.x, bk_rect.end.y - 30.0), COL_BORDER, 1.0)
 
-	# Bunker wooden seat crate
+	# Storage tote seat
 	var seat_pt := Vector2(bk_rect.get_center().x, bk_rect.end.y - 38.0)
 	var crate_r := Rect2(seat_pt.x - 26.0, seat_pt.y - 2.0, 52.0, 28.0)
-	c.draw_rect(crate_r, Color("#7c5938"), true)
-	c.draw_rect(crate_r, COL_INK, false, 2.0)
-	c.draw_line(crate_r.position + Vector2(4, 14), Vector2(crate_r.end.x - 4, crate_r.position.y + 14), Color("#593e25"), 1.5)
+	c.draw_rect(crate_r, Color("#4a5562"), true)
+	c.draw_rect(crate_r, COL_INK, false, 1.5)
+	c.draw_rect(Rect2(crate_r.position.x - 2.0, crate_r.position.y, crate_r.size.x + 4.0, 5.0), Color("#5d6671"), true)
 
 	CharacterArtist.draw_bunker_seated_character(c, seat_pt, prev_m, anim_clock, 0.92)
 
-	c.draw_rect(bk_rect, COL_INK, false, 2.0)
+	c.draw_rect(bk_rect, COL_BORDER, false, 1.0)
 	c.draw_rect(Rect2(bk_rect.position.x, bk_rect.position.y, bk_rect.size.x, 20.0), COL_BG_PANEL, true)
 	if font != null:
-		c.draw_string(font, bk_rect.position + Vector2(4, 14), "BUNKER SEATED VIEW", HORIZONTAL_ALIGNMENT_CENTER, bk_rect.size.x - 8, 10, COL_PARCHMENT)
+		c.draw_string(font, bk_rect.position + Vector2(4, 14), "IN THE SHELTER", HORIZONTAL_ALIGNMENT_CENTER, bk_rect.size.x - 8, 10, COL_TEXT_MUTED)
 
 # ==============================================================================
 # UI SYNC & INTERACTION CALLBACKS
@@ -880,20 +878,20 @@ func _refresh_all_ui() -> void:
 	_age_value_label.text = "%d yrs • %s (%d Slots)" % [age, role.to_upper(), slots]
 
 	if is_leader:
-		_leader_btn.text = "★ SCAVENGE LEADER"
+		_leader_btn.text = "★ LEADS THE GRAB"
 		_leader_btn.disabled = true
-		_style_button(_leader_btn, COL_HAZARD_YELLOW, COL_INK, COL_INK, 12)
+		_style_button(_leader_btn, COL_AMBER, COL_INK, COL_AMBER, 12)
 	elif age < 13:
 		_leader_btn.text = "TOO YOUNG (<13)"
 		_leader_btn.disabled = true
-		_style_button(_leader_btn, Color("#7a7367"), Color("#dfd8ca"), COL_INK, 12)
+		_style_button(_leader_btn, COL_CARD_DIM, COL_TEXT_MUTED, COL_BORDER, 12)
 	else:
-		_leader_btn.text = "MAKE SCAVENGE LEADER"
+		_leader_btn.text = "MAKE GRAB LEADER"
 		_leader_btn.disabled = false
-		_style_button(_leader_btn, COL_BG_PANEL, COL_HAZARD_YELLOW, COL_INK, 11)
+		_style_button(_leader_btn, COL_CARD, COL_AMBER, COL_BORDER, 11)
 
 	var t_info: Dictionary = _get_trait_info(str(m.get("trait", "handy")))
-	_trait_label.text = str(t_info.get("name", "Handy Mechanic"))
+	_trait_label.text = str(t_info.get("name", "Handy"))
 	_trait_desc_label.text = str(t_info.get("desc", ""))
 
 	var h_idx: int = clampi(int(m.get("hair_style", 0)), 0, CharacterArtist.HAIR_STYLE_NAMES.size() - 1)
@@ -932,11 +930,11 @@ func _refresh_all_ui() -> void:
 		var cbtn: Button = _cond_buttons[cid]
 		var active: bool = (cid == condition_preview_mode)
 		if active:
-			_style_button(cbtn, COL_ATOMIC_ORANGE, Color.WHITE, COL_INK, 11)
+			_style_button(cbtn, COL_AMBER, COL_INK, COL_AMBER, 11)
 		else:
-			_style_button(cbtn, COL_PARCHMENT_DARK, COL_INK, COL_INK, 11)
+			_style_button(cbtn, COL_CARD, COL_TEXT, COL_BORDER, 11)
 
-	_role_perk_label.text = "%s\nACTIVE PERK — %s: %s" % [
+	_role_perk_label.text = "%s\nTRAIT — %s: %s" % [
 		_get_age_perk_summary(age, role),
 		str(t_info.get("name", "")).to_upper(),
 		str(t_info.get("desc", ""))
@@ -948,14 +946,14 @@ func _refresh_all_ui() -> void:
 	_remove_member_btn.mouse_default_cursor_shape = Control.CURSOR_ARROW if _remove_member_btn.disabled else Control.CURSOR_POINTING_HAND
 
 	# Footer leader & count summary
-	var leader_name: String = "Ted"
+	var leader_name: String = "Sam"
 	var leader_age: int = 42
 	for fm in GameState.family_members:
 		if bool(fm.get("is_leader", false)):
 			leader_name = str(fm.get("name", "Leader"))
 			leader_age = int(fm.get("age", 35))
 			break
-	_footer_summary_label.text = "SCAVENGE LEADER: %s (%d)   •   SURVIVORS: %d / 4" % [
+	_footer_summary_label.text = "LEADS THE GRAB: %s (%d)   •   HOUSEHOLD: %d / 4" % [
 		leader_name.to_upper(), leader_age, GameState.family_members.size()
 	]
 
@@ -1078,11 +1076,11 @@ func _on_name_changed(new_text: String) -> void:
 		return
 	var m: Dictionary = _get_selected_member()
 	var trimmed: String = new_text.strip_edges()
-	m["name"] = trimmed if not trimmed.is_empty() else "Survivor"
+	m["name"] = trimmed if not trimmed.is_empty() else "Someone"
 	GameState.family_changed.emit()
 	var age_v: int = int(m.get("age", 35))
 	if bool(m.get("is_leader", false)):
-		_footer_summary_label.text = "SCAVENGE LEADER: %s (%d)   •   SURVIVORS: %d / 4" % [
+		_footer_summary_label.text = "LEADS THE GRAB: %s (%d)   •   HOUSEHOLD: %d / 4" % [
 			str(m["name"]).to_upper(), age_v, GameState.family_members.size()
 		]
 
@@ -1234,52 +1232,52 @@ func _apply_demo_step(step: int) -> void:
 		0:
 			selected_index = 0
 			var m0: Dictionary = GameState.family_members[0]
-			m0["hair_style"] = 1 # 50s Pompadour
+			m0["hair_style"] = 1 # Quiff
 			m0["facial_hair"] = 2 # Full Beard
-			m0["shirt_style"] = 4 # Utility Jacket
+			m0["shirt_style"] = 4 # Rain Jacket
 			m0["trait"] = "sprinter"
 			_play_sfx("button_click")
 			_emit_family_updated()
 		1:
 			selected_index = 1
 			var m1: Dictionary = GameState.family_members[1]
-			m1["hair_style"] = 3 # High Beehive
+			m1["hair_style"] = 3 # High Bun
 			m1["hair_color"] = "#e85ca8" # Bubblegum Pink
 			m1["glasses"] = true
-			m1["age"] = 64 # Show Elder wrinkles & role update!
+			m1["age"] = 64 # Show elder wrinkles & role update
 			m1["role"] = CharacterArtist.get_role_for_age(64)
 			_play_sfx("button_click")
 			_emit_family_updated()
 		2:
-			# Restore Dolores to classic vibrant blonde & show Mary Jane customization
+			# Put Priya back to 39 and dye her hair, then style Maya
 			var m1b: Dictionary = GameState.family_members[1]
 			m1b["age"] = 39
 			m1b["role"] = "adult"
 			m1b["hair_color"] = "#d8a438"
 			selected_index = 2
 			var m2: Dictionary = GameState.family_members[2]
-			m2["hair_style"] = 7 # Spiky Punk
-			m2["hair_color"] = "#2bc4d8" # Atomic Cyan!
-			m2["shirt_style"] = 3 # Ringer Tee
+			m2["hair_style"] = 7 # Spiky
+			m2["hair_color"] = "#2bc4d8" # Teal Dye
+			m2["shirt_style"] = 0 # Hoodie
 			m2["trait"] = "scout"
 			_play_sfx("button_click")
 			_emit_family_updated()
 		3:
-			# Preview Mutant! visual simulator briefly
-			condition_preview_mode = "mutant"
+			# Preview the Sick look briefly
+			condition_preview_mode = "sick"
 			_play_sfx("button_click")
 			_refresh_all_ui()
 		4:
-			# Preview Insane tinfoil hat visual simulator briefly
-			condition_preview_mode = "insane"
+			# Preview the Injured look briefly
+			condition_preview_mode = "injured"
 			_play_sfx("button_click")
 			_refresh_all_ui()
 		5:
-			# Customize Timmy (child) & restore Healthy condition
+			# Style Leo (child) & go back to OK
 			condition_preview_mode = "healthy"
 			selected_index = 3
 			var m3: Dictionary = GameState.family_members[3]
-			m3["hair_style"] = 5 # Voluminous Curly
+			m3["hair_style"] = 5 # Curly Afro
 			m3["hair_color"] = "#e06d2b" # Ginger Orange
 			m3["glasses"] = true
 			m3["age"] = 9

@@ -4,9 +4,10 @@ extends RefCounted
 ## Procedural real-world OpenStreetMap house floorplan generator for
 ## "The End Is Near".
 ## Converts an OSM building polygon (footprint_meters) into a scaled, centered,
-## 6-room mid-century suburban house with wide doorways, thematic props,
-## self-healing BFS walkability verification from the Fallout Bunker Hatch,
-## A* pathfinding, and classic survival item & family spawns.
+## 6-room suburban house with wide doorways, thematic props,
+## self-healing BFS walkability verification from the shelter hatch,
+## A* pathfinding, and survival item & family spawns. (Pass 2 levels come from
+## FloorplanGenerator; the legacy path and ITEM_META are kept for older callers.)
 
 const PX_PER_METER: float = 46.0
 const MIN_HOUSE_WIDTH_M: float = 14.0
@@ -36,63 +37,63 @@ const ROOM_KIDS_BED: String = "Kids Bedroom"
 const ROOM_BATH_UTILITY: String = "Bathroom & Utility"
 
 const ITEM_META: Dictionary = {
-	"soup": {
-		"name": "Tomato Soup Can",
+	"food": {
+		"name": "Canned Food",
 		"slots": 1,
 		"rooms": [ROOM_KITCHEN, ROOM_BATH_UTILITY]
 	},
 	"water": {
-		"name": "Emergency Water",
+		"name": "Bottled Water",
 		"slots": 1,
 		"rooms": [ROOM_KITCHEN, ROOM_BATH_UTILITY]
 	},
 	"medkit": {
-		"name": "First Aid Medkit",
-		"slots": 1,
+		"name": "Medkit",
+		"slots": 2,
 		"rooms": [ROOM_BATH_UTILITY, ROOM_MASTER_BED]
 	},
 	"gas_mask": {
-		"name": "Civil Defense Gas Mask",
+		"name": "Gas Mask",
 		"slots": 1,
 		"rooms": [ROOM_BATH_UTILITY, ROOM_MASTER_BED, ROOM_CENTRAL_HALL]
 	},
 	"radio": {
-		"name": "CONELRAD Tube Radio",
+		"name": "Hand-Crank Emergency Radio",
 		"slots": 1,
 		"rooms": [ROOM_LIVING, ROOM_KITCHEN]
 	},
 	"suitcase": {
-		"name": "Leather Suitcase",
-		"slots": 2,
+		"name": "Suitcase",
+		"slots": 3,
 		"rooms": [ROOM_MASTER_BED, ROOM_KIDS_BED, ROOM_CENTRAL_HALL]
 	},
-	"book": {
-		"name": "Boy Scout Handbook",
+	"manual": {
+		"name": "Survival Manual",
 		"slots": 1,
 		"rooms": [ROOM_LIVING, ROOM_KIDS_BED, ROOM_MASTER_BED]
 	},
 	"flashlight": {
-		"name": "Heavy Flashlight",
+		"name": "Flashlight",
 		"slots": 1,
 		"rooms": [ROOM_BATH_UTILITY, ROOM_MASTER_BED, ROOM_KITCHEN]
 	},
 	"map": {
-		"name": "Neighborhood Evacuation Map",
+		"name": "Local Map",
 		"slots": 1,
 		"rooms": [ROOM_LIVING, ROOM_MASTER_BED, ROOM_CENTRAL_HALL]
 	},
 	"ammo": {
-		"name": "Rifle Ammunition",
+		"name": "Ammo",
 		"slots": 1,
 		"rooms": [ROOM_MASTER_BED, ROOM_BATH_UTILITY, ROOM_LIVING]
 	},
 	"bug_spray": {
-		"name": "Atomic Bug Spray",
+		"name": "Bug Spray",
 		"slots": 1,
 		"rooms": [ROOM_BATH_UTILITY, ROOM_KITCHEN]
 	},
 	"padlock": {
-		"name": "Heavy Steel Padlock",
+		"name": "Padlock",
 		"slots": 1,
 		"rooms": [ROOM_BATH_UTILITY, ROOM_CENTRAL_HALL]
 	},
@@ -101,28 +102,18 @@ const ITEM_META: Dictionary = {
 		"slots": 1,
 		"rooms": [ROOM_LIVING, ROOM_KIDS_BED]
 	},
-	"checkers": {
-		"name": "Checkers Board",
+	"console": {
+		"name": "Game Console",
 		"slots": 1,
 		"rooms": [ROOM_KIDS_BED, ROOM_LIVING]
 	},
-	"harmonica": {
-		"name": "Chrome Harmonica",
-		"slots": 1,
-		"rooms": [ROOM_KIDS_BED, ROOM_LIVING, ROOM_MASTER_BED]
-	},
-	"toolbox": {
-		"name": "Repair Toolbox",
-		"slots": 2,
-		"rooms": [ROOM_BATH_UTILITY, ROOM_KITCHEN]
-	},
 	"axe": {
-		"name": "Fireman's Axe",
+		"name": "Axe",
 		"slots": 2,
 		"rooms": [ROOM_BATH_UTILITY, ROOM_KITCHEN]
 	},
 	"rifle": {
-		"name": "Hunting Rifle",
+		"name": "Rifle",
 		"slots": 2,
 		"rooms": [ROOM_MASTER_BED, ROOM_LIVING]
 	}
@@ -130,7 +121,7 @@ const ITEM_META: Dictionary = {
 
 const RANDOM_BONUS_POOL: Array[String] = [
 	"flashlight", "map", "ammo", "bug_spray", "padlock",
-	"cards", "checkers", "harmonica", "toolbox", "axe", "rifle"
+	"cards", "console", "axe", "rifle"
 ]
 
 
@@ -205,7 +196,7 @@ static func _legacy_generate_from_osm_house(
 	var interior_bounds: Rect2 = _compute_rooms_bounds(rooms)
 	var total_bounds: Rect2 = interior_bounds.grow(EXTERIOR_WALL_THICK)
 
-	# Locate Central Hall and snap Fallout Bunker Hatch to a clean grid-aligned center.
+	# Locate Central Hall and snap the shelter hatch to a clean grid-aligned center.
 	var hall_room: Dictionary = _find_room_by_name(rooms, ROOM_CENTRAL_HALL)
 	var hall_rect: Rect2 = hall_room["rect"]
 	var nav_origin: Vector2 = Vector2(
@@ -249,7 +240,7 @@ static func _legacy_generate_from_osm_house(
 	nav_grid.erase("_resolved_walls")
 
 	# 6. Place leader_start_pos (~90 px from hatch_pos), non-leader family_members,
-	#    and classic survival items on verified BFS-reachable cells.
+	#    and survival items on verified BFS-reachable cells.
 	var leader_start_pos: Vector2 = _pick_leader_start_pos(nav_grid, rooms, walls, furniture, hatch_pos)
 	var family_spawns: Array = _spawn_family_members(
 		family_members,
@@ -1453,7 +1444,7 @@ static func _subtract_interval(intervals: Array[Vector2], cut_a: float, cut_b: f
 
 
 # ---------------------------------------------------------------------------
-# Step 4: Thematic Mid-Century Furniture Placement Along Room Edges/Corners
+# Step 4: Thematic Furniture Placement Along Room Edges/Corners
 # ---------------------------------------------------------------------------
 
 static func _place_all_furniture(
@@ -1468,7 +1459,7 @@ static func _place_all_furniture(
 		var rd: Dictionary = room
 		var rname: String = str(rd["name"])
 		if rname == ROOM_CENTRAL_HALL:
-			# Keep Central Hall completely clear around the Fallout Bunker Hatch and hub doorways!
+			# Keep Central Hall completely clear around the shelter hatch and hub doorways!
 			continue
 
 		var rrect: Rect2 = rd["rect"]
@@ -2073,9 +2064,9 @@ static func _spawn_house_items(
 		occupied_family.append(fsd["pos"])
 
 	# Build the classic spawn manifest:
-	# - 6..8 "soup" cans (weighted toward Kitchen & Utility, plus random rooms)
+	# - 6..8 "food" cans (weighted toward Kitchen & Utility, plus random rooms)
 	# - 6..8 "water" bottles (weighted toward Kitchen & Bathroom/Utility, plus random rooms)
-	# - Guaranteed core survival items: 1 "medkit", 1 "gas_mask", 1 "radio", 1 "suitcase", 1 "book", 1 weapon ("rifle" or "axe")
+	# - Guaranteed core survival items: 1 "medkit", 1 "gas_mask", 1 "radio", 1 "suitcase", 1 "manual", 1 weapon ("rifle" or "axe")
 	# - Plus 6..8 randomized bonus items from RANDOM_BONUS_POOL placed by room theme!
 	var spawn_requests: Array[Dictionary] = []
 
@@ -2084,7 +2075,7 @@ static func _spawn_house_items(
 		var soup_rooms: Array[String] = [ROOM_KITCHEN, ROOM_BATH_UTILITY]
 		if s_i >= soup_count - 2:
 			soup_rooms = [ROOM_LIVING, ROOM_MASTER_BED, ROOM_KIDS_BED, ROOM_KITCHEN]
-		spawn_requests.append({"item_id": "soup", "pref": soup_rooms})
+		spawn_requests.append({"item_id": "food", "pref": soup_rooms})
 
 	var water_count: int = rng.randi_range(6, 8)
 	for w_i in range(water_count):
@@ -2095,7 +2086,7 @@ static func _spawn_house_items(
 
 	var primary_weapon: String = "rifle" if rng.randf() < 0.5 else "axe"
 	var guaranteed_ids: Array[String] = [
-		"medkit", "gas_mask", "radio", "suitcase", "book", primary_weapon
+		"medkit", "gas_mask", "radio", "suitcase", "manual", primary_weapon
 	]
 	for gid in guaranteed_ids:
 		var g_meta: Dictionary = ITEM_META[gid]

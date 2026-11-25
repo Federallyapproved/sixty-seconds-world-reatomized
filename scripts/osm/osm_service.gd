@@ -922,7 +922,7 @@ static func _classify_poi_tags(tags: Dictionary) -> Dictionary:
 		if st in PHARMACY_SHOPS:
 			return {"category": "pharmacy", "osm_tag": "shop=" + st, "subkind": st}
 
-	# 3. Civic Emergency Stations (Police / Fire / Ranger / Civil Defense / EMS)
+	# 3. Civic Emergency Stations (Police / Fire / Ranger / Emergency Management / EMS)
 	if amenity in CIVIC_AMENITIES or bldg in ["fire_station", "police"] or emergency_tag in CIVIC_EMERGENCIES:
 		var civ_kind: String = amenity if amenity in CIVIC_AMENITIES else (bldg if bldg in ["fire_station", "police"] else emergency_tag)
 		var civ_prefix: String = "amenity=" if amenity in CIVIC_AMENITIES else ("building=" if bldg in ["fire_station", "police"] else "emergency=")
@@ -1052,7 +1052,7 @@ static func _pretty_subkind(category: String, subkind: String) -> String:
 		"ranger_station":
 			return "Ranger Station"
 		"civil_defence":
-			return "Civil Defense Station"
+			return "Emergency Management Office"
 		"ambulance_station", "disaster_response":
 			return "Emergency Station"
 		"hardware", "doityourself":

@@ -49,6 +49,8 @@ func _run_all_audits() -> void:
 	await process_frame
 
 	FamilyScreenScript = load("res://scripts/ui/family_screen.gd")
+	# Scripts that use the autoloads are loaded here, at run time: naming their class in this file
+	# compiles them before the autoloads exist, and the broken copy would be cached.
 	ScavengeSceneScript = load("res://scripts/scavenge/scavenge_scene.gd")
 	EventDeckScript = load("res://scripts/events/event_deck.gd")
 	BunkerSimScript = load("res://scripts/bunker/bunker_sim.gd")
@@ -318,11 +320,14 @@ func _verify_house_layout(tag: String, layout: Dictionary, expected_family_spawn
 		return false
 	for it in items:
 		var ipos: Vector2 = (it as Dictionary).get("pos", Vector2.ZERO)
-		if not HouseGenerator.is_walkable(nav_grid, ipos):
-			_record_fail("%s item %s spawned on non-walkable cell!" % [tag, str((it as Dictionary).get("item_id", ""))])
+		# Pass-2 rule (as in critic_60s_audit): loot may sit on furniture; it counts as reachable when
+		# the leader can stand within ScavengeScene.INTERACT_RADIUS of it.
+		var reach_ok: bool = HouseGenerator.is_walkable(nav_grid, ipos) or FloorplanGenerator.reachable_near(nav_grid, ipos, float(ScavengeSceneScript.get_script_constant_map()["INTERACT_RADIUS"]) - 4.0)
+		if not reach_ok:
+			_record_fail("%s item %s spawned out of reach!" % [tag, str((it as Dictionary).get("item_id", ""))])
 			return false
 		var path: PackedVector2Array = HouseGenerator.find_path(nav_grid, start_pos, ipos)
-		if path.size() < 2:
+		if path.size() < 2 and not FloorplanGenerator.reachable_near(nav_grid, ipos, float(ScavengeSceneScript.get_script_constant_map()["INTERACT_RADIUS"]) - 4.0):
 			_record_fail("%s A* find_path failed to item!" % tag)
 			return false
 	for fs in fspawns:
@@ -436,16 +441,16 @@ func _audit_ui_screens_and_scavenge_edge_cases() -> void:
 
 	# Verify 4-slot limit blocks 2-slot item when 3 slots used
 	var fake_rifle := {"uid": 9991, "item_id": "rifle", "pos": scav.get("_player_pos"), "slots": 2, "name": "Rifle", "short_name": "Rifle", "collected": false}
-	var fake_soup1 := {"uid": 9992, "item_id": "soup", "pos": scav.get("_player_pos"), "slots": 1, "name": "Soup", "short_name": "Soup", "collected": false}
-	var fake_soup2 := {"uid": 9993, "item_id": "soup", "pos": scav.get("_player_pos"), "slots": 1, "name": "Soup", "short_name": "Soup", "collected": false}
+	var fake_soup1 := {"uid": 9992, "item_id": "food", "pos": scav.get("_player_pos"), "slots": 1, "name": "Soup", "short_name": "Soup", "collected": false}
+	var fake_soup2 := {"uid": 9993, "item_id": "food", "pos": scav.get("_player_pos"), "slots": 1, "name": "Soup", "short_name": "Soup", "collected": false}
 	var fake_suit := {"uid": 9994, "item_id": "suitcase", "pos": scav.get("_player_pos"), "slots": 2, "name": "Suitcase", "short_name": "Suitcase", "collected": false}
 
 	# Pass 2 rules: grabs are timed (completed immediately here), SPACE at the hatch deposits, and the
 	# suitcase raises capacity only while it is carried.
 	var t_suit := {"kind": "item", "uid": 9994, "pos": fake_suit["pos"], "slots": 2, "name": "Suitcase", "item_id": "suitcase", "ref": fake_suit}
-	var t_soup1 := {"kind": "item", "uid": 9992, "pos": fake_soup1["pos"], "slots": 1, "name": "Soup", "item_id": "soup", "ref": fake_soup1}
+	var t_soup1 := {"kind": "item", "uid": 9992, "pos": fake_soup1["pos"], "slots": 1, "name": "Soup", "item_id": "food", "ref": fake_soup1}
 	var t_rifle := {"kind": "item", "uid": 9991, "pos": fake_rifle["pos"], "slots": 2, "name": "Rifle", "item_id": "rifle", "ref": fake_rifle}
-	var t_soup2 := {"kind": "item", "uid": 9993, "pos": fake_soup2["pos"], "slots": 1, "name": "Soup", "item_id": "soup", "ref": fake_soup2}
+	var t_soup2 := {"kind": "item", "uid": 9993, "pos": fake_soup2["pos"], "slots": 1, "name": "Soup", "item_id": "food", "ref": fake_soup2}
 	var ok1: bool = _grab_now(scav, t_soup1)
 	var ok2: bool = _grab_now(scav, t_rifle)
 	# Now at 3/4 slots -> picking up the 2-slot Suitcase MUST fail!
@@ -461,8 +466,8 @@ func _audit_ui_screens_and_scavenge_edge_cases() -> void:
 	var case_cap: int = 4 + int(ScavengeSceneScript.get("SUITCASE_EXTRA_SLOTS"))
 	if not ok_case or int(scav.get("_max_slots")) != case_cap:
 		_record_fail("Carried suitcase failed to raise _max_slots to %d (got %d)" % [case_cap, int(scav.get("_max_slots"))])
-	var fake_soup3 := {"uid": 9995, "item_id": "soup", "pos": scav.get("_player_pos"), "slots": 1, "name": "Soup", "short_name": "Soup", "collected": false}
-	_grab_now(scav, {"kind": "item", "uid": 9995, "pos": fake_soup3["pos"], "slots": 1, "name": "Soup", "item_id": "soup", "ref": fake_soup3})
+	var fake_soup3 := {"uid": 9995, "item_id": "food", "pos": scav.get("_player_pos"), "slots": 1, "name": "Soup", "short_name": "Soup", "collected": false}
+	_grab_now(scav, {"kind": "item", "uid": 9995, "pos": fake_soup3["pos"], "slots": 1, "name": "Soup", "item_id": "food", "ref": fake_soup3})
 	_space_deposit(scav)
 	if int(scav.get("_max_slots")) != case_cap or not bool(scav.call("_is_carrying_item", "suitcase")):
 		_record_fail("Suitcase should stay in hand (and keep capacity) when SPACE deposits at the hatch")
@@ -491,119 +496,124 @@ func _audit_ui_screens_and_scavenge_edge_cases() -> void:
 	_record_pass("SummaryScreen Victory & Defeat dossiers rendered cleanly")
 
 # ==============================================================================
-# 5. EXHAUSTIVE 60-EVENT DECK & OPTION FUZZER
+# 5. EXHAUSTIVE EVENT & OPTION FUZZER (M1: every data-driven event, every option, two shelf states)
 # ==============================================================================
+func _qa_state(rich: bool, seed_v: int) -> ShelterState:
+	var fam: Array = [
+		{"id": "m0", "name": "Sam", "role": "adult", "age": 42, "is_leader": true, "in_bunker": true, "alive": true},
+		{"id": "m1", "name": "Priya", "role": "adult", "age": 39, "in_bunker": true, "alive": true},
+		{"id": "m2", "name": "Maya", "role": "teen", "age": 16, "in_bunker": true, "alive": true},
+		{"id": "m3", "name": "Leo", "role": "child", "age": 9, "in_bunker": true, "alive": true},
+	]
+	var haul: Dictionary = {}
+	if rich:
+		for iid in ShelterData.core_ids():
+			haul[iid] = 6 if iid in ["food", "water"] else 2
+	var places: Array = [
+		{"osm_id": 801, "name": "Corner Market", "category": "grocery", "walk_m": 300.0, "lat": 0.0, "lon": 0.0},
+		{"osm_id": 802, "name": "Lincoln School", "category": "school", "walk_m": 500.0, "lat": 0.0, "lon": 0.0},
+		{"osm_id": 803, "name": "Main St Pharmacy", "category": "pharmacy", "walk_m": 700.0, "lat": 0.0, "lon": 0.0},
+		{"osm_id": 804, "name": "", "category": "neighbor_house", "walk_m": 40.0, "lat": 0.0, "lon": 0.0},
+		{"osm_id": 805, "name": "Town Church", "category": "church", "walk_m": 600.0, "lat": 0.0, "lon": 0.0},
+		{"osm_id": 806, "name": "Fuel Stop", "category": "auto", "walk_m": 900.0, "lat": 0.0, "lon": 0.0},
+	]
+	var s: ShelterState = ShelterSim.new_run({"members": fam, "haul": haul, "places": places, "rad_factors": [0.1, 0.1, 0.1, 0.1, 0.1, 0.1], "h1_home_msv": 9000.0, "seed": seed_v})
+	if rich:
+		(s.members[1] as Dictionary)["sick"] = true
+		(s.members[2] as Dictionary)["injured"] = true
+		s.break_one("radio")
+		s.pets["dog"] = {"since": 1}
+		s.followed = true
+	s.day = 12
+	# Put an explorer out at each kind of place so trip events have someone to happen to.
+	return s
+
+
 func _audit_all_60_events_exhaustively() -> void:
-	print("\n--- [SUITE 5] Exhaustive 60-Event Deck & Every Option Resolution Audit ---")
-	var gs: Node = root.get_node("GameState")
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 998877
-
-	var all_ids: Array[String] = EventDeckScript.get_all_event_ids()
+	print("\n--- [SUITE 5] Every data-driven event, every option, two shelf states ---")
+	var all_ids: Array = ShelterData.events().keys()
 	if all_ids.size() < 60:
-		_record_fail("Expected >= 60 events in EventDeck, got %d" % all_ids.size())
-
+		_record_fail("Expected >= 60 events, got %d" % all_ids.size())
 	var total_branches_tested: int = 0
 	for ev_id in all_ids:
-		# Test each event in TWO inventory states: (A) fully stocked + mutant + pets, (B) 0 items & 0 rations
+		var ev_src: Dictionary = ShelterData.event(str(ev_id))
 		for state_mode in [0, 1]:
-			gs.call("init_default_family")
-			gs.call("init_default_house")
-			gs.call("init_default_nuke")
-			gs.call("reset_to_defaults")
-			for m in gs.get("family_members"):
-				(m as Dictionary)["in_bunker"] = true
-				(m as Dictionary)["alive"] = true
-			if state_mode == 0:
-				gs.set("soup_quarters", 24)
-				gs.set("water_quarters", 24)
-				gs.set("medkit_count", 3)
-				gs.set("ammo_count", 6)
-				gs.set("bug_spray_count", 2)
-				gs.set("padlock_active", true)
-				gs.set("has_cat_sharikov", true)
-				gs.set("has_dog_pancake", true)
-				for gid in gs.get("DURABLE_GEAR_IDS"):
-					gs.call("add_scavenged_item", str(gid), 1)
-				((gs.get("family_members") as Array)[2] as Dictionary)["is_mutant"] = true
-				gs.get("bunker_items")["radio"]["broken"] = true
-
-			var built: Dictionary = EventDeckScript.build_event_by_id(ev_id, 10, rng)
-			var opts: Array = built.get("options", [])
+			var base: ShelterState = _qa_state(state_mode == 0, 4000 + total_branches_tested)
+			var trip_cat: Array = (ev_src.get("conditions", {}) as Dictionary).get("trip_place", [])
+			if not trip_cat.is_empty():
+				for p_v in base.places:
+					if str((p_v as Dictionary)["category"]) in trip_cat:
+						ShelterTrips.launch(base, base.members[1] if state_mode == 1 else base.members[0], int((p_v as Dictionary)["idx"]), [])
+						break
+			var prepared: Dictionary = ShelterEvents._prepare(base, ev_src)
+			var opts: Array = ShelterEvents.options_for(base, prepared)
 			if opts.is_empty():
 				_record_fail("Event %s produced 0 options!" % ev_id)
 				return
 			var any_avail: bool = false
-			for o in opts:
-				if bool((o as Dictionary).get("available", false)):
-					any_avail = true
-				var cid: String = str((o as Dictionary).get("id", ""))
-				var res: Dictionary = EventDeckScript.resolve_event(built, cid, rng)
+			for o_v in opts:
+				var o: Dictionary = o_v
+				if not bool(o.get("available", false)):
+					continue
+				any_avail = true
+				var s2: ShelterState = _qa_state(state_mode == 0, 5000 + total_branches_tested)
+				if not trip_cat.is_empty():
+					for p_v2 in s2.places:
+						if str((p_v2 as Dictionary)["category"]) in trip_cat:
+							ShelterTrips.launch(s2, s2.members[1] if state_mode == 1 else s2.members[0], int((p_v2 as Dictionary)["idx"]), [])
+							break
+				var ev2: Dictionary = ShelterEvents._prepare(s2, ev_src)
+				s2.today_event = ev2
+				s2.today_resolved = false
+				s2.today_options = ShelterEvents.options_for(s2, ev2)
+				var res: Dictionary = ShelterSim.choose(s2, str(o["id"]))
 				total_branches_tested += 1
-				if str(res.get("outcome_text", "")).strip_edges().is_empty():
-					_record_fail("Event %s choice %s produced empty outcome_text!" % [ev_id, cid])
+				if str(res.get("text", "")).strip_edges().is_empty() or str(res.get("text", "")).find("{") != -1:
+					_record_fail("Event %s choice %s produced an empty or unfilled outcome: '%s'" % [ev_id, str(o["id"]), str(res.get("text", ""))])
+					return
+				if s2.food() < 0 or s2.water() < 0:
+					_record_fail("Event %s choice %s made stock negative" % [ev_id, str(o["id"])])
 					return
 			if not any_avail:
 				_record_fail("Event %s had ZERO available options in state_mode=%d (SOFTLOCK!)" % [ev_id, state_mode])
 				return
-
-	_record_pass("All %d EventDeck events & %d option branches resolved with zero format/key errors and zero softlocks" % [all_ids.size(), total_branches_tested])
+	_record_pass("All %d data-driven events & %d option branches resolved with filled text, no negative stock and zero softlocks" % [all_ids.size(), total_branches_tested])
 
 # ==============================================================================
-# 6. 10-SEED 35-DAY FULL BUNKER SURVIVAL FUZZER
+# 6. 10-SEED 35-DAY FULL SHELTER FUZZER (M1 engine, random choices and trips)
 # ==============================================================================
 func _audit_10_seed_35_day_bunker_fuzz() -> void:
-	print("\n--- [SUITE 6] 10-Seed 35-Day Full Bunker Simulation Fuzzer ---")
+	print("\n--- [SUITE 6] 10-seed 35-day shelter fuzzer (M1) ---")
 	var gs: Node = root.get_node("GameState")
-
 	var configs: Array[Dictionary] = [
-		{"seed": 1001, "members": 1, "ages": [38], "items": "zero", "zone": "near_blast", "desc": "Solo adult, 0 items (dehydration/starvation death)"},
-		{"seed": 1002, "members": 1, "ages": [16], "items": "rich", "zone": "near_blast", "desc": "Solo teen + expeditions"},
-		{"seed": 1003, "members": 2, "ages": [74, 8], "items": "rich", "zone": "regional_fallout", "desc": "2-member Elder (74) + Child (8), max items"},
-		{"seed": 1004, "members": 4, "ages": [42, 68, 15, 9], "items": "broken", "zone": "near_blast", "desc": "4-member w/ Elder & Kid, all gear starts broken"},
-		{"seed": 1005, "members": 4, "ages": [35, 34, 17, 11], "items": "rich", "zone": "nuclear_winter", "desc": "4-member Freezing Nuclear Winter (-11C)"},
-		{"seed": 1006, "members": 4, "ages": [45, 41, 16, 10], "items": "moderate", "zone": "ground_zero_edge", "desc": "4-member Ground Zero Edge (9.5 Sv/hr)"},
-		{"seed": 1007, "members": 4, "ages": [40, 38, 16, 9], "items": "max", "zone": "near_blast", "desc": "4-member Mutant + Pets + Church Expeditions"},
-		{"seed": 1008, "members": 2, "ages": [29, 65], "items": "max", "zone": "regional_fallout", "desc": "2-member Adult + Elder 35-day endurance"},
-		{"seed": 1009, "members": 4, "ages": [50, 48, 14, 6], "items": "moderate", "zone": "near_blast", "desc": "4-member random rationing & multi-POI scavenging"},
-		{"seed": 1010, "members": 3, "ages": [72, 17, 7], "items": "rich", "zone": "nuclear_winter", "desc": "3-member Elder + Teen + Child winter survival"}
+		{"seed": 1001, "ages": [38], "items": "zero", "zone": "near_blast"},
+		{"seed": 1002, "ages": [16], "items": "rich", "zone": "near_blast"},
+		{"seed": 1003, "ages": [74, 8], "items": "rich", "zone": "regional_fallout"},
+		{"seed": 1004, "ages": [42, 68, 15, 9], "items": "broken", "zone": "near_blast"},
+		{"seed": 1005, "ages": [35, 34, 17, 11], "items": "rich", "zone": "nuclear_winter"},
+		{"seed": 1006, "ages": [45, 41, 16, 10], "items": "moderate", "zone": "ground_zero_edge"},
+		{"seed": 1007, "ages": [40, 38, 16, 9], "items": "max", "zone": "near_blast"},
+		{"seed": 1008, "ages": [29, 65], "items": "max", "zone": "regional_fallout"},
+		{"seed": 1009, "ages": [50, 48, 14, 6], "items": "moderate", "zone": "near_blast"},
+		{"seed": 1010, "ages": [72, 17, 7], "items": "rich", "zone": "nuclear_winter"},
 	]
-
 	for cfg in configs:
 		var seed_val: int = int(cfg["seed"])
 		gs.set("demo_mode", false)
-		gs.get("rng").seed = seed_val
-
-		# Build custom family
+		(gs.get("rng") as RandomNumberGenerator).seed = seed_val
 		var ages: Array = cfg["ages"]
-		var new_fam: Array = []
+		var fam: Array = []
+		var traits: Array[String] = ["handy", "sprinter", "iron_stomach", "scout", "bookworm", "optimist"]
 		for i in range(ages.size()):
 			var a: int = int(ages[i])
-			var role: String = CharacterArtist.get_role_for_age(a)
-			var traits: Array[String] = ["handy", "sprinter", "iron_stomach", "scout", "bookworm", "optimist"]
-			var m: Dictionary = gs.call(
-				"make_family_member",
-				"member_%d" % i,
-				"Fuzz_%d" % i,
-				role,
-				a,
-				(i == 0),
-				traits[(seed_val + i) % traits.size()],
-				i % 6, i % 8, "#4a2e1b", "#2f5d8a", (i % 2 == 0), 0, "#c84b31", i % 5
-			)
-			new_fam.append(m)
-		gs.set("family_members", new_fam)
-
-		# Load preset house & targets
+			fam.append(gs.call("make_family_member", "member_%d" % i, "Fuzz_%d" % i, CharacterArtist.get_role_for_age(a), a, i == 0, traits[(seed_val + i) % traits.size()], i % 6, i % 8, "#4a2e1b", "#2f5d8a", i % 2 == 0, 0, "#c84b31", i % 5))
+		gs.set("family_members", fam)
 		var preset_ids: Array[String] = ["seattle", "concord", "brooklyn"]
 		var parsed: Dictionary = OsmService.load_preset(preset_ids[seed_val % 3])
 		var bldgs: Array = parsed.get("buildings", [])
-		var pois: Array = parsed.get("pois", [])
 		var chosen_h: Dictionary = OsmService.pick_best_house(bldgs, float(parsed.get("center_lat", 0.0)), float(parsed.get("center_lon", 0.0)), -1)
 		gs.set("selected_house", chosen_h)
-		gs.set("nearby_pois", OsmService.build_nearby_targets_for_house(chosen_h, bldgs, pois))
-
-		# Configure Nuke zone
+		gs.set("nearby_pois", OsmService.build_nearby_targets_for_house(chosen_h, bldgs, parsed.get("pois", [])))
 		var hlat: float = float(chosen_h.get("lat", 47.6242))
 		var hlon: float = float(chosen_h.get("lon", -122.3195))
 		var zone_req: String = str(cfg["zone"])
@@ -615,262 +625,133 @@ func _audit_10_seed_35_day_bunker_fuzz() -> void:
 		else:
 			var p_reg: Dictionary = NukePhysics.destination_point(hlat, hlon, 180.0, 18.0)
 			gs.set("nuke_config", NukePhysics.compute_impact(hlat, hlon, float(p_reg["lat"]), float(p_reg["lon"]), 800, 90.0, "Metro Strike"))
-
 		gs.call("reset_to_defaults")
 		for m in gs.get("family_members"):
 			(m as Dictionary)["in_bunker"] = true
 			(m as Dictionary)["alive"] = true
-
 		var items_mode: String = str(cfg["items"])
 		if items_mode == "moderate":
-			gs.call("add_scavenged_item", "soup", 6)
-			gs.call("add_scavenged_item", "water", 7)
-			gs.call("add_scavenged_item", "medkit", 2)
-			gs.call("add_scavenged_item", "gas_mask", 1)
-			gs.call("add_scavenged_item", "suitcase", 1)
-			gs.call("add_scavenged_item", "axe", 1)
-		elif items_mode == "rich" or items_mode == "max":
-			gs.call("add_scavenged_item", "soup", 18)
-			gs.call("add_scavenged_item", "water", 20)
-			gs.call("add_scavenged_item", "medkit", 4)
-			gs.call("add_scavenged_item", "ammo", 4)
-			gs.call("add_scavenged_item", "bug_spray", 2)
-			gs.call("add_scavenged_item", "padlock", 1)
+			for pair in [["food", 6], ["water", 7], ["medkit", 2], ["gas_mask", 1], ["suitcase", 1], ["axe", 1]]:
+				gs.call("add_scavenged_item", pair[0], pair[1])
+		elif items_mode in ["rich", "max", "broken"]:
+			for pair in [["food", 18], ["water", 20], ["medkit", 4], ["ammo", 4], ["bug_spray", 2], ["padlock", 1]]:
+				gs.call("add_scavenged_item", pair[0], pair[1])
 			for gid in gs.get("DURABLE_GEAR_IDS"):
 				gs.call("add_scavenged_item", str(gid), 1)
-			if items_mode == "max":
-				gs.set("has_cat_sharikov", true)
-				gs.set("has_dog_pancake", true)
-				if (gs.get("family_members") as Array).size() >= 3:
-					((gs.get("family_members") as Array)[2] as Dictionary)["is_mutant"] = true
-		elif items_mode == "broken":
-			gs.call("add_scavenged_item", "soup", 14)
-			gs.call("add_scavenged_item", "water", 16)
-			gs.call("add_scavenged_item", "medkit", 2)
-			for gid in gs.get("DURABLE_GEAR_IDS"):
-				gs.call("add_scavenged_item", str(gid), 1)
-				if str(gid) != "toolbox":
-					gs.get("bunker_items")[str(gid)]["broken"] = true
-
 		BunkerSimScript.start_bunker_run()
-		var rng: RandomNumberGenerator = gs.get("rng")
-		var expeditions_launched: int = 0
-		var expeditions_returned: int = 0
-
-		while int(gs.get("day")) < 35 and not bool(gs.get("game_over")):
-			var cur_day: int = int(gs.get("day"))
-			var ev_outcome: Dictionary = {}
-			if cur_day >= 1 and not (gs.call("get_living_bunker_members") as Array).is_empty():
-				var ev: Dictionary = EventDeckScript.draw_daily_event(cur_day, rng)
-				var opts: Array = ev.get("options", [])
-				var avail_ids: Array[String] = []
-				for o in opts:
-					if bool((o as Dictionary).get("available", false)):
-						avail_ids.append(str((o as Dictionary).get("id", "")))
-				var pick_id: String = avail_ids[rng.randi_range(0, avail_ids.size() - 1)] if not avail_ids.is_empty() else ""
-				ev_outcome = EventDeckScript.resolve_event(ev, pick_id, rng)
-
-			# Plan rations
-			var rations: Dictionary = {}
-			var med_id: String = ""
-			var s_left: int = int(gs.get("soup_quarters"))
-			var w_left: int = int(gs.get("water_quarters"))
-			for m_v in gs.call("get_living_bunker_members"):
-				var md: Dictionary = m_v
-				var mid: String = str(md.get("id", ""))
-				var sq: int = 0
-				var wq: int = 0
-				if (int(md.get("thirst", 0)) >= 1 or int(md.get("days_without_water", 0)) >= 2) and w_left > 0:
-					wq = 1
-					w_left -= 1
-				if (int(md.get("hunger", 0)) >= 1 or int(md.get("days_without_food", 0)) >= 3) and s_left > 0:
-					sq = 1
-					s_left -= 1
-				rations[mid] = {"soup_q": sq, "water_q": wq}
-				if med_id == "" and int(gs.get("medkit_count")) > 0 and (int(md.get("sickness", 0)) > 0 or int(md.get("injury", 0)) > 0):
-					med_id = mid
-
-			# Randomly launch expedition if idle
-			var exp_launch: Dictionary = {}
-			var was_active_before: bool = not (gs.get("active_expedition") as Dictionary).is_empty()
-			if not was_active_before and rng.randf() < 0.45:
-				var living_in: Array = gs.call("get_living_bunker_members")
-				var elig: Array = []
-				for m_v2 in living_in:
-					var md2: Dictionary = m_v2
-					if int(md2.get("age", 30)) >= 13:
-						elig.append(md2)
-				var targets: Array = ExpeditionEngineScript.get_available_targets()
-				if not elig.is_empty() and not targets.is_empty():
-					var chosen_m: Dictionary = elig[rng.randi_range(0, elig.size() - 1)]
-					var t_idx: int = rng.randi_range(0, targets.size() - 1)
-					var gear: Array[String] = []
-					var max_gear_items: int = 4 if bool(gs.call("has_working_item", "suitcase")) else 1
-					for g_cand in ["suitcase", "gas_mask", "rifle", "axe", "flashlight", "map"]:
-						if bool(gs.call("has_working_item", g_cand)) and gear.size() < max_gear_items:
-							gear.append(g_cand)
-					exp_launch = {"member_id": str(chosen_m["id"]), "poi_index": t_idx, "gear_ids": gear}
-					expeditions_launched += 1
-
-			BunkerSimScript.advance_day(rations, med_id, ev_outcome, exp_launch)
-			var is_active_after: bool = not (gs.get("active_expedition") as Dictionary).is_empty()
-			if was_active_before and not is_active_after:
-				expeditions_returned += 1
-
-			# Sanity check: no negative counts, no NaN radiation/temp
-			if int(gs.get("soup_quarters")) < 0 or int(gs.get("water_quarters")) < 0 or int(gs.get("medkit_count")) < 0 or int(gs.get("ammo_count")) < 0:
-				_record_fail("Seed %d produced negative inventory count on Day %d!" % [seed_val, int(gs.get("day"))])
+		var s: ShelterState = gs.get("shelter")
+		if items_mode == "broken":
+			for gid in gs.get("DURABLE_GEAR_IDS"):
+				s.break_one(str(gid))
+		if items_mode == "max":
+			s.pets["dog"] = {"since": 1}
+			s.pets["cat"] = {"since": 1}
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_val
+		var launched: int = 0
+		while s.day < 35 and not s.is_over():
+			ShelterSim.begin_day(s)
+			if s.is_over():
+				break
+			if not s.today_event.is_empty():
+				ShelterSim.choose(s, SimPolicies.pick_option(s, "random", rng))
+			if s.is_over():
+				break
+			var plan: Dictionary = SimPolicies.make_plan(s, "random" if seed_val % 2 == 0 else "expert", rng)
+			for k in (plan["jobs"] as Dictionary).keys():
+				launched += 1
+			ShelterSim.end_day(s, plan)
+			BunkerSimScript.call("sync_world")
+			if s.food() < 0 or s.water() < 0 or s.count("medkit") < 0 or s.count("ammo") < 0:
+				_record_fail("Seed %d produced negative inventory on day %d!" % [seed_val, s.day])
 				return
-			if is_nan(float(gs.get("surface_radiation_sv"))) or is_nan(float(gs.get("bunker_temp_c"))):
-				_record_fail("Seed %d produced NaN rad/temp on Day %d!" % [seed_val, int(gs.get("day"))])
+			if is_nan(float(gs.get("surface_radiation_sv"))) or is_nan(s.temp_c):
+				_record_fail("Seed %d produced NaN rad/temp on day %d!" % [seed_val, s.day])
 				return
-
-		print("  FUZZ seed=%d (%s) -> ended Day %d | game_over=%s | victory=%s | exp_out=%d exp_ret=%d | title='%s'" % [
-			seed_val, str(cfg["desc"]), int(gs.get("day")),
-			str(gs.get("game_over")), str(gs.get("victory")),
-			expeditions_launched, expeditions_returned, str(gs.get("ending_title"))
-		])
-
-	_record_pass("All 10 multi-seed 35-day Bunker simulations completed with zero runtime/math errors")
+		BunkerSimScript.call("sync_outcome")
+		print("  FUZZ seed=%d -> day %d | ending=%s | trips=%d | temp=%.1f C | title='%s'" % [seed_val, s.day, s.ending, launched, s.temp_c, str(gs.get("ending_title"))])
+	_record_pass("All 10 multi-seed 35-day shelter runs completed with zero runtime/math errors")
 
 # ==============================================================================
-# 7. TARGETED LOGIC BUG REPRODUCTIONS
+# 7. TARGETED LOGIC BUG REPRODUCTIONS (M1)
 # ==============================================================================
 func _audit_targeted_bug_repros() -> void:
-	print("\n--- [SUITE 7] Targeted Edge-Case & State Transition Bug Repros ---")
+	print("\n--- [SUITE 7] Targeted edge cases (M1) ---")
 	var gs: Node = root.get_node("GameState")
-
-	# Repro A: Raider Overrun -> game_over = true, victory = false
-	gs.call("init_default_family")
-	gs.call("init_default_house")
-	gs.call("init_default_nuke")
-	gs.call("reset_to_defaults")
-	var m0: Dictionary = (gs.get("family_members") as Array)[0]
-	m0["in_bunker"] = true
-	m0["alive"] = true
-	for i in range(1, (gs.get("family_members") as Array).size()):
-		((gs.get("family_members") as Array)[i] as Dictionary)["in_bunker"] = false
-		((gs.get("family_members") as Array)[i] as Dictionary)["alive"] = false
-	gs.set("day", 15)
-	gs.set("bunker_structural_integrity", 25.0)
-	gs.set("padlock_active", false)
-	gs.set("soup_quarters", 8)
-	gs.set("water_quarters", 8)
-
-	var raid_ev: Dictionary = EventDeckScript.build_event_by_id("raiders_blast_hatch", 15, gs.get("rng"))
-	var raid_out: Dictionary = EventDeckScript.resolve_event(raid_ev, "cower", gs.get("rng"))
-	var game_over_after_event: bool = bool(gs.get("game_over"))
-	BunkerSimScript.advance_day({}, "", raid_out, {})
-	var game_over_after_advance: bool = bool(gs.get("game_over"))
-	var victory_after_advance: bool = bool(gs.get("victory"))
-	print("  REPRO A (Raider Overrun): game_over_after_event=%s -> game_over=%s victory=%s | hull=%.1f | log='%s'" % [
-		str(game_over_after_event), str(game_over_after_advance), str(victory_after_advance),
-		float(gs.get("bunker_structural_integrity")), str(raid_out.get("outcome_text", ""))
-	])
-	if not game_over_after_advance or victory_after_advance:
-		_record_fail("REPRO A FAILED: Raider Overrun expected game_over=true & victory=false, got game_over=%s victory=%s" % [str(game_over_after_advance), str(victory_after_advance)])
+	# Repro A: the gang's takeover with nothing to stop it ends the run as a loss.
+	var a: ShelterState = _qa_state(false, 7001)
+	a.followed = true
+	a.gang_warned = true
+	a.gang_day = a.day
+	ShelterSim._takeover(a)
+	if a.ending != "loss_takeover" or a.ending_kind != "loss":
+		_record_fail("REPRO A FAILED: an unstopped takeover should end the run as a loss (got %s/%s)" % [a.ending, a.ending_kind])
 	else:
-		_record_pass("Raider Overrun Game Over preserved (game_over=true, victory=false) across BunkerSimScript.advance_day")
-
-	# Repro B: Parched Stage-3 Evacuation -> game_over = true, victory = true (Military, Sanctuary, Scientist)
-	var stage3_cases: Array[Dictionary] = [
-		{"chain": "military", "event_id": "rescue_military_3", "choice": "yes"},
-		{"chain": "sanctuary", "event_id": "rescue_sanctuary_3", "choice": "yes"},
-		{"chain": "scientist", "event_id": "rescue_scientist_3", "choice": "yes"}
-	]
-	var all_stage3_ok: bool = true
-	for s3 in stage3_cases:
-		gs.call("init_default_family")
-		gs.call("reset_to_defaults")
-		var m0b: Dictionary = (gs.get("family_members") as Array)[0]
-		m0b["in_bunker"] = true
-		m0b["alive"] = true
-		m0b["days_without_water"] = 5 # Critical thirst threshold!
-		m0b["days_without_food"] = 10
-		for i in range(1, (gs.get("family_members") as Array).size()):
-			((gs.get("family_members") as Array)[i] as Dictionary)["in_bunker"] = false
-			((gs.get("family_members") as Array)[i] as Dictionary)["alive"] = false
-		gs.set("day", 14)
-		gs.set("has_cat_sharikov", true)
-		gs.get("rescue_chains")[str(s3["chain"])] = 2
-		var r3_ev: Dictionary = EventDeckScript.build_event_by_id(str(s3["event_id"]), 14, gs.get("rng"))
-		var r3_out: Dictionary = EventDeckScript.resolve_event(r3_ev, str(s3["choice"]), gs.get("rng"))
-		var vic_after_ev: bool = bool(gs.get("victory"))
-		var go_after_ev: bool = bool(gs.get("game_over"))
-		BunkerSimScript.advance_day({}, "", r3_out, {})
-		var vic_after_adv: bool = bool(gs.get("victory"))
-		var go_after_adv: bool = bool(gs.get("game_over"))
-		print("  REPRO B (%s): after_ev=(go=%s,vic=%s) -> after_adv=(go=%s,vic=%s) | ending='%s'" % [
-			str(s3["event_id"]), str(go_after_ev), str(vic_after_ev), str(go_after_adv), str(vic_after_adv), str(gs.get("ending_title"))
-		])
-		if not (go_after_adv and vic_after_adv):
-			all_stage3_ok = false
-			_record_fail("REPRO B FAILED (%s): Expected game_over=true & victory=true, got game_over=%s victory=%s" % [str(s3["event_id"]), str(go_after_adv), str(vic_after_adv)])
-	if all_stage3_ok:
-		_record_pass("Parched Stage-3 Evacuation (Military, Sanctuary, Scientist) preserved game_over=true & victory=true")
-
-	# Repro C: Solo Explorer Outside -> BunkerScene Unoccupied Shelter Guard (0 phantom dilemmas)
-	gs.call("init_default_family")
-	gs.call("reset_to_defaults")
-	var solo_m: Dictionary = (gs.get("family_members") as Array)[0]
-	gs.set("family_members", [solo_m])
-	solo_m["in_bunker"] = true
-	solo_m["alive"] = true
-	BunkerSimScript.start_bunker_run()
-	gs.set("day", 2)
-	ExpeditionEngineScript.start_expedition("member_0", 0, [])
-	var living_in_bunker_now: Array = gs.call("get_living_bunker_members")
-	var bunker_solo_scene: Control = BunkerSceneScript.new()
-	root.add_child(bunker_solo_scene)
-	await process_frame
-	var solo_cur_ev: Dictionary = bunker_solo_scene.get("_current_event")
-	var solo_unresolved: bool = bool(bunker_solo_scene.get("_has_unresolved_dilemma"))
-	print("  REPRO C (Empty Shelter while Solo Explorer Out): living_in_bunker=%d, _current_event_empty=%s, _has_unresolved_dilemma=%s" % [
-		living_in_bunker_now.size(), str(solo_cur_ev.is_empty()), str(solo_unresolved)
-	])
-	bunker_solo_scene.queue_free()
-	await process_frame
-	if not living_in_bunker_now.is_empty() or not solo_cur_ev.is_empty() or solo_unresolved:
-		_record_fail("REPRO C FAILED: Empty shelter drew a dilemma while solo explorer was outside!")
+		_record_pass("Raider takeover ends the run as a loss (game over, no victory)")
+	# Repro B: a parched sole survivor still wins on the final rescue request (all three chains).
+	var all_b_ok: bool = true
+	for chain in ["convoy", "neighbourhood", "airlift"]:
+		var b: ShelterState = _qa_state(false, 7100)
+		for i in range(1, b.members.size()):
+			(b.members[i] as Dictionary)["alive"] = false
+			(b.members[i] as Dictionary)["loc"] = "dead"
+		(b.members[0] as Dictionary)["dww"] = 5
+		(b.members[0] as Dictionary)["dwf"] = 9
+		b.day = 30
+		for cid in b.chains.keys():
+			(b.chains[cid] as Dictionary)["state"] = "idle"
+		var c: Dictionary = b.chains[chain]
+		c["state"] = "active"
+		c["step"] = int(c["steps"])
+		c["next_day"] = b.day
+		c["place_idx"] = 4
+		ShelterSim.begin_day(b)
+		var final_opt: String = str((b.today_options[0] as Dictionary)["id"])
+		ShelterSim.choose(b, final_opt)
+		ShelterSim.end_day(b, {"rations": {}, "treat": {}, "jobs": {}})
+		print("  REPRO B (%s): ending=%s kind=%s" % [chain, b.ending, b.ending_kind])
+		if b.ending_kind != "win":
+			all_b_ok = false
+			_record_fail("REPRO B FAILED (%s): the final request should win even with a parched survivor (got %s)" % [chain, b.ending])
+	if all_b_ok:
+		_record_pass("Final rescue requests win for a parched sole survivor (convoy, neighbourhood, airlift)")
+	# Repro C: no shelter dilemma while the only survivor is out.
+	var c2: ShelterState = _qa_state(false, 7200)
+	for i in range(1, c2.members.size()):
+		(c2.members[i] as Dictionary)["alive"] = false
+		(c2.members[i] as Dictionary)["loc"] = "dead"
+	c2.add("padlock", 1)
+	ShelterTrips.launch(c2, c2.members[0], 1, [])
+	var phantom: int = 0
+	for _d in range(3):
+		if str((c2.members[0] as Dictionary).get("loc", "")) != "away":
+			break
+		var morning: Dictionary = ShelterSim.begin_day(c2)
+		if not c2.today_event.is_empty() and not ((c2.today_event.get("conditions", {}) as Dictionary).has("trip_place")):
+			phantom += 1
+		c2.today_resolved = true
+		ShelterSim.end_day(c2, {"rations": {}, "treat": {}, "jobs": {}})
+	if phantom > 0:
+		_record_fail("REPRO C FAILED: the empty shelter drew %d indoor dilemmas while the solo explorer was out" % phantom)
 	else:
-		_record_pass("BunkerScene Empty Shelter Guard verified: zero indoor dilemmas drawn when solo explorer is outside")
-
-	# Repro D: Day 1 Civil Defense Event & Suitcase Expedition Gear Limit (1 item vs Suitcase + 3 = 4 items)
-	gs.call("init_default_family")
-	gs.call("reset_to_defaults")
-	for m_d in gs.get("family_members"):
-		(m_d as Dictionary)["in_bunker"] = true
-		(m_d as Dictionary)["alive"] = true
-	for gid in ["gas_mask", "rifle", "axe", "flashlight", "map"]:
-		gs.call("add_scavenged_item", gid, 1)
-	var day1_ev: Dictionary = EventDeckScript.draw_daily_event(1, gs.get("rng"))
-	if str(day1_ev.get("id", "")) != "day1_civil_defense_seal":
-		_record_fail("Expected Day 1 event 'day1_civil_defense_seal', got '%s'" % str(day1_ev.get("id", "")))
+		_record_pass("Empty-shelter guard: no indoor dilemmas while the solo explorer is out")
+	# Repro D: day 1 opens with who sealed the hatch; explorers carry at most 3 pieces of gear.
+	var d: ShelterState = _qa_state(true, 7300)
+	d.day = 1
+	var d1: ShelterState = ShelterSim.new_run({"members": [{"id": "m0", "name": "Sam", "role": "adult", "age": 42, "is_leader": true, "in_bunker": true, "alive": true}], "haul": {"food": 1}, "places": [], "seed": 1})
+	var morning1: Dictionary = ShelterSim.begin_day(d1)
+	var first_line: String = str(((morning1["morning"] as Array)[0] as Dictionary)["text"])
+	if first_line.find("sealed the hatch") == -1:
+		_record_fail("Expected day 1 to open with who sealed the hatch, got '%s'" % first_line)
 	else:
-		_record_pass("Day 1 event verified: day1_civil_defense_seal")
-
-	# Without Suitcase: requesting 3 items clamps to 1 item
-	ExpeditionEngineScript.start_expedition("member_0", 0, ["gas_mask", "rifle", "map"])
-	var gear_no_suit: Array = (gs.get("active_expedition") as Dictionary).get("gear_ids", [])
-	if gear_no_suit.size() != 1:
-		_record_fail("Expected 1 expedition gear item without Suitcase, got %s" % str(gear_no_suit))
-	# Reset and test WITH Suitcase: requesting Suitcase + 4 extras clamps to Suitcase + 3 extras (4 total)
-	gs.call("init_default_family")
-	gs.call("reset_to_defaults")
-	for m_d2 in gs.get("family_members"):
-		(m_d2 as Dictionary)["in_bunker"] = true
-		(m_d2 as Dictionary)["alive"] = true
-	for gid2 in ["suitcase", "gas_mask", "rifle", "axe", "flashlight", "map"]:
-		gs.call("add_scavenged_item", gid2, 1)
-	ExpeditionEngineScript.start_expedition("member_0", 0, ["suitcase", "gas_mask", "rifle", "axe", "flashlight"])
-	var gear_with_suit: Array = (gs.get("active_expedition") as Dictionary).get("gear_ids", [])
-	print("  REPRO D (Suitcase Gear Limit): without_suitcase=%s (len=%d) | with_suitcase=%s (len=%d)" % [
-		str(gear_no_suit), gear_no_suit.size(), str(gear_with_suit), gear_with_suit.size()
-	])
-	if gear_with_suit.size() != 4 or not gear_with_suit.has("suitcase"):
-		_record_fail("Expected Suitcase + 3 extra items (4 total) with Suitcase, got %s" % str(gear_with_suit))
+		_record_pass("Day 1 opens with who sealed the hatch and the stock (%s)" % first_line)
+	ShelterTrips.launch(d, d.members[0], 0, ["suitcase", "gas_mask", "rifle", "axe", "flashlight"])
+	var gear: Array = (d.trips[0] as Dictionary)["gear"] if not d.trips.is_empty() else []
+	print("  REPRO D (gear limit): %s" % str(gear))
+	if gear.size() != 3:
+		_record_fail("Expected at most 3 pieces of expedition gear, got %s" % str(gear))
 	else:
-		_record_pass("Expedition gear limit verified: 1 item without Suitcase, Suitcase + 3 items (4 total) with Suitcase")
+		_record_pass("Expedition gear limit verified: an explorer packs at most 3 pieces of gear")
 
 # ==============================================================================
 # 8. FULL END-TO-END --demo-showcase TIMING & PROGRESSION VERIFICATION
@@ -938,9 +819,12 @@ func _audit_full_demo_showcase() -> void:
 				])
 			var active_node: Node = main_inst.get("_active_node")
 			if is_instance_valid(active_node) and active_node.get_script() == BunkerSceneScript:
-				var tab_idx: int = int(active_node.get("_current_tab"))
-				if bool(active_node.get("_notebook_open")) and not bunker_tabs_seen.has(tab_idx):
-					bunker_tabs_seen.append(tab_idx)
+				# M1: one screen per day; record which of its sections are on screen.
+				for sec_i in range(4):
+					var sec_name: String = ["_receipt_box", "_event_box", "_family_box", "_end_btn"][sec_i]
+					var sec: Control = active_node.get(sec_name)
+					if sec != null and sec.is_visible_in_tree() and not bunker_tabs_seen.has(sec_i):
+						bunker_tabs_seen.append(sec_i)
 			var act_exp: Dictionary = gs.get("active_expedition")
 			if not act_exp.is_empty() and expedition_launched_info.is_empty():
 				expedition_launched_info = act_exp.duplicate(true)
@@ -949,15 +833,12 @@ func _audit_full_demo_showcase() -> void:
 					str(act_exp.get("member_name", "")),
 					str(act_exp.get("target_name", "")),
 					str(act_exp.get("category", "")),
-					int(act_exp.get("days_total", 0)),
+					int(act_exp.get("days_remaining", 0)),
 					str(act_exp.get("gear_ids", []))
 				])
 			elif act_exp.is_empty() and not expedition_launched_info.is_empty() and expedition_returned_day < 0:
 				expedition_returned_day = d_now
-				print("  [DEMO t=%6.2fs | frame=%4d] OSM Expedition Returned on Day %d! Latest log: %s" % [
-					float(frame_idx) / 30.0, frame_idx, d_now,
-					BunkerSimScript.get_latest_day_report().replace("\n", " | ")
-				])
+				print("  [DEMO t=%6.2fs | frame=%4d] OSM Expedition Returned on Day %d" % [float(frame_idx) / 30.0, frame_idx, d_now])
 
 		if BunkerSceneScript.demo_completed_flag:
 			phase_exit_frame[cur_scr] = frame_idx
@@ -981,18 +862,19 @@ func _audit_full_demo_showcase() -> void:
 	print("  Bunker tabs opened: ", bunker_tabs_seen)
 
 	var expected_order: Array[String] = ["title", "family", "osm_house", "nuke", "scavenge", "bunker"]
-	if visited_screens != expected_order:
+	# The demo ends on the summary screen after the shelter days (M1); that last hop is allowed.
+	if visited_screens.slice(0, expected_order.size()) != expected_order or visited_screens.size() > expected_order.size() + 1:
 		_record_fail("Demo screen order mismatch! Expected %s, got %s" % [str(expected_order), str(visited_screens)])
 	elif not BunkerSceneScript.demo_completed_flag:
 		_record_fail("Demo showcase timed out before BunkerSceneScript.demo_completed_flag!")
 	elif expedition_launched_info.is_empty() or expedition_returned_day < 0:
 		_record_fail("Demo showcase failed to launch & complete OSM expedition! launched=%s ret_day=%d" % [str(expedition_launched_info), expedition_returned_day])
-	elif bunker_days_seen != [1, 2, 3, 4]:
+	elif bunker_days_seen.size() < 4 or bunker_days_seen.slice(0, 4) != [1, 2, 3, 4]:
 		_record_fail("Demo showcase did not progress cleanly through Days 1..4: got " + str(bunker_days_seen))
 	elif bunker_tabs_seen.size() < 4:
-		_record_fail("Demo showcase did not open all 4 notebook tabs: got " + str(bunker_tabs_seen))
+		_record_fail("Demo showcase did not show all 4 sections of the day screen: got " + str(bunker_tabs_seen))
 	else:
-		_record_pass("Full --demo-showcase verified end-to-end across all 6 screens, scavenge haul, 4 bunker days, all 4 tabs & OSM expedition return!")
+		_record_pass("Full --demo-showcase verified end-to-end across all 6 screens, scavenge haul, %d shelter days on the one-screen day & an OSM expedition return!" % bunker_days_seen.size())
 
 	main_inst.queue_free()
 	await process_frame

@@ -1,0 +1,37 @@
+{
+	"group": "rural",
+	"h1_home_msv": 11500,
+	"house": {
+		"area_sqm": 116,
+		"lat": 41.15,
+		"lon": -99.65,
+		"osm_id": -1
+	},
+	"id": "rural_nebraska_0",
+	"location": "rural_nebraska",
+	"nearest_essential_m": 99999,
+	"nuke": {
+		"bunker_temp_c": 32.1,
+		"distance_km": 3.9999999999997,
+		"yield_kt": 250,
+		"zone": "ground_zero_edge"
+	},
+	"rad_factors": [
+		0.54208012916435
+	],
+	"targets": [
+		{
+			"area_sqm": 0,
+			"category": "school",
+			"distance_m": 3708,
+			"fictional": false,
+			"lat": 41.1438967,
+			"lon": -99.6064982,
+			"name": "Burr Oak School",
+			"osm_id": 357752954,
+			"subkind": "school",
+			"walk_m": 5006,
+			"walk_source": "estimate"
+		}
+	]
+}

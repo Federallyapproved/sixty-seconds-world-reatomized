@@ -1,0 +1,196 @@
+[
+	{
+		"id": "signature_required", "title": "Signature Required", "type": "visitor", "mood": "neutral", "weight": 1.0,
+		"setup": "A delivery drone hovers at the hatch, demanding a signature for the house upstairs.",
+		"conditions": {"min_day": 2},
+		"options": [
+			{"id": "shoot", "label": "Shoot it down", "item": "rifle", "loud": true, "cinematic": "combat",
+				"effects": [{"do": "use", "item": "rifle", "what": "drone shot down"}, {"do": "add", "item": "food", "n": 2}],
+				"outcome": "It drops a parcel: two cans and a satisfaction survey."},
+			{"id": "thumb", "label": "Thumbprint it", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "actor", "msv": 40}],
+				"outcome": "Logged as \"Delivered.\" {name} stood a long minute in the dust for it."},
+			{"id": "ignore", "label": "Ignore it", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "It beeps politely until sundown. Nobody sleeps much."}
+		]
+	},
+	{
+		"id": "exterior_modification", "title": "Exterior Modification", "type": "visitor", "mood": "neutral", "weight": 1.0,
+		"setup": "The HOA president is at the hatch. He says it breaks the neighbourhood guidelines.",
+		"conditions": {"min_day": 3},
+		"options": [
+			{"id": "lock", "label": "Keep it locked", "item": "padlock",
+				"effects": [],
+				"outcome": "He tapes a violation notice to it. Fines are now theoretical."},
+			{"id": "treat", "label": "Treat his cough", "item": "medkit", "cinematic": "medical",
+				"effects": [{"do": "use", "item": "medkit", "what": "the HOA president's cough"}, {"do": "add", "item": "flashlight", "n": 1}],
+				"outcome": "He waives the fine and leaves his flashlight."},
+			{"id": "talk", "label": "Let him in to talk", "cinematic": "give",
+				"effects": [{"do": "lose", "item": "food", "n": 1}],
+				"outcome": "He eats a can \"as a courtesy\" and leaves a copy of the bylaws."}
+		]
+	},
+	{
+		"id": "one_bar", "title": "One Bar", "type": "family", "mood": "neutral", "weight": 1.0,
+		"setup": "{subject} keeps climbing the ladder, holding a phone up to the sky.",
+		"conditions": {"min_day": 3, "needs_place": ["school"], "min_people": 2},
+		"options": [
+			{"id": "radio", "label": "Try the radio instead", "item": "radio", "cinematic": "radio",
+				"effects": [{"do": "use", "item": "radio", "what": "heard about a supply drop"}, {"do": "supply_drop", "category": ["school"], "items": {"water": 3, "food": 2}}],
+				"outcome": "A broadcast names a supply drop at {nearest_school}. Worth a trip."},
+			{"id": "keep", "label": "Let them keep trying", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "subject", "msv": 30}],
+				"outcome": "One text arrives: \"Your order has shipped.\" {subject} took some dust for it."},
+			{"id": "take", "label": "Take the phone", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "subject", "n": -2, "why": "phone taken"}],
+				"outcome": "{subject} sulks in the corner. The phone goes in a drawer."}
+		]
+	},
+	{
+		"id": "pending_update", "title": "Pending Update", "type": "discovery", "mood": "good", "weight": 1.0,
+		"setup": "The smart fridge upstairs has locked itself to install an update. There's food inside.",
+		"conditions": {"min_day": 2, "max_day": 14},
+		"options": [
+			{"id": "axe", "label": "Open it by hand", "item": "axe", "cinematic": "gain",
+				"effects": [{"do": "use", "item": "axe", "mode": "wear", "what": "pried the fridge open"}, {"do": "add", "item": "food", "n": 2}, {"do": "add", "item": "water", "n": 1}],
+				"outcome": "Two cans and a bottle. The fridge is now a cabinet."},
+			{"id": "manual", "label": "Look up the hard reset", "item": "manual", "cinematic": "gain",
+				"effects": [{"do": "use", "item": "manual", "what": "found the hard reset"}, {"do": "add", "item": "food", "n": 2}],
+				"outcome": "Factory settings restored. Two cans, and a chirpy welcome tune."},
+			{"id": "wait", "label": "Wait for the update", "cinematic": "shrug",
+				"effects": [{"do": "schedule", "event": "update_complete", "in": 3}],
+				"outcome": "The progress bar says 2%. It has said 2% for an hour."}
+		]
+	},
+	{
+		"id": "bunker_tour", "title": "Bunker Tour", "type": "stranger", "mood": "neutral", "weight": 1.0,
+		"setup": "A man in a hazmat suit with a ring light is livestreaming \"Day 6\". Nobody has told him the internet is gone.",
+		"conditions": {"min_day": 5},
+		"options": [
+			{"id": "tour", "label": "Give him a tour", "cinematic": "celebrate",
+				"effects": [{"do": "rations", "kind": "food", "n": -1}, {"do": "morale", "who": "all", "n": 1}],
+				"outcome": "He eats a ration \"for the content.\" Everyone feels oddly famous."},
+			{"id": "truth", "label": "Tell him the truth", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "actor", "n": -1, "why": "a hard conversation"}],
+				"outcome": "He sits on the hatch a long while, then leaves the ring light behind."},
+			{"id": "cards", "label": "Play him for his gear", "item": "cards", "cinematic": "celebrate",
+				"effects": [{"do": "use", "item": "cards", "what": "won his respirator"}, {"do": "add", "item": "gas_mask", "n": 1}],
+				"outcome": "You win his respirator. He takes it well, for a streamer."}
+		]
+	},
+	{
+		"id": "night_shift", "title": "Night Shift", "type": "visitor", "mood": "neutral", "weight": 1.0,
+		"setup": "At 2 a.m. something bumps the hatch in a slow, patient pattern. It's the robot vacuum, still cleaning ash off the lawn.",
+		"conditions": {"min_day": 2},
+		"options": [
+			{"id": "fetch", "label": "Go out and get it", "item": "gas_mask", "cinematic": "hazard",
+				"effects": [{"do": "use", "item": "gas_mask", "what": "fetched the vacuum through the dust"}, {"do": "morale", "who": "all", "n": 1}],
+				"outcome": "It docks by the radio and hums. Somehow that helps."},
+			{"id": "name", "label": "Name it and let it be", "cinematic": "celebrate",
+				"effects": [{"do": "morale", "who": "all", "n": 1}, {"do": "dose", "who": "actor", "msv": 10}],
+				"outcome": "It's called Gerald now. Someone cries a little when the bumping stops."},
+			{"id": "ignore", "label": "Ignore it", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "Nobody sleeps."}
+		]
+	},
+	{
+		"id": "good_boy", "title": "Good Boy", "type": "pet", "mood": "good", "weight": 1.2,
+		"setup": "A retriever scratches at the hatch. His smart collar is still pinging an owner who stopped checking.",
+		"conditions": {"min_day": 3, "no_pet": true},
+		"options": [
+			{"id": "spray", "label": "De-flea him and let him in", "item": "bug_spray", "cinematic": "pet",
+				"effects": [{"do": "use", "item": "bug_spray", "what": "a clean dog"}, {"do": "pet", "kind": "dog"}, {"do": "morale", "who": "all", "n": 3}],
+				"outcome": "A clean dog. Everyone feels better than they have in days."},
+			{"id": "feed", "label": "Feed him and send him off", "item": "food", "cinematic": "give",
+				"effects": [{"do": "use", "item": "food", "what": "fed a stray"}, {"do": "schedule", "event": "good_boy_returns", "in": 1}],
+				"outcome": "He eats the whole can and trots off, looking pleased with himself."},
+			{"id": "let_in", "label": "Let him in as he is", "cinematic": "pet",
+				"effects": [{"do": "pet", "kind": "dog"}, {"do": "morale", "who": "all", "n": 2}, {"do": "schedule", "event": "fleas", "in": 1}],
+				"outcome": "Everyone's spirits lift. The fleas arrive tomorrow."}
+		]
+	},
+	{
+		"id": "motion_detected", "title": "Motion Detected", "type": "raid", "mood": "bad", "weight": 1.0,
+		"setup": "A stranger with a crowbar is checking houses. The doorbell camera upstairs keeps announcing him.",
+		"conditions": {"min_day": 4},
+		"weight_mods": {"after_escalation": 1.5, "followed": 1.5},
+		"options": [
+			{"id": "signal", "label": "Signal him to keep moving", "item": "flashlight", "cinematic": "signal",
+				"effects": [{"do": "use", "item": "flashlight", "what": "waved a stranger on"}, {"do": "add", "item": "food", "n": 1}],
+				"outcome": "He flashes back \"SORRY\" and leaves a can by the hatch."},
+			{"id": "lock", "label": "Lock up and wait", "item": "padlock", "cinematic": "shrug",
+				"effects": [],
+				"outcome": "He tries the hatch twice and moves on. The lock holds."},
+			{"id": "nothing", "label": "Do nothing", "cinematic": "attack",
+				"effects": [{"do": "lose", "item": "water", "n": 1}],
+				"outcome": "He visits tonight. A padlock would have stopped him."}
+		]
+	},
+	{
+		"id": "unexpected_item", "title": "Unexpected Item", "type": "trip", "mood": "neutral", "weight": 2.0,
+		"setup": "At {place}, the self-checkouts are on backup power and complain every time {name} moves.",
+		"conditions": {"trip_place": ["grocery"]},
+		"options": [
+			{"id": "stockroom", "label": "Go through the stockroom", "item": "map", "cinematic": "gain",
+				"effects": [{"do": "use", "item": "map", "what": "found the stockroom door"}, {"do": "trip_loot", "item": "food", "n": 1}, {"do": "trip_loot", "item": "water", "n": 1}],
+				"outcome": "The floor plan shows a stockroom door. One can and one bottle, quietly."},
+			{"id": "run", "label": "Grab and run", "loud": true, "cinematic": "attack",
+				"effects": [{"do": "injure", "who": "explorer", "why": "two scavengers heard the alarms"}, {"do": "trip_loot", "item": "food", "n": 1}],
+				"outcome": "The noise draws two scavengers. {name} gets out, but not cleanly."},
+			{"id": "scan", "label": "Scan everything politely", "cinematic": "hazard",
+				"effects": [{"do": "trip_loot", "item": "food", "n": 1}, {"do": "dose", "who": "explorer", "msv": 30}],
+				"outcome": "Forty minutes later: one can and a receipt nobody asked for."}
+		]
+	},
+	{
+		"id": "cabin_fever", "title": "Cabin Fever", "type": "cabin_fever", "mood": "bad", "weight": 1.0,
+		"setup": "The argument about whose fault the smell is has reached its third hour.",
+		"conditions": {"min_day": 5, "min_people": 2},
+		"weight_mods": {"low_morale": 2.0},
+		"options": [
+			{"id": "tournament", "label": "Run a tournament", "item": "console", "cinematic": "celebrate",
+				"effects": [{"do": "use", "item": "console", "what": "a tournament ended the argument"}, {"do": "morale", "who": "all", "n": 2}],
+				"outcome": "The finals are tense. Nobody remembers the smell."},
+			{"id": "meeting", "label": "Call a family meeting", "cinematic": "gloom",
+				"effects": [{"do": "morale", "who": "all", "n": -1}],
+				"outcome": "You have accidentally founded an HOA."},
+			{"id": "burn", "label": "Let it burn out", "cinematic": "gloom",
+				"effects": [{"do": "refuse_trip", "who": "subject", "days": 1}],
+				"outcome": "It does, eventually. {subject} refuses tomorrow's trip on principle."}
+		]
+	},
+	{
+		"id": "fizzy_rain", "title": "Fizzy Rain", "type": "dirty_water", "mood": "neutral", "weight": 1.0,
+		"setup": "The gutter barrel filled overnight. The water is grey and faintly fizzing.",
+		"conditions": {"min_day": 4},
+		"options": [
+			{"id": "boil", "label": "Boil it the way chapter one says", "item": "manual", "cinematic": "gain",
+				"effects": [{"do": "use", "item": "manual", "what": "made the rainwater safe"}, {"do": "add", "item": "water", "n": 1}],
+				"outcome": "It takes all afternoon and most of the patience. One bottle, safe."},
+			{"id": "drink", "label": "Drink it as it is", "cinematic": "sickness",
+				"effects": [{"do": "add", "item": "water", "n": 2}, {"do": "sick", "who": "subject", "why": "drank the rain barrel"}],
+				"outcome": "Two bottles' worth. {subject} drank first and is now sick."},
+			{"id": "leave", "label": "Leave it",
+				"effects": [],
+				"outcome": "It's still fizzing on day 14. Nobody asks why."}
+		]
+	},
+	{
+		"id": "model_home", "title": "Model Home", "type": "trip", "mood": "good", "weight": 2.0,
+		"setup": "Near {place}, a staged show home has plastic fruit and a real pantry.",
+		"conditions": {"trip_place": ["neighbor_house"]},
+		"options": [
+			{"id": "pack", "label": "Pack the pantry", "item": "suitcase", "cinematic": "gain",
+				"effects": [{"do": "use", "item": "suitcase", "what": "packed a whole pantry"}, {"do": "trip_loot", "item": "food", "n": 3}, {"do": "trip_loot", "item": "water", "n": 1}],
+				"outcome": "Three cans and a bottle. The plastic fruit stays."},
+			{"id": "pockets", "label": "Fill your pockets", "cinematic": "gain",
+				"effects": [{"do": "trip_loot", "item": "food", "n": 1}],
+				"outcome": "One can, and a brochure about the clubhouse."},
+			{"id": "lockbox", "label": "Try the realtor's lockbox", "cinematic": "hazard",
+				"effects": [{"do": "dose", "who": "explorer", "msv": 30}],
+				"outcome": "The code is 1234. Inside: keys to this house. {name} lingered too long in the dust."}
+		]
+	}
+]

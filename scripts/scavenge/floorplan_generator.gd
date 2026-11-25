@@ -43,31 +43,19 @@ const FURNITURE_SPECS: Dictionary = {
 	"Garage Bay": [["tool_bench", 1.8, 0.6, true], ["boxes", 1.0, 0.8, true], ["paint_cans", 0.6, 0.6, true]],
 }
 
-const ITEM_ROOMS: Dictionary = {
-	"soup": ["Kitchen", "Pantry", "Dining Room", "Utility Room"],
-	"water": ["Kitchen", "Pantry", "Bathroom", "Utility Room"],
-	"medkit": ["Bathroom", "Master Bedroom", "Utility Room"],
-	"gas_mask": ["Utility Room", "Hallway", "Master Bedroom", "Storage"],
-	"radio": ["Living Room", "Kitchen", "Study"],
-	"suitcase": ["Master Bedroom", "Bedroom", "Storage"],
-	"book": ["Study", "Living Room", "Kids Bedroom", "Bedroom"],
-	"flashlight": ["Utility Room", "Kitchen", "Garage Bay", "Hallway"],
-	"map": ["Study", "Living Room", "Hallway"],
-	"ammo": ["Master Bedroom", "Study", "Storage"],
-	"bug_spray": ["Utility Room", "Bathroom", "Garage Bay"],
-	"padlock": ["Utility Room", "Garage Bay", "Storage"],
-	"cards": ["Living Room", "Dining Room", "Kids Bedroom"],
-	"checkers": ["Kids Bedroom", "Living Room", "Study"],
-	"harmonica": ["Kids Bedroom", "Bedroom", "Living Room"],
-	"toolbox": ["Utility Room", "Garage Bay", "Storage"],
-	"axe": ["Utility Room", "Garage Bay", "Storage"],
-	"rifle": ["Master Bedroom", "Study", "Storage"],
-}
+## Rooms each item turns up in and the durable items a house can hold both come from the data
+## tables (items.csv grab_rooms, loot_weights.csv "home"), so a new item appears in the grab too.
+static func item_rooms(item_id: String) -> Array:
+	return ShelterData.item(item_id).get("grab_rooms", ["Living Room"])
 
-const BONUS_POOL: Array[String] = [
-	"flashlight", "map", "ammo", "bug_spray", "padlock", "cards", "checkers",
-	"harmonica", "toolbox", "axe", "rifle", "book", "suitcase"
-]
+
+static func bonus_pool() -> Array[String]:
+	var pool: Array[String] = []
+	for k in ShelterData.loot_for("home").keys():
+		if str(k) != "food" and str(k) != "water":
+			pool.append(str(k))
+	pool.sort()
+	return pool
 
 
 # ==============================================================================
@@ -1288,25 +1276,20 @@ static func _room_name_at(rooms: Array, p: Vector2) -> String:
 
 static func _spawn_items(rooms: Array, furniture: Array, nav: Dictionary, hatch: Vector2, family_spawns: Array, real_area: float, rng: RandomNumberGenerator) -> Array:
 	var ids: Array[String] = []
-	for _i in range(rng.randi_range(5, 8)):
-		ids.append("soup")
-	for _i in range(rng.randi_range(5, 8)):
-		ids.append("water")
-	ids.append_array(["medkit", "gas_mask", "radio", "suitcase"])
-	# Durable items are unique per house (as in the original game); a bigger house gets
-	# more of them and, once the durable pool is exhausted, extra food and water instead.
-	var bonus: int = rng.randi_range(10, 12) + clampi(int((real_area - 100.0) / 40.0), 0, 7)
-	var pool: Array[String] = []
-	for b_id in BONUS_POOL:
-		if not ids.has(b_id):
-			pool.append(b_id)
-	for i in range(bonus):
-		if pool.is_empty():
-			ids.append("soup" if i % 2 == 0 else "water")
-			continue
-		var pick: int = rng.randi_range(0, pool.size() - 1)
-		ids.append(pool[pick])
-		pool.remove_at(pick)
+	var home: Dictionary = ShelterData.loot_for("home")
+	for k in ["food", "water"]:
+		var row: Dictionary = home.get(k, {"min": 4, "max": 6})
+		for _i in range(rng.randi_range(int(row["min"]), int(row["max"]))):
+			ids.append(k)
+	# Durable items are unique per house (as in the original game); each turns up with the chance
+	# in loot_weights.csv. A bigger house holds extra food and water.
+	for b_id in bonus_pool():
+		var row2: Dictionary = home[b_id]
+		if rng.randf() < float(row2.get("chance", 1.0)):
+			for _j in range(rng.randi_range(int(row2.get("min", 1)), int(row2.get("max", 1)))):
+				ids.append(b_id)
+	for i in range(clampi(int((real_area - 100.0) / 40.0), 0, 7)):
+		ids.append("food" if i % 2 == 0 else "water")
 
 	# Candidate spots: reachable floor + furniture tops reachable within arm's reach.
 	var room_spots: Dictionary = {}
@@ -1337,7 +1320,7 @@ static func _spawn_items(rooms: Array, furniture: Array, nav: Dictionary, hatch:
 	var room_load: Dictionary = {}
 	var fallback_spots: Array = []
 	for iid in ids:
-		var prefs: Array = ITEM_ROOMS.get(iid, [])
+		var prefs: Array = item_rooms(iid)
 		var cands: Array = []
 		for pref in prefs:
 			for rn in all_names:

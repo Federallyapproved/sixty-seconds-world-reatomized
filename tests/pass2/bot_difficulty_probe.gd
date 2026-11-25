@@ -78,7 +78,7 @@ func _run() -> void:
 		var secured_value: float = 0.0
 		var secured_items: int = 0
 		# Count what actually reached the shelter
-		secured_value += float(gs.get("soup_quarters")) / 4.0 * _item_value("soup")
+		secured_value += float(gs.get("soup_quarters")) / 4.0 * _item_value("food")
 		secured_value += float(gs.get("water_quarters")) / 4.0 * _item_value("water")
 		secured_items += int(gs.get("soup_quarters")) / 4 + int(gs.get("water_quarters")) / 4
 		var bi: Dictionary = gs.get("bunker_items")
@@ -150,11 +150,11 @@ func _run() -> void:
 
 func _item_value(item_id: String) -> float:
 	match item_id:
-		"soup", "water":
+		"food", "water":
 			return 3.0
-		"medkit", "gas_mask", "radio", "rifle", "axe", "toolbox", "map", "flashlight":
+		"medkit", "gas_mask", "radio", "rifle", "axe", "manual", "map", "flashlight":
 			return 4.0
-		"suitcase", "padlock", "ammo", "bug_spray", "book":
+		"suitcase", "padlock", "ammo", "bug_spray", "manual":
 			return 2.0
 		_:
 			return 1.0

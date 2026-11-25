@@ -171,35 +171,13 @@ static func recent_dose(member: Dictionary, day: int) -> float:
 	return total
 
 
-## ARS stage 0..5 from the 7-day dose.
+## ARS stage 0..5 from the 7-day dose (the shelter engine owns the table).
 static func ars_stage(recent_msv: float) -> int:
-	if recent_msv < 250.0:
-		return 0
-	if recent_msv < 1000.0:
-		return 1
-	if recent_msv < 2000.0:
-		return 2
-	if recent_msv < 4000.0:
-		return 3
-	if recent_msv < 6000.0:
-		return 4
-	return 5
+	return ShelterSim.ars_stage(recent_msv)
 
 
 static func ars_label(stage: int) -> String:
-	match stage:
-		0:
-			return "No radiation symptoms"
-		1:
-			return "Blood changes, no symptoms (0.25–1 Sv)"
-		2:
-			return "Mild radiation sickness (1–2 Sv)"
-		3:
-			return "Moderate radiation sickness (2–4 Sv)"
-		4:
-			return "Severe radiation sickness (4–6 Sv)"
-		_:
-			return "Very severe radiation sickness (>6 Sv)"
+	return ShelterSim.ars_label(stage)
 
 
 ## Dose-rate risk wording keyed to what a few hours outside would do.

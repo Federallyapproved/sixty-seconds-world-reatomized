@@ -1,8 +1,10 @@
 extends Node
 
-## Central GameState Autoload for "The End Is Near".
-## Owns canonical state shared across Title, Family Creator, OSM House Picker,
-## Global Nuke Selector, 60-Second Scavenge Sequence, Bunker Survival, and End Screen.
+## Central GameState autoload for The End Is Near.
+## Owns what the screens share: the family, the chosen house and its real neighbourhood, the
+## strike, the grab haul, and the shelter run (a ShelterState driven by ShelterSim). The shelter
+## rules never read this autoload, so the balance harness can run them headless; the fields
+## below marked "compatibility" mirror the run for the shelter artwork and older screens.
 
 signal screen_requested(screen_name: String)
 signal day_advanced(new_day: int)
@@ -19,24 +21,35 @@ const SCREEN_SCAVENGE := "scavenge"
 const SCREEN_BUNKER := "bunker"
 const SCREEN_SUMMARY := "summary"
 
+## Feature flags. The car escape and the radiation-mutation perk are kept in the code but switched
+## off (section 4: modern setting; section 15: no jokes about radiation sickness).
+const FEATURE_CAR_ESCAPE: bool = false
+const FEATURE_MUTATION: bool = false
+
+## Recon look-around and grab timer per difficulty (section 3).
+const DIFFICULTY_TIMERS: Dictionary = {
+	"story": {"recon": 20.0, "grab": 60.0},
+	"normal": {"recon": 10.0, "grab": 60.0},
+	"hard": {"recon": 3.0, "grab": 30.0},
+}
+
 var current_screen: String = SCREEN_TITLE
 
-# Demo / Automated QA Showcase flags
+# Demo / automated QA flags
 var demo_mode: bool = false
 var headless_fast_test: bool = false
 var autopilot_full_run: bool = false   # bots/probes: autopilot plays the full scavenge timer
 var rng := RandomNumberGenerator.new()
 
-# Family customization list (Array of Dictionaries)
+# Family (Array of member Dictionaries; the shelter run uses these same dictionaries)
 var family_members: Array = []
 
-# Selected OpenStreetMap house and discovered real-world neighborhood POIs
+# Selected OpenStreetMap house and the real places around it
 var selected_house: Dictionary = {}
 var nearby_pois: Array = []
 var current_neighborhood_label: String = "Capitol Hill, Seattle, WA"
 
 # Real map geometry around the chosen house (from the same OSM payload as the POIs).
-# roads: [{osm_id, name, kind, points_latlon: Array[Vector2(lon, lat)]}], parks: [{kind, name, polygon_latlon}]
 var map_roads: Array = []
 var map_parks: Array = []
 var map_buildings: Array = []      # lightweight {osm_id, lat, lon, polygon_latlon, is_residential}
@@ -44,72 +57,159 @@ var map_bounds: Dictionary = {}    # {minlat, minlon, maxlat, maxlon} of the loa
 var map_source: String = ""        # "preset:<id>" | "live" | "unmapped"
 var place_names: Dictionary = {}   # {street, neighborhood, city, region, country, postcode}
 var map_landmarks: Array = []      # verified named places beyond the map bbox: {name, lat, lon, source}
+# Full records from the ~450 m live/preset fetch, kept so late-arriving wider-area results can
+# rebuild the expedition targets after the house-select screen is gone.
+var osm_local_buildings: Array = []
+var osm_local_pois: Array = []
+var osm_local_roads: Array = []
+# Wider-area search (2.2 km, widened to 6 km when needed) run by ExtendedAreaFetcher.
+var extended_pois: Array = []
+var extended_roads: Array = []
+var extended_status: String = ""
+var extended_radius_m: int = 0
+var _extended_fetcher: ExtendedAreaFetcher = null
 
-# Difficulty: "normal" (60 s scavenge) or "hard" (30 s scavenge). Recon time is separate.
+# Difficulty: "story" | "normal" | "hard" (section 6).
 var difficulty: String = "normal"
 
-# Global Nuke Detonation configuration & computed impact conditions
+# The strike and its computed conditions
 var nuke_config: Dictionary = {}
 
-# Bunker Survival State
-var day: int = 1
-var soup_quarters: int = 0   # 4 quarters = 1 full soup can
-var water_quarters: int = 0  # 4 quarters = 1 full water bottle
-var ammo_count: int = 0
-var medkit_count: int = 0
-var bug_spray_count: int = 0
-var padlock_active: bool = false
+# The 60-second grab: item_id -> whole items carried down the hatch.
+var grab_haul: Dictionary = {}
 
-# Durable / Unique Bunker Gear: item_id -> {"owned": bool, "broken": bool, "count": int}
-var bunker_items: Dictionary = {}
+# The shelter run (null until the hatch closes).
+var shelter: ShelterState = null
 
-# Companions & Special States
-var has_cat_sharikov: bool = false
-var has_dog_pancake: bool = false
-var bunker_structural_integrity: float = 100.0
-var surface_radiation_sv: float = 4.5   # current outdoor dose rate at home in Sv/h (see RadiationModel)
-var rad_hotspots: Array = []            # localized re-contamination: rain-out, dust, debris
-var extra_strikes: Array = []           # later detonations with their own decay clocks
+# Radiation model state shared with RadiationModel (rain-out hotspots, later strikes)
+var surface_radiation_sv: float = 4.5
+var rad_hotspots: Array = []
+var extra_strikes: Array = []
 var shelter_dose_today_msv: float = 0.0
 var bunker_temp_c: float = 20.0
+var bunker_structural_integrity: float = 100.0
 
-# Finite loot: osm_id (as String) -> {"items": {item_id: count}, "initial_total": int, "raids": int}
-var poi_inventories: Dictionary = {}
-# Salvaged vehicle parts kept on the shelter's storage rack (fuel in litres)
+# Car escape (disabled feature; see FEATURE_CAR_ESCAPE)
 var parts: Dictionary = {"car_battery": 0, "fuel_l": 0.0, "spark_plugs": 0, "fan_belt": 0, "tire_patch": 0}
-# Items that just arrived from an expedition and still need to be shown going onto the shelves
-var storage_arrivals: Array = []
-# Family car state (see VehicleSystem); empty until the shelter run starts
 var vehicle: Dictionary = {}
 
-# Active Expedition State (at most 1 expedition out at a time, as in the classic game)
-var active_expedition: Dictionary = {} # Empty when nobody is outside
+# Items that just came home from a trip and still need to go up on the rack (shown by the cinematic)
+var storage_arrivals: Array = []
 
-# Rescue & Storyline Chains
-var rescue_chains: Dictionary = {
-	"military": 0,   # 0..3 -> 3 triggers Military Rescue Victory!
-	"sanctuary": 0,  # 0..3 -> 3 triggers Real-World Church/Town Sanctuary Victory!
-	"scientist": 0   # 0..3 -> 3 triggers Vault Scientist / Sharikov Victory!
-}
-
-# Daily Notebook Logs & Summary Outcome
-var daily_log_entries: Array = []
+# Outcome
 var scavenge_stats: Dictionary = {}
 var game_over: bool = false
 var victory: bool = false
 var ending_title: String = ""
 var ending_description: String = ""
 
+var _day_pre_shelter: int = 1
+
 const DURABLE_GEAR_IDS := [
-	"gas_mask", "radio", "flashlight", "map", "book",
-	"axe", "rifle", "cards", "checkers", "suitcase",
-	"harmonica", "toolbox"
+	"gas_mask", "radio", "flashlight", "map", "manual", "axe", "rifle", "cards", "console", "suitcase",
 ]
+
+
+# ---------------------------------------------------------------- compatibility mirrors
+
+var day: int:
+	get:
+		return shelter.day if shelter != null else _day_pre_shelter
+	set(v):
+		if shelter != null:
+			shelter.day = v
+		else:
+			_day_pre_shelter = v
+
+## Rations of food / water on the shelf (the names predate canned food; 1 ration = 1 quarter can).
+var soup_quarters: int:
+	get:
+		return shelter.food() if shelter != null else 4 * int(grab_haul.get("food", 0))
+var water_quarters: int:
+	get:
+		return shelter.water() if shelter != null else 4 * int(grab_haul.get("water", 0))
+var ammo_count: int:
+	get:
+		return _count("ammo")
+var medkit_count: int:
+	get:
+		return _count("medkit")
+var bug_spray_count: int:
+	get:
+		return _count("bug_spray")
+var padlock_active: bool:
+	get:
+		return _count("padlock") > 0
+var has_cat: bool:
+	get:
+		return shelter != null and shelter.pets.has("cat")
+var has_dog: bool:
+	get:
+		return shelter != null and shelter.pets.has("dog")
+## item_id -> {"owned": bool, "broken": bool, "count": int} for the shelf artwork.
+var bunker_items: Dictionary:
+	get:
+		var d: Dictionary = {}
+		for gid in DURABLE_GEAR_IDS:
+			var n: int = _count(str(gid))
+			var b: int = shelter.broken_count(str(gid)) if shelter != null else 0
+			d[gid] = {"owned": n + b > 0, "broken": n == 0 and b > 0, "count": n + b, "checked_out": _checked_out(str(gid))}
+		return d
+## The first expedition in progress (the artwork shows one explorer's gear).
+var active_expedition: Dictionary:
+	get:
+		if shelter == null or shelter.trips.is_empty():
+			return {}
+		var t: Dictionary = shelter.trips[0]
+		var m: Dictionary = shelter.member(str(t["member"]))
+		var p: Dictionary = shelter.places[int(t["place_idx"])]
+		return {"member_id": str(t["member"]), "member_name": str(m.get("name", "")), "gear_ids": t["gear"],
+			"target_name": ShelterTrips.place_label(p), "short_target_name": ShelterTrips.place_label(p),
+			"days_remaining": maxi(0, int(t["due_day"]) - shelter.day), "category": str(p["category"])}
+var rescue_chains: Dictionary:
+	get:
+		var d: Dictionary = {}
+		if shelter != null:
+			for cid in shelter.chains.keys():
+				d[cid] = int((shelter.chains[cid] as Dictionary).get("step", 0)) - 1
+		return d
+var daily_log_entries: Array:
+	get:
+		var out: Array = []
+		if shelter == null:
+			return out
+		for e_v in shelter.journal:
+			var e: Dictionary = e_v
+			var lines: Array[String] = []
+			for l_v in e.get("lines", []):
+				lines.append(str((l_v as Dictionary).get("text", "")))
+			var title: String = "DAY %d" % int(e.get("day", 0))
+			out.append({"day": int(e.get("day", 0)), "title": title, "lines": lines, "text": title + "\n" + "\n".join(lines)})
+		return out
+
+
+func _count(item_id: String) -> int:
+	if shelter != null:
+		return shelter.count(item_id)
+	return int(grab_haul.get(item_id, 0))
+
+
+func _checked_out(item_id: String) -> bool:
+	if shelter == null:
+		return false
+	for t_v in shelter.trips:
+		if ((t_v as Dictionary)["gear"] as Array).has(item_id):
+			return true
+	return false
+
+
+# ---------------------------------------------------------------- lifecycle
 
 func _ready() -> void:
 	rng.randomize()
 	_parse_cli_args()
 	reset_to_defaults()
+
 
 func _parse_cli_args() -> void:
 	var args: PackedStringArray = OS.get_cmdline_args() + OS.get_cmdline_user_args()
@@ -120,60 +220,61 @@ func _parse_cli_args() -> void:
 		elif a.begins_with("--seed="):
 			rng.seed = int(a.split("=")[1])
 		elif a.begins_with("--difficulty="):
-			difficulty = "hard" if a.split("=")[1] == "hard" else "normal"
+			var d: String = a.split("=")[1]
+			difficulty = d if DIFFICULTY_TIMERS.has(d) else "normal"
+
+
+## The wider-area store search lives here (under the autoload) so it survives screen changes.
+func get_extended_fetcher() -> ExtendedAreaFetcher:
+	if _extended_fetcher == null or not is_instance_valid(_extended_fetcher):
+		_extended_fetcher = ExtendedAreaFetcher.new()
+		_extended_fetcher.name = "ExtendedAreaFetcher"
+		add_child(_extended_fetcher)
+	return _extended_fetcher
+
+
+func recon_seconds() -> float:
+	return float((DIFFICULTY_TIMERS.get(difficulty, DIFFICULTY_TIMERS["normal"]) as Dictionary)["recon"])
+
+
+func grab_seconds() -> float:
+	return float((DIFFICULTY_TIMERS.get(difficulty, DIFFICULTY_TIMERS["normal"]) as Dictionary)["grab"])
+
 
 func reset_to_defaults() -> void:
-	day = 1
+	shelter = null
+	_day_pre_shelter = 1
 	game_over = false
 	victory = false
 	ending_title = ""
 	ending_description = ""
-	soup_quarters = 0
-	water_quarters = 0
-	ammo_count = 0
-	medkit_count = 0
-	bug_spray_count = 0
-	padlock_active = false
-	has_cat_sharikov = false
-	has_dog_pancake = false
+	grab_haul = {}
 	bunker_structural_integrity = 100.0
-	active_expedition = {}
-	daily_log_entries = []
-	scavenge_stats = {
-		"items_collected": 0,
-		"family_saved": 0,
-		"leader_escaped": false,
-		"time_remaining": 0.0
-	}
-	rescue_chains = {"military": 0, "sanctuary": 0, "scientist": 0}
+	scavenge_stats = {"items_collected": 0, "family_saved": 0, "leader_escaped": false, "time_remaining": 0.0}
 	rad_hotspots = []
 	extra_strikes = []
 	shelter_dose_today_msv = 0.0
-	poi_inventories = {}
 	parts = {"car_battery": 0, "fuel_l": 0.0, "spark_plugs": 0, "fan_belt": 0, "tire_patch": 0}
 	storage_arrivals = []
 	vehicle = {}
-	bunker_items = {}
-	for gid in DURABLE_GEAR_IDS:
-		bunker_items[gid] = {"owned": false, "broken": false, "count": 0}
-
 	if family_members.is_empty():
 		init_default_family()
 	else:
 		reset_family_runtime_status()
-
 	if selected_house.is_empty():
 		init_default_house()
 	if nuke_config.is_empty():
 		init_default_nuke()
 
+
 func init_default_family() -> void:
 	family_members = [
-		make_family_member("member_0", "Ted", "adult", 42, true, "handy", 1, 1, "#4a2e1b", "#2f5d8a", true, 1, "#c84b31", 0),
-		make_family_member("member_1", "Dolores", "adult", 39, false, "optimist", 1, 3, "#d8a438", "#3a7d5c", false, 0, "#3d7a8a", 2),
-		make_family_member("member_2", "Mary Jane", "teen", 16, false, "bookworm", 1, 2, "#8c3b2b", "#4c6a92", true, 0, "#7b4b94", 1),
-		make_family_member("member_3", "Timmy", "child", 9, false, "scout", 1, 5, "#e0822b", "#2f5d8a", false, 0, "#d99b26", 3)
+		make_family_member("member_0", "Sam", "adult", 42, true, "handy", 1, 1, "#4a2e1b", "#2f5d8a", true, 1, "#3d5a80", 0),
+		make_family_member("member_1", "Priya", "adult", 39, false, "optimist", 3, 3, "#1c1410", "#3a7d5c", false, 0, "#8a5a44", 2),
+		make_family_member("member_2", "Maya", "teen", 16, false, "bookworm", 3, 2, "#2a1c14", "#4c6a92", true, 0, "#6b4c9a", 1),
+		make_family_member("member_3", "Leo", "child", 9, false, "scout", 1, 5, "#8c5a2b", "#2f5d8a", false, 0, "#d99b26", 3)
 	]
+
 
 func make_family_member(
 	id_str: String,
@@ -193,66 +294,35 @@ func make_family_member(
 ) -> Dictionary:
 	var slots: int = 2 if (role == "child" or role == "teen" or age < 18) else 3
 	return {
-		"id": id_str,
-		"name": p_name,
-		"role": role,
-		"age": age,
-		"is_leader": is_leader,
-		"trait": trait_id,
-		"skin_tone": skin_tone,
-		"hair_style": hair_style,
-		"hair_color": hair_color,
-		"eye_color": eye_color,
-		"glasses": glasses,
-		"facial_hair": facial_hair,
-		"outfit_color": outfit_color,
-		"shirt_style": shirt_style,
-		"scavenge_slots": slots,
-		"in_bunker": false,
-		"alive": true,
-		"death_reason": "",
-		"days_without_water": 0,
-		"days_without_food": 0,
-		"hunger": 0,
-		"thirst": 0,
-		"sanity": 0,
-		"sickness": 0,
-		"injury": 0,
-		"fatigue": 0,
-		"radiation": 0.0,
-		"dose_msv": 0.0,
-		"dose_recent_msv": 0.0,
-		"dose_history": [],
-		"is_mutant": false,
-		"on_expedition": false,
-		"days_away": 0,
-		"status_note": "Healthy and alert."
+		"id": id_str, "name": p_name, "role": role, "age": age, "is_leader": is_leader, "trait": trait_id,
+		"skin_tone": skin_tone, "hair_style": hair_style, "hair_color": hair_color, "eye_color": eye_color,
+		"glasses": glasses, "facial_hair": facial_hair, "outfit_color": outfit_color, "shirt_style": shirt_style,
+		"scavenge_slots": slots, "in_bunker": false, "alive": true, "death_reason": "",
+		"hunger": 0, "thirst": 0, "sanity": 0, "sickness": 0, "injury": 0, "fatigue": 0,
+		"radiation": 0.0, "dose_msv": 0.0, "dose_recent_msv": 0.0, "dose_history": [], "is_mutant": false,
+		"on_expedition": false, "days_away": 0, "status_note": "OK",
 	}
+
 
 func reset_family_runtime_status() -> void:
 	for m in family_members:
 		var role_str: String = str(m.get("role", "adult"))
 		var age_val: int = int(m.get("age", 30))
 		m["scavenge_slots"] = 2 if (role_str == "child" or role_str == "teen" or age_val < 18) else 3
-		m["in_bunker"] = false
+		for k in ["in_bunker", "on_expedition", "is_mutant"]:
+			m[k] = false
 		m["alive"] = true
 		m["death_reason"] = ""
-		m["days_without_water"] = 0
-		m["days_without_food"] = 0
-		m["hunger"] = 0
-		m["thirst"] = 0
-		m["sanity"] = 0
-		m["sickness"] = 0
-		m["injury"] = 0
-		m["fatigue"] = 0
+		for k in ["hunger", "thirst", "sanity", "sickness", "injury", "fatigue", "days_away"]:
+			m[k] = 0
 		m["radiation"] = 0.0
 		m["dose_msv"] = 0.0
 		m["dose_recent_msv"] = 0.0
 		m["dose_history"] = []
-		m["is_mutant"] = false
-		m["on_expedition"] = false
-		m["days_away"] = 0
-		m["status_note"] = "Ready for Civil Defense drill."
+		m["status_note"] = "OK"
+		for k in ["loc", "dwf", "dww", "sick", "injured", "causes", "morale"]:
+			m.erase(k)
+
 
 func init_default_house() -> void:
 	# Real OSM building (Seattle preset): way 206082403, tags addr:housenumber=1002,
@@ -283,6 +353,7 @@ func init_default_house() -> void:
 	if place_names.is_empty():
 		place_names = {"street": "East Republican Street", "housenumber": "1002", "postcode": "98102", "neighborhood": "Capitol Hill", "city": "Seattle", "region": "WA", "country": "USA"}
 
+
 func init_default_nuke() -> void:
 	nuke_config = {
 		"target_name": "Elliott Bay waterfront, Seattle",
@@ -299,100 +370,83 @@ func init_default_nuke() -> void:
 		"raider_aggression": 0.65,
 		"fallout_days": 14,
 		"scavenge_seconds": 60.0,
-		"scout_seconds": 8.0
+		"scout_seconds": 10.0
 	}
 	surface_radiation_sv = float(nuke_config["initial_sv_hr"])
 	bunker_temp_c = float(nuke_config["bunker_temp_c"])
 
+
+# ---------------------------------------------------------------- the shelf
+
+## The grab (and, later, anything that hands the family a whole item) lands here.
 func add_scavenged_item(item_id: String, amount: int = 1) -> void:
-	match item_id:
-		"soup":
-			soup_quarters += 4 * amount
-		"water":
-			water_quarters += 4 * amount
-		"ammo":
-			ammo_count += 2 * amount
-		"medkit":
-			medkit_count += amount
-		"bug_spray":
-			bug_spray_count += amount
-		"padlock":
-			padlock_active = true
-		"car_battery", "spark_plugs", "fan_belt", "tire_patch":
-			parts[item_id] = int(parts.get(item_id, 0)) + amount
-		"fuel_can":
-			parts["fuel_l"] = float(parts.get("fuel_l", 0.0)) + 10.0 * float(amount)
-		_:
-			if bunker_items.has(item_id):
-				bunker_items[item_id]["owned"] = true
-				bunker_items[item_id]["broken"] = false
-				bunker_items[item_id]["count"] = int(bunker_items[item_id].get("count", 0)) + amount
+	var iid: String = ItemDB._normalize_id(item_id)
+	if iid in ["car_battery", "spark_plugs", "fan_belt", "tire_patch"]:
+		parts[iid] = int(parts.get(iid, 0)) + amount
+	elif iid == "fuel_can":
+		parts["fuel_l"] = float(parts.get("fuel_l", 0.0)) + 10.0 * float(amount)
+	elif shelter != null:
+		shelter.add_units(iid, amount)
+	else:
+		grab_haul[iid] = int(grab_haul.get(iid, 0)) + amount
 	inventory_changed.emit()
+
 
 func has_working_item(item_id: String) -> bool:
-	match item_id:
-		"soup":
-			return soup_quarters > 0
-		"water":
-			return water_quarters > 0
-		"ammo":
-			return ammo_count > 0
-		"medkit":
-			return medkit_count > 0
-		"bug_spray":
-			return bug_spray_count > 0
-		"padlock":
-			return padlock_active
-		"car_battery", "spark_plugs", "fan_belt", "tire_patch":
-			return int(parts.get(item_id, 0)) > 0
-		"fuel_can":
-			return float(parts.get("fuel_l", 0.0)) >= 10.0
-		_:
-			if bunker_items.has(item_id):
-				var entry: Dictionary = bunker_items[item_id]
-				return bool(entry.get("owned", false)) and not bool(entry.get("broken", false))
-	return false
+	var iid: String = ItemDB._normalize_id(item_id)
+	if iid == "food" or iid == "water":
+		return soup_quarters > 0 if iid == "food" else water_quarters > 0
+	if iid in ["car_battery", "spark_plugs", "fan_belt", "tire_patch"]:
+		return int(parts.get(iid, 0)) > 0
+	if iid == "fuel_can":
+		return float(parts.get("fuel_l", 0.0)) >= 10.0
+	return _count(iid) > 0
+
 
 func break_or_consume_item(item_id: String) -> void:
-	match item_id:
-		"medkit":
-			medkit_count = maxi(0, medkit_count - 1)
-		"bug_spray":
-			bug_spray_count = maxi(0, bug_spray_count - 1)
-		"ammo":
-			ammo_count = maxi(0, ammo_count - 1)
-		"padlock":
-			padlock_active = false
-		_:
-			if bunker_items.has(item_id):
-				bunker_items[item_id]["broken"] = true
+	if shelter != null:
+		if item_id in ["medkit", "bug_spray", "ammo", "padlock"]:
+			shelter.remove(item_id, 1)
+		else:
+			shelter.break_one(item_id)
 	inventory_changed.emit()
 
+
 func repair_item(item_id: String) -> void:
-	if bunker_items.has(item_id) and bool(bunker_items[item_id].get("owned", false)):
-		bunker_items[item_id]["broken"] = false
+	if shelter != null and shelter.repair_one(item_id):
 		inventory_changed.emit()
 
+
+## Alive, sheltered and not away.
 func get_living_bunker_members() -> Array:
+	if shelter != null:
+		return shelter.home()
 	var res: Array = []
 	for m in family_members:
 		if bool(m.get("alive", false)) and bool(m.get("in_bunker", false)) and not bool(m.get("on_expedition", false)):
 			res.append(m)
 	return res
 
+
+## Alive and part of the household (sheltered or away on a trip).
 func get_all_living_members() -> Array:
+	if shelter != null:
+		return shelter.living()
 	var res: Array = []
 	for m in family_members:
 		if bool(m.get("alive", false)) and bool(m.get("in_bunker", false)):
 			res.append(m)
 	return res
 
+
+## "3 cans + 2 rations" style text for the shelf labels.
 func format_quarters_as_cans(quarters: int) -> String:
 	var whole: int = quarters / 4
 	var rem: int = quarters % 4
 	if rem == 0:
 		return "%d" % whole
 	return "%d + %d/4" % [whole, rem]
+
 
 func request_screen(screen_name: String) -> void:
 	current_screen = screen_name

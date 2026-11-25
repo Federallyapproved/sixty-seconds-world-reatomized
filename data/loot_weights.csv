@@ -1,0 +1,72 @@
+place_type,item_id,min,max,chance,size_scaled,notes
+home,food,4,6,1.0,0,House grab: always some tins in the kitchen
+home,water,4,6,1.0,0,House grab
+home,medkit,1,1,1.0,0,House grab
+home,gas_mask,1,1,1.0,0,"House grab: always in the house (the 60 seconds decide, not luck)"
+home,radio,1,1,1.0,0,"House grab: always in the house (the 60 seconds decide, not luck)"
+home,flashlight,1,1,1.0,0,"House grab: always in the house (the 60 seconds decide, not luck)"
+home,map,1,1,1.0,0,"House grab: always in the house (the 60 seconds decide, not luck)"
+home,manual,1,1,0.8,0,House grab
+home,padlock,1,1,0.8,0,House grab
+home,suitcase,1,1,1.0,0,"House grab: always in the house (the 60 seconds decide, not luck)"
+home,axe,1,1,0.7,0,House grab
+home,rifle,1,1,0.5,0,House grab
+home,ammo,1,2,0.5,0,House grab
+home,bug_spray,1,1,0.8,0,House grab
+home,cards,1,1,0.8,0,House grab
+home,console,1,1,0.7,0,House grab
+grocery,food,10,20,1.0,1,
+grocery,water,10,20,1.0,1,
+grocery,bug_spray,0,2,1.0,0,
+restaurant,food,4,10,1.0,1,
+restaurant,water,4,8,1.0,1,
+restaurant,cards,0,1,0.5,0,
+pharmacy,medkit,2,5,1.0,1,
+pharmacy,water,2,4,1.0,1,
+pharmacy,bug_spray,1,2,1.0,0,
+pharmacy,gas_mask,0,1,0.6,0,
+hardware,axe,0,2,1.0,0,
+hardware,padlock,1,3,1.0,0,
+hardware,flashlight,1,2,1.0,0,
+hardware,bug_spray,0,1,1.0,0,
+hardware,water,1,3,1.0,1,
+hardware,ammo,0,1,0.5,0,
+hardware,map,0,1,0.5,0,
+auto,food,2,5,1.0,1,
+auto,water,4,8,1.0,1,
+auto,map,1,2,1.0,0,
+auto,flashlight,0,1,1.0,0,
+church,food,3,7,1.0,1,
+church,water,4,8,1.0,1,
+church,medkit,0,1,1.0,0,
+church,cards,0,1,0.6,0,
+school,food,3,6,1.0,1,
+school,water,3,6,1.0,1,
+school,map,1,1,1.0,0,
+school,manual,0,1,0.6,0,
+school,flashlight,0,1,1.0,0,
+school,medkit,0,1,1.0,0,
+school,console,0,1,0.4,0,
+civic,water,3,6,1.0,1,
+civic,ammo,1,3,1.0,1,
+civic,rifle,0,1,0.6,0,
+civic,gas_mask,1,2,1.0,0,
+civic,radio,0,1,0.6,0,
+civic,medkit,1,2,1.0,1,
+civic,axe,0,1,1.0,0,
+park,water,0,2,1.0,0,
+park,map,0,1,0.4,0,
+neighbor_house,food,2,5,1.0,0,
+neighbor_house,water,2,5,1.0,0,
+neighbor_house,medkit,1,1,0.3,0,
+neighbor_house,flashlight,1,1,0.4,0,
+neighbor_house,padlock,1,1,0.25,0,
+neighbor_house,cards,1,1,0.3,0,
+neighbor_house,bug_spray,1,1,0.3,0,
+neighbor_house,console,1,1,0.2,0,
+neighbor_house,manual,1,1,0.1,0,
+neighbor_house,radio,1,1,0.1,0,
+neighbor_house,suitcase,1,1,0.25,0,
+neighbor_house,rifle,1,1,0.06,0,
+neighbor_house,ammo,1,1,0.12,0,
+neighbor_house,gas_mask,1,1,0.08,0,

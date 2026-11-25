@@ -1,0 +1,1129 @@
+[
+	{
+		"id": "aftershock",
+		"title": "The Ground Shrugs",
+		"type": "quake",
+		"mood": "bad",
+		"weight": 1.0,
+		"setup": "A long aftershock rolls through the shelter. Shelves sway. Something glass is thinking about it.",
+		"conditions": {
+			"min_day": 4
+		},
+		"options": [
+			{
+				"id": "pack",
+				"label": "Pack the fragile gear in the suitcase",
+				"item": "suitcase",
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "suitcase",
+						"what": "the fragile gear rode it out"
+					}
+				],
+				"outcome": "The radio, mask and flashlight ride it out in the suitcase."
+			},
+			{
+				"id": "table",
+				"label": "Get under the table",
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "break_fragile",
+						"p": 0.4
+					}
+				],
+				"outcome": "Everyone is fine. The shelf is less fine."
+			},
+			{
+				"id": "hold",
+				"label": "Hold the shelves steady",
+				"cinematic": "attack",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "injure",
+								"who": "actor",
+								"why": "a shelf came down",
+								"root": "decision"
+							}
+						]
+					}
+				],
+				"outcome": "{name} braces the shelf with both arms until the shaking stops."
+			}
+		]
+	},
+	{
+		"id": "uninvited",
+		"title": "Uninvited",
+		"type": "pests",
+		"mood": "bad",
+		"weight": 1.0,
+		"setup": "Something small and numerous has found the food shelf.",
+		"conditions": {
+			"min_day": 5
+		},
+		"options": [
+			{
+				"id": "spray",
+				"label": "Spray the shelf",
+				"item": "bug_spray",
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "bug_spray",
+						"what": "the food shelf is clear"
+					}
+				],
+				"outcome": "The shelf is clear. The smell lingers longer than the bugs did."
+			},
+			{
+				"id": "swat",
+				"label": "Swat them with the manual",
+				"item": "manual",
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "manual",
+						"what": "swatted the pests"
+					}
+				],
+				"outcome": "Chapter four is about pests. It's also heavy."
+			},
+			{
+				"id": "live",
+				"label": "Live with them",
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "lose",
+						"item": "food",
+						"n": 1
+					}
+				],
+				"outcome": "They share the food. They do not share well."
+			}
+		]
+	},
+	{
+		"id": "second_wave",
+		"title": "Second Wave",
+		"type": "pests",
+		"mood": "bad",
+		"weight": 0.8,
+		"setup": "The ants are back, and they've brought relatives. They're in the water this time.",
+		"conditions": {
+			"min_day": 12
+		},
+		"options": [
+			{
+				"id": "spray",
+				"label": "Spray the corners",
+				"item": "bug_spray",
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "bug_spray",
+						"what": "the ants are gone"
+					}
+				],
+				"outcome": "The corners are quiet again. The can is empty."
+			},
+			{
+				"id": "pick",
+				"label": "Pick them out by hand",
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": -2
+					},
+					{
+						"do": "morale",
+						"who": "all",
+						"n": -1
+					}
+				],
+				"outcome": "A long, fiddly afternoon. Two rations are past saving."
+			},
+			{
+				"id": "ignore",
+				"label": "Drink around them",
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.4,
+						"then": [
+							{
+								"do": "sick",
+								"who": "random",
+								"why": "ants in the water",
+								"root": "decision"
+							}
+						]
+					}
+				],
+				"outcome": "It's protein, someone says. Nobody laughs."
+			}
+		]
+	},
+	{
+		"id": "cough_goes_round",
+		"title": "The Cough Goes Round",
+		"type": "sickness",
+		"mood": "bad",
+		"weight": 1.0,
+		"setup": "{subject} has a dry cough this morning. By noon, so does the person next to them.",
+		"conditions": {
+			"min_day": 6,
+			"min_people": 2
+		},
+		"weight_mods": {
+			"after_escalation": 1.5
+		},
+		"options": [
+			{
+				"id": "medkit",
+				"label": "Treat it early",
+				"item": "medkit",
+				"cinematic": "medical",
+				"effects": [
+					{
+						"do": "use",
+						"item": "medkit",
+						"what": "stopped the cough spreading"
+					}
+				],
+				"outcome": "Antibiotics, rest and a lot of hot water. It doesn't spread."
+			},
+			{
+				"id": "isolate",
+				"label": "Hang a sheet and isolate {subject}",
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "sick",
+								"who": "subject",
+								"why": "the cough",
+								"root": "chance"
+							}
+						],
+						"else": [
+							{
+								"do": "say",
+								"kind": "good",
+								"text": "The sheet works. The cough stays behind it and fades."
+							}
+						]
+					},
+					{
+						"do": "morale",
+						"who": "subject",
+						"n": -1,
+						"why": "isolated"
+					}
+				],
+				"outcome": "{subject} spends three days behind a hung sheet with a book and a bucket."
+			},
+			{
+				"id": "ignore",
+				"label": "Carry on as normal",
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "sick",
+						"who": "subject",
+						"why": "the cough",
+						"root": "chance"
+					},
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "sick",
+								"who": "random",
+								"why": "caught the cough",
+								"root": "decision"
+							}
+						]
+					}
+				],
+				"outcome": "It's just a cough, until it isn't."
+			}
+		]
+	},
+	{
+		"id": "dust_in_the_vent",
+		"title": "Dust in the Vent",
+		"type": "contamination",
+		"mood": "bad",
+		"weight": 1.2,
+		"setup": "The air vent cover has cracked. Grey dust is drifting in with every gust.",
+		"conditions": {
+			"min_day": 2,
+			"needs_heavy_fallout": true
+		},
+		"options": [
+			{
+				"id": "mask",
+				"label": "Go up and reseal it",
+				"item": "gas_mask",
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "resealed the vent in the dust"
+					},
+					{
+						"do": "dose",
+						"who": "actor",
+						"msv": 15
+					}
+				],
+				"outcome": "Ten minutes up the ladder. The cover is taped and the dust stops."
+			},
+			{
+				"id": "tape",
+				"label": "Tape it from inside",
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"who": "all",
+						"msv": 20
+					},
+					{
+						"do": "morale",
+						"who": "all",
+						"n": -1
+					}
+				],
+				"outcome": "The tape holds, mostly. Everything tastes faintly of chalk."
+			},
+			{
+				"id": "wait",
+				"label": "Hope the wind changes",
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "sick",
+						"who": "random",
+						"why": "breathed vent dust",
+						"root": "decision"
+					}
+				],
+				"outcome": "The wind doesn't change."
+			}
+		]
+	},
+	{
+		"id": "lights_out",
+		"title": "Lights Out",
+		"type": "discovery",
+		"mood": "bad",
+		"weight": 1.0,
+		"setup": "The shelter light flickers and dies. The battery is done, and the dark is very complete.",
+		"conditions": {
+			"min_day": 6
+		},
+		"options": [
+			{
+				"id": "torch",
+				"label": "Work by torchlight",
+				"item": "flashlight",
+				"cinematic": "signal",
+				"effects": [
+					{
+						"do": "use",
+						"item": "flashlight",
+						"what": "lit the shelter"
+					}
+				],
+				"outcome": "Two batteries of courage, rationed carefully."
+			},
+			{
+				"id": "dark",
+				"label": "Wait it out in the dark",
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"who": "all",
+						"n": -1
+					},
+					{
+						"do": "chance",
+						"p": 0.3,
+						"then": [
+							{
+								"do": "injure",
+								"who": "random",
+								"why": "a shin met a shelf in the dark",
+								"root": "chance"
+							}
+						]
+					}
+				],
+				"outcome": "Everyone learns the shelter by touch. Some lessons leave marks."
+			},
+			{
+				"id": "candle",
+				"label": "Burn the emergency candle",
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"do": "morale",
+						"who": "all",
+						"n": -1
+					}
+				],
+				"outcome": "One candle, one evening, one very long night after it."
+			}
+		]
+	},
+	{
+		"id": "bad_air",
+		"title": "Bad Air",
+		"type": "contamination",
+		"mood": "bad",
+		"weight": 0.8,
+		"warning": "fumes",
+		"omen": "Headaches all round this morning. The air in the shelter feels thick.",
+		"setup": "Everyone is dizzy. The air has gone stale and heavy, and the candle flame keeps shrinking.",
+		"conditions": {
+			"min_day": 6,
+			"min_people": 2
+		},
+		"options": [
+			{
+				"id": "mask",
+				"label": "Go up masked and clear the vent",
+				"item": "gas_mask",
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "cleared the blocked vent"
+					},
+					{
+						"do": "dose",
+						"who": "actor",
+						"msv": 20
+					}
+				],
+				"outcome": "Ash had packed the vent solid. Fresh air, and a lot of coughing."
+			},
+			{
+				"id": "open",
+				"label": "Open the hatch for an hour",
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "dose",
+						"who": "all",
+						"msv": 20
+					},
+					{
+						"do": "followed",
+						"p": 0.2,
+						"why": "someone saw the open hatch"
+					}
+				],
+				"outcome": "Cold air pours in. So does the dust, and possibly attention."
+			},
+			{
+				"id": "sleep",
+				"label": "Lie down and wait for it to pass",
+				"cinematic": "doom",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.25,
+						"then": [
+							{
+								"do": "kill",
+								"who": "weakest",
+								"cause": "The air in the shelter went bad overnight.",
+								"kind": "air",
+								"root": "decision"
+							}
+						],
+						"else": [
+							{
+								"do": "morale",
+								"who": "all",
+								"n": -2
+							}
+						]
+					}
+				],
+				"outcome": "Everyone lies down. The headaches get worse before they get better."
+			}
+		]
+	},
+	{
+		"id": "smoke_on_the_street",
+		"title": "Smoke on the Street",
+		"type": "contamination",
+		"mood": "bad",
+		"weight": 0.9,
+		"setup": "A house down the street is burning. The smoke is rolling toward the vent.",
+		"conditions": {
+			"min_day": 3,
+			"max_day": 18
+		},
+		"options": [
+			{
+				"id": "mask",
+				"label": "Watch the vent all night, masked",
+				"item": "gas_mask",
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "kept the smoke out"
+					},
+					{
+						"do": "tired",
+						"who": "actor",
+						"days": 1
+					}
+				],
+				"outcome": "{name} keeps the vent clear until dawn and sleeps through lunch."
+			},
+			{
+				"id": "seal",
+				"label": "Seal the vent and sweat it out",
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "rations",
+						"kind": "water",
+						"n": -2
+					},
+					{
+						"do": "morale",
+						"who": "all",
+						"n": -1
+					}
+				],
+				"outcome": "It gets hot. Everyone drinks more than they should."
+			},
+			{
+				"id": "ignore",
+				"label": "Hope it passes",
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "sick",
+								"who": "random",
+								"why": "smoke in the shelter",
+								"root": "decision"
+							}
+						]
+					}
+				],
+				"outcome": "The smoke passes. Some of it stays in someone's chest."
+			}
+		]
+	},
+	{
+		"id": "sweating_it_out",
+		"title": "Sweating It Out",
+		"type": "sickness",
+		"mood": "neutral",
+		"weight": 1.2,
+		"setup": "{subject}'s fever spiked overnight. The sheets are soaked, and they keep asking for water.",
+		"conditions": {
+			"min_day": 3,
+			"needs_sick": true
+		},
+		"options": [
+			{
+				"id": "water",
+				"label": "Give extra water all day",
+				"item": "water",
+				"cinematic": "give",
+				"effects": [
+					{
+						"do": "use",
+						"item": "water",
+						"what": "helped break the fever"
+					},
+					{
+						"do": "chance",
+						"p": 0.6,
+						"then": [
+							{
+								"do": "cure",
+								"who": "subject"
+							},
+							{
+								"do": "say",
+								"kind": "good",
+								"text": "The fever broke by evening."
+							}
+						],
+						"else": [
+							{
+								"do": "say",
+								"text": "The fever holds on."
+							}
+						]
+					}
+				],
+				"outcome": "A bottle, a sip at a time, all day."
+			},
+			{
+				"id": "medkit",
+				"label": "Treat it properly",
+				"item": "medkit",
+				"cinematic": "medical",
+				"effects": [
+					{
+						"do": "use",
+						"item": "medkit",
+						"what": "cured {subject}"
+					},
+					{
+						"do": "cure",
+						"who": "subject"
+					}
+				],
+				"outcome": "Antibiotics, a cold cloth, and sleep. {subject} is through the worst."
+			},
+			{
+				"id": "wait",
+				"label": "Let the fever run",
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "morale",
+						"who": "subject",
+						"n": -1,
+						"why": "a bad night"
+					}
+				],
+				"outcome": "A long night. The fever is still there in the morning."
+			}
+		]
+	},
+	{
+		"id": "static_hour",
+		"title": "Static Hour",
+		"type": "discovery",
+		"mood": "neutral",
+		"weight": 0.8,
+		"setup": "{subject} wants to take the back off the radio to pull in a stronger station.",
+		"conditions": {
+			"min_day": 5,
+			"needs_owned": "radio",
+			"min_people": 2
+		},
+		"options": [
+			{
+				"id": "tinker",
+				"label": "Let them tinker",
+				"item": "radio",
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"mode": "tinker",
+						"what": "tuned in the city channel"
+					},
+					{
+						"do": "fallout_news"
+					}
+				],
+				"outcome": "Screws on the table, solder smoke, then a voice reading the fallout map."
+			},
+			{
+				"id": "crank",
+				"label": "Crank it all night instead",
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "tired",
+						"who": "subject",
+						"days": 1
+					},
+					{
+						"do": "chance",
+						"p": 0.3,
+						"then": [
+							{
+								"do": "fallout_news"
+							}
+						]
+					}
+				],
+				"outcome": "{subject} cranks until the small hours and hears mostly weather."
+			},
+			{
+				"id": "leave",
+				"label": "Leave it alone",
+				"effects": [],
+				"outcome": "The radio stays in one piece. So does the argument."
+			}
+		]
+	},
+	{
+		"id": "nobody_sleeps",
+		"title": "Nobody Sleeps",
+		"type": "family",
+		"mood": "neutral",
+		"weight": 1.2,
+		"setup": "{subject} hasn't slept in two nights. Every noise upstairs is the hatch opening.",
+		"conditions": {
+			"min_day": 3,
+			"needs_child": true
+		},
+		"options": [
+			{
+				"id": "console",
+				"label": "Let them play until they drop off",
+				"item": "console",
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "use",
+						"item": "console",
+						"what": "{subject} finally slept"
+					},
+					{
+						"do": "morale",
+						"who": "subject",
+						"n": 2
+					}
+				],
+				"outcome": "Level four, then level five, then snoring."
+			},
+			{
+				"id": "cards",
+				"label": "Teach them a slow card game",
+				"item": "cards",
+				"cinematic": "celebrate",
+				"effects": [
+					{
+						"do": "use",
+						"item": "cards",
+						"what": "a slow game until bedtime"
+					},
+					{
+						"do": "morale",
+						"who": "all",
+						"n": 1
+					}
+				],
+				"outcome": "The rules change every hand. Everybody wins eventually, then sleeps."
+			},
+			{
+				"id": "stories",
+				"label": "Tell stories until morning",
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"do": "tired",
+						"who": "actor",
+						"days": 1
+					},
+					{
+						"do": "morale",
+						"who": "subject",
+						"n": 1
+					}
+				],
+				"outcome": "{name} runs out of stories at four a.m. and starts inventing them."
+			}
+		]
+	},
+	{
+		"id": "fizzing_main",
+		"title": "Broken Main",
+		"type": "dirty_water",
+		"mood": "good",
+		"weight": 1.0,
+		"setup": "Water is bubbling up from a broken main two streets over. It looks clean. It might even be.",
+		"conditions": {
+			"min_day": 9,
+			"needs_fallout_clear": true
+		},
+		"options": [
+			{
+				"id": "check",
+				"label": "Check the signs chapter three lists",
+				"item": "manual",
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "use",
+						"item": "manual",
+						"what": "checked the water was safe"
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 2
+					}
+				],
+				"outcome": "Clear, odourless, no sheen. Two bottles, filled with confidence."
+			},
+			{
+				"id": "fill",
+				"label": "Fill everything and hope",
+				"cinematic": "gain",
+				"effects": [
+					{
+						"do": "add",
+						"item": "water",
+						"n": 3
+					},
+					{
+						"do": "chance",
+						"p": 0.4,
+						"then": [
+							{
+								"do": "sick",
+								"who": "random",
+								"why": "the water main",
+								"root": "decision"
+							}
+						]
+					}
+				],
+				"outcome": "Three bottles. The hope part is ongoing."
+			},
+			{
+				"id": "leave",
+				"label": "Leave it",
+				"effects": [],
+				"outcome": "By tomorrow the street has drunk it all."
+			}
+		]
+	},
+	{
+		"id": "stray_cat",
+		"title": "Whiskers at the Vent",
+		"type": "pet",
+		"mood": "good",
+		"weight": 1.0,
+		"setup": "A thin cat is sitting on the hatch, watching the vent like it owes her money.",
+		"conditions": {
+			"min_day": 3,
+			"no_pet": true
+		},
+		"options": [
+			{
+				"id": "feed",
+				"label": "Open a can of {food_label} for her",
+				"item": "food",
+				"cinematic": "pet",
+				"effects": [
+					{
+						"do": "use",
+						"item": "food",
+						"what": "won over a cat"
+					},
+					{
+						"do": "pet",
+						"kind": "cat"
+					},
+					{
+						"do": "morale",
+						"who": "all",
+						"n": 2
+					}
+				],
+				"outcome": "She eats, inspects everyone, and takes the warmest spot. She lives here now."
+			},
+			{
+				"id": "in",
+				"label": "Let her in",
+				"cinematic": "pet",
+				"effects": [
+					{
+						"do": "pet",
+						"kind": "cat"
+					},
+					{
+						"do": "rations",
+						"kind": "food",
+						"n": -1
+					},
+					{
+						"do": "morale",
+						"who": "all",
+						"n": 1
+					}
+				],
+				"outcome": "She finds the food shelf before anyone shows her where it is."
+			},
+			{
+				"id": "shoo",
+				"label": "Shoo her off",
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "morale",
+						"who": "all",
+						"n": -1
+					}
+				],
+				"outcome": "She leaves slowly, so everyone can watch."
+			}
+		]
+	},
+	{
+		"id": "jammed",
+		"title": "Jammed",
+		"type": "quake",
+		"mood": "bad",
+		"weight": 0.9,
+		"setup": "The hatch won't open. Something heavy shifted onto it in the night.",
+		"conditions": {
+			"min_day": 5
+		},
+		"options": [
+			{
+				"id": "axe",
+				"label": "Lever it open",
+				"item": "axe",
+				"cinematic": "repair",
+				"effects": [
+					{
+						"do": "use",
+						"item": "axe",
+						"mode": "wear",
+						"what": "levered the hatch open"
+					}
+				],
+				"outcome": "A long creak, a short bang, and daylight."
+			},
+			{
+				"id": "push",
+				"label": "Everyone push together",
+				"cinematic": "attack",
+				"effects": [
+					{
+						"do": "chance",
+						"p": 0.4,
+						"then": [
+							{
+								"do": "injure",
+								"who": "random",
+								"why": "the hatch gave all at once",
+								"root": "decision"
+							}
+						]
+					}
+				],
+				"outcome": "On three. Then on three again. Then it moves."
+			},
+			{
+				"id": "wait",
+				"label": "Wait for it to settle",
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "refuse_trip",
+						"who": "all",
+						"days": 1
+					},
+					{
+						"do": "morale",
+						"who": "all",
+						"n": -1
+					}
+				],
+				"outcome": "It shifts by itself the next evening. Nobody went anywhere in between."
+			}
+		]
+	},
+	{
+		"id": "black_rain",
+		"title": "Black Rain",
+		"type": "weather",
+		"mood": "bad",
+		"weight": 1.2,
+		"setup": "It rains for the first time since the flash. The rain is dark, and the Geiger counter starts clicking again.",
+		"conditions": {
+			"min_day": 8,
+			"after_escalation": true
+		},
+		"options": [
+			{
+				"id": "mask",
+				"label": "Go up masked and cover the vent",
+				"item": "gas_mask",
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "use",
+						"item": "gas_mask",
+						"what": "kept the rain-out out of the vent"
+					},
+					{
+						"do": "flag",
+						"set": "storm"
+					}
+				],
+				"outcome": "The vent is covered. Outside is dangerous again for a couple of days."
+			},
+			{
+				"id": "tape",
+				"label": "Tape the vent from inside",
+				"cinematic": "hazard",
+				"effects": [
+					{
+						"do": "flag",
+						"set": "storm"
+					},
+					{
+						"do": "dose",
+						"who": "all",
+						"msv": 25
+					}
+				],
+				"outcome": "Tape, towels, and a long night listening to the counter. Trips will be dangerous for a while."
+			},
+			{
+				"id": "barrel",
+				"label": "Catch it in the barrel anyway",
+				"cinematic": "sickness",
+				"effects": [
+					{
+						"do": "flag",
+						"set": "storm"
+					},
+					{
+						"do": "add",
+						"item": "water",
+						"n": 1
+					},
+					{
+						"do": "chance",
+						"p": 0.5,
+						"then": [
+							{
+								"do": "sick",
+								"who": "random",
+								"why": "drank the black rain",
+								"root": "decision"
+							}
+						]
+					}
+				],
+				"outcome": "A barrel of grey water. Nobody is quite sure it was worth it."
+			}
+		]
+	},
+	{
+		"id": "empty_shelves",
+		"title": "Empty Shelves",
+		"type": "discovery",
+		"mood": "bad",
+		"weight": 1.0,
+		"setup": "Through the vent, a neighbour shouts to another: the stores on the main road were cleared out overnight.",
+		"conditions": {
+			"min_day": 9,
+			"after_escalation": true
+		},
+		"options": [
+			{
+				"id": "go",
+				"label": "Plan a trip before the rest goes",
+				"cinematic": "shrug",
+				"effects": [
+					{
+						"do": "drain",
+						"category": [
+							"grocery",
+							"pharmacy"
+						],
+						"share": 0.3
+					},
+					{
+						"do": "morale",
+						"who": "all",
+						"n": -1
+					}
+				],
+				"outcome": "Somebody starts packing. The stores are a third emptier than yesterday."
+			},
+			{
+				"id": "radio",
+				"label": "Listen for which stores are still open",
+				"item": "radio",
+				"cinematic": "radio",
+				"effects": [
+					{
+						"do": "use",
+						"item": "radio",
+						"what": "heard which stores still had stock"
+					},
+					{
+						"do": "drain",
+						"category": [
+							"grocery",
+							"pharmacy"
+						],
+						"share": 0.3
+					},
+					{
+						"do": "reveal_cache",
+						"items": {
+							"food": 2,
+							"water": 1
+						}
+					}
+				],
+				"outcome": "A volunteer reads out a list. One address still has a back room nobody found."
+			},
+			{
+				"id": "ration",
+				"label": "Tighten rations instead",
+				"cinematic": "gloom",
+				"effects": [
+					{
+						"do": "drain",
+						"category": [
+							"grocery",
+							"pharmacy"
+						],
+						"share": 0.3
+					},
+					{
+						"do": "morale",
+						"who": "all",
+						"n": -2
+					}
+				],
+				"outcome": "Smaller portions, longer evenings. The stores keep emptying anyway."
+			}
+		]
+	}
+]

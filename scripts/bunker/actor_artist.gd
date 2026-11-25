@@ -37,8 +37,8 @@ static func draw_standing(canvas: CanvasItem, feet: Vector2, member: Dictionary,
 	var t_work: float = float(pose.get("work_t", 0.0))
 	var dir: float = -1.0 if bool(pose.get("flip", false)) else 1.0
 	var skin: Color = CharacterArtist.get_skin_color(member)
-	if int(member.get("sickness", 0)) >= 1 and not bool(member.get("is_mutant", false)):
-		skin = skin.lerp(Color("#b6c98b"), 0.25)
+	if int(member.get("sickness", 0)) >= 1:
+		skin = skin.lerp(Color("#c9c4bc"), 0.22)
 	var outfit: Color = Color(str(member.get("outfit_color", "#c84b31")))
 	var shirt_style: int = clampi(int(member.get("shirt_style", 0)), 0, 4)
 	var pants: Color = Color("#2f3847") if shirt_style != 2 else skin.darkened(0.06)

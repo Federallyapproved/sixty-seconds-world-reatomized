@@ -530,201 +530,160 @@ func _audit_2_pois_and_expeditions(gs: Node) -> void:
 		if not all_ok:
 			preview_mismatch.append("%s preview=%s stocked=%s" % [cat_p, str(osm_prev), str(seen.keys())])
 	var hw_prev: Array = OsmServiceScript.get_loot_profile_for_category("hardware")
+	# M1: the stock tables come from data/loot_weights.csv; hardware sells padlocks and tools, rifles
+	# only turn up at police/fire stations or (rarely) a neighbour's.
 	_assert_cond(
-		preview_mismatch.is_empty() and hw_prev.has("toolbox") and hw_prev.has("spark_plugs") and not hw_prev.has("rifle"),
-		"Loot previews match the finite stock table for all 9 categories (hardware: %s; rifles only at police/fire/civic)" % str(hw_prev),
-		"Loot preview mismatch: %s" % str(preview_mismatch)
+		preview_mismatch.is_empty() and hw_prev.has("padlock") and hw_prev.has("flashlight") and not hw_prev.has("rifle"),
+		"Loot previews match the finite stock table for all 9 categories (hardware: %s; rifles only at civic places)" % str(hw_prev),
+		"Loot preview mismatch: %s (hardware=%s)" % [str(preview_mismatch), str(hw_prev)]
 	)
 
-	# Test ExpeditionEngine full trips across Seattle real POIs + Brooklyn real 'civic' POI!
+	# M1: full trips run through ShelterTrips on a real shelter run (the night-by-night risk is set to
+	# zero here so the check is about routing and loot, not luck).
 	var seattle_parsed: Dictionary = OsmServiceScript.load_preset("seattle")
 	var s_bldgs: Array = seattle_parsed["buildings"]
 	var s_pois: Array = seattle_parsed["pois"]
 	var s_house: Dictionary = OsmServiceScript.pick_best_house(s_bldgs, 47.6240, -122.3195, 206082403)
-	gs.call("reset_to_defaults")
-	gs.set("selected_house", s_house)
-	gs.set("nearby_pois", OsmServiceScript.build_nearby_targets_for_house(s_house, s_bldgs, s_pois))
-	gs.set("surface_radiation_sv", 1.2)
-	for m in gs.get("family_members"):
-		m["in_bunker"] = true
-		m["alive"] = true
-
-	var avail: Array = ExpeditionEngineScript.get_available_targets()
-	for cat_want in ["grocery", "church", "pharmacy", "hardware", "school", "house"]:
-		var found_idx: int = -1
-		for i in range(avail.size()):
-			if str(avail[i].get("category", "")) == cat_want:
-				found_idx = i
-				break
-		if found_idx == -1:
-			continue
-		var explorer: Dictionary = gs.get("family_members")[0]
-		explorer["alive"] = true
-		explorer["in_bunker"] = true
-		explorer["on_expedition"] = false
-		explorer["injury"] = 0
-		explorer["sickness"] = 0
-		explorer["fatigue"] = 0
-
-		var depart_msg: String = ExpeditionEngineScript.start_expedition("member_0", found_idx, [])
-		var ret: Dictionary = {}
-		var safety: int = 0
-		while not (gs.get("active_expedition") as Dictionary).is_empty() and safety < 6:
-			ret = ExpeditionEngineScript.tick_active_expedition()
-			safety += 1
-		_assert_cond(
-			not depart_msg.is_empty() and bool(ret.get("returned", false)) and not (ret.get("loot", {}) as Dictionary).is_empty(),
-			"Expedition to real '%s' POI ('%s') succeeded -> loot: %s" % [
-				cat_want, str(avail[found_idx].get("display_name", "")), str(ret.get("loot", {}))
-			],
-			"Expedition to '%s' failed (depart='%s', ret=%s)" % [cat_want, depart_msg, str(ret)]
-		)
-
-	# Test real Brooklyn 'civic' expedition (FDNY EMS Station 32) unlocking civic loot table!
+	var brooklyn_house_pois: Array = brooklyn_parsed["pois"]
 	var b_bldgs: Array = brooklyn_parsed["buildings"]
-	var b_pois: Array = brooklyn_parsed["pois"]
 	var b_house: Dictionary = OsmServiceScript.pick_best_house(b_bldgs, 40.6802, -73.9930, 248154036)
-	gs.call("reset_to_defaults")
-	gs.set("selected_house", b_house)
-	gs.set("nearby_pois", OsmServiceScript.build_nearby_targets_for_house(b_house, b_bldgs, b_pois))
-	gs.set("surface_radiation_sv", 1.2)
-	for m in gs.get("family_members"):
-		m["in_bunker"] = true
-		m["alive"] = true
-	var b_avail: Array = ExpeditionEngineScript.get_available_targets()
-	var civic_idx: int = -1
-	for i in range(b_avail.size()):
-		if str(b_avail[i].get("category", "")) == "civic":
-			civic_idx = i
-			break
-	var civic_ret: Dictionary = {}
-	if civic_idx >= 0:
-		ExpeditionEngineScript.start_expedition("member_0", civic_idx, [])
-		var c_safety: int = 0
-		while not (gs.get("active_expedition") as Dictionary).is_empty() and c_safety < 6:
-			civic_ret = ExpeditionEngineScript.tick_active_expedition()
-			c_safety += 1
-	var civic_loot: Dictionary = civic_ret.get("loot", {})
-	# Pass 2: the haul is chosen by what the family needs (finite stock, carry slots), so the
-	# check is that the civic stock table was used: at least two civic-only finds.
-	var civic_only_n: int = 0
-	for civ_id in ["ammo", "rifle", "gas_mask", "radio"]:
-		if civic_loot.has(civ_id):
-			civic_only_n += 1
+	var trip_results: Dictionary = {}
+	for cat_want in ["grocery", "church", "pharmacy", "hardware", "school", "neighbor_house", "civic"]:
+		var use_bk: bool = cat_want == "civic"
+		gs.call("reset_to_defaults")
+		gs.set("selected_house", b_house if use_bk else s_house)
+		gs.set("nearby_pois", OsmServiceScript.build_nearby_targets_for_house(b_house if use_bk else s_house, b_bldgs if use_bk else s_bldgs, brooklyn_house_pois if use_bk else s_pois))
+		for m in gs.get("family_members"):
+			m["in_bunker"] = true
+			m["alive"] = true
+		gs.call("add_scavenged_item", "food", 6)
+		gs.call("add_scavenged_item", "water", 6)
+		gs.call("add_scavenged_item", "axe", 1)
+		BunkerSimScript.start_bunker_run()
+		var sh: ShelterState = gs.get("shelter")
+		var idx: int = -1
+		for p_v in sh.places:
+			if str((p_v as Dictionary)["category"]) == cat_want:
+				idx = int((p_v as Dictionary)["idx"])
+				break
+		if idx < 0:
+			continue
+		var m0: Dictionary = sh.members[0]
+		var why: String = ShelterTrips.launch(sh, m0, idx, ["axe"] if cat_want in ["pharmacy", "hardware"] else [])
+		for t_v in sh.trips:
+			(t_v as Dictionary)["p_day"] = 0.0
+		var back: String = ""
+		var guard: int = 0
+		while str(m0.get("loc", "")) == "away" and guard < 12:
+			sh.receipt = []
+			ShelterTrips.tick(sh)
+			sh.day += 1
+			for l_v in sh.receipt:
+				if str((l_v as Dictionary).get("kind", "")) == "return":
+					back = str((l_v as Dictionary)["text"])
+			guard += 1
+		trip_results[cat_want] = back
+		_assert_cond(why == "" and back != "" and not back.ends_with("with nothing."),
+			"Trip to a real '%s' place came home with loot: %s" % [cat_want, back],
+			"Trip to '%s' failed (why='%s', back='%s')" % [cat_want, why, back])
+	var civic_back: String = str(trip_results.get("civic", ""))
 	var civic_table: Array = OsmServiceScript.get_loot_profile_for_category("civic")
-	var all_from_civic: bool = not civic_loot.is_empty()
-	for got in civic_loot.keys():
-		if not civic_table.has(str(got)):
-			all_from_civic = false
-	var has_civic_sig_item: bool = all_from_civic and civic_only_n >= 1
-	_assert_cond(
-		civic_idx >= 0 and bool(civic_ret.get("returned", false)) and has_civic_sig_item,
-		"Expedition to real 'civic' POI ('%s') unlocked civic loot table -> %s" % [
-			str(b_avail[civic_idx].get("display_name", "")) if civic_idx >= 0 else "MISSING", str(civic_loot)
-		],
-		"Real 'civic' POI expedition failed (civic_idx=%d, ret=%s)" % [civic_idx, str(civic_ret)]
-	)
+	var civic_hit: bool = false
+	for civ_id in civic_table:
+		if civic_back.find(ShelterData.item_name(str(civ_id))) != -1:
+			civic_hit = true
+	_assert_cond(civic_back != "" and civic_hit, "A real 'civic' place stocks from the civic table: %s" % civic_back, "Civic trip didn't use the civic table: %s" % civic_back)
 
-	# Verify Church Sanctuary chain reaches 3/3
+	# M1: a trip to a real church after the all-clear opens the neighbourhood rescue (it replaced the
+	# old three-visit sanctuary counter).
 	gs.call("reset_to_defaults")
 	gs.set("selected_house", s_house)
 	gs.set("nearby_pois", OsmServiceScript.build_nearby_targets_for_house(s_house, s_bldgs, s_pois))
 	for m in gs.get("family_members"):
 		m["in_bunker"] = true
 		m["alive"] = true
-	var s_avail_ch: Array = ExpeditionEngineScript.get_available_targets()
-	gs.get("rescue_chains")["sanctuary"] = 0
+	BunkerSimScript.start_bunker_run()
+	var shc: ShelterState = gs.get("shelter")
+	shc.fallout_clear_day = 1
 	var church_idx: int = -1
-	for i in range(s_avail_ch.size()):
-		if str(s_avail_ch[i].get("category", "")) == "church":
-			church_idx = i
+	for p_v in shc.places:
+		if str((p_v as Dictionary)["category"]) == "church":
+			church_idx = int((p_v as Dictionary)["idx"])
 			break
 	if church_idx >= 0:
-		for _trip in range(3):
-			var ex_m: Dictionary = gs.get("family_members")[0]
-			ex_m["on_expedition"] = false
-			ex_m["alive"] = true
-			ex_m["in_bunker"] = true
-			ExpeditionEngineScript.start_expedition("member_0", church_idx, [])
-			while not (gs.get("active_expedition") as Dictionary).is_empty():
-				ExpeditionEngineScript.tick_active_expedition()
-		var sanc_val: int = int(gs.get("rescue_chains").get("sanctuary", 0))
-		_assert_cond(
-			sanc_val == 3,
-			"Church expeditions advanced GameState.rescue_chains['sanctuary'] to %d/3" % sanc_val,
-			"Church expeditions failed to advance sanctuary rescue chain (got %d)" % sanc_val
-		)
+		var mc: Dictionary = shc.members[0]
+		ShelterTrips.launch(shc, mc, church_idx, [])
+		for t_v in shc.trips:
+			(t_v as Dictionary)["p_day"] = 0.0
+		var g2: int = 0
+		while str(mc.get("loc", "")) == "away" and g2 < 12:
+			ShelterTrips.tick(shc)
+			shc.day += 1
+			g2 += 1
+		ShelterChains.tick(shc)
+		var nb_state: String = str((shc.chains["neighbourhood"] as Dictionary)["state"])
+		_assert_cond(nb_state == "active",
+			"A trip to a real church after the all-clear opens the neighbourhood rescue (%s)" % nb_state,
+			"Church trip failed to open the neighbourhood rescue (state %s)" % nb_state)
 
-	# Check 2C: Checked-Out Durable Gear Restored BEFORE _roll_category_loot (never swallowed or overwritten)!
-	# Subtest 1: Carry ONLY 'flashlight' (map/book/checkers/cards unowned) -> 'flashlight' is seen as owned during roll, so unowned durable is awarded AND flashlight remains count=1!
+	# Carried gear comes home unless the receipt says it broke or was lost (never swallowed or
+	# overwritten), and anything found adds to it.
 	gs.call("reset_to_defaults")
 	gs.set("selected_house", s_house)
 	gs.set("nearby_pois", OsmServiceScript.build_nearby_targets_for_house(s_house, s_bldgs, s_pois))
 	for m in gs.get("family_members"):
 		m["in_bunker"] = true
 		m["alive"] = true
-		m["trait"] = "handy"
-	gs.call("add_scavenged_item", "flashlight", 1)
+	for gid in ["food", "water", "flashlight", "map", "suitcase", "gas_mask"]:
+		gs.call("add_scavenged_item", gid, 3 if gid in ["food", "water"] else 1)
+	BunkerSimScript.start_bunker_run()
+	var shg: ShelterState = gs.get("shelter")
 	var school_idx: int = -1
-	var avail2: Array = ExpeditionEngineScript.get_available_targets()
-	for i in range(avail2.size()):
-		if str(avail2[i].get("category", "")) == "school":
-			school_idx = i
+	for p_v in shg.places:
+		if str((p_v as Dictionary)["category"]) in ["school", "grocery"]:
+			school_idx = int((p_v as Dictionary)["idx"])
 			break
-	var sub1_ok: bool = false
-	if school_idx >= 0:
-		ExpeditionEngineScript.start_expedition("member_0", school_idx, ["flashlight"])
-		var school_ret1: Dictionary = {}
-		while not (gs.get("active_expedition") as Dictionary).is_empty():
-			school_ret1 = ExpeditionEngineScript.tick_active_expedition()
-		var loot1: Dictionary = school_ret1.get("loot", {})
-		var fl_cnt1: int = int(gs.get("bunker_items")["flashlight"]["count"])
-		var fl_owned1: bool = bool(gs.get("bunker_items")["flashlight"]["owned"])
-		# Pass 2: the carried flashlight comes home (never swallowed); anything found adds to it.
-		sub1_ok = fl_owned1 and fl_cnt1 == 1 + int(loot1.get("flashlight", 0))
-
-	# Subtest 2: Own ALL school durables + suitcase + gas_mask + rifle (count=1 each), carry ["suitcase", "flashlight", "map", "gas_mask"],
-	# run trips until a carried durable is rolled as duplicate loot, and verify count increments by +1 (NEVER overwritten back to 1)!
-	for gid in ["map", "book", "checkers", "cards", "suitcase", "gas_mask", "rifle"]:
-		gs.call("add_scavenged_item", gid, 1)
-	gs.get("rng").seed = 123456
-	var sub2_rolled_carried_dup: bool = false
-	var sub2_preserved_all: bool = true
-	for _t in range(25):
-		var ex0: Dictionary = gs.get("family_members")[0]
-		ex0["on_expedition"] = false
-		ex0["alive"] = true
-		ex0["in_bunker"] = true
-		ex0["injury"] = 0
-		ex0["sickness"] = 0
-		var pre_fl: int = int(gs.get("bunker_items")["flashlight"]["count"])
-		var pre_map: int = int(gs.get("bunker_items")["map"]["count"])
-		ExpeditionEngineScript.start_expedition("member_0", school_idx, ["suitcase", "flashlight", "map", "gas_mask"])
-		var s_ret2: Dictionary = {}
-		while not (gs.get("active_expedition") as Dictionary).is_empty():
-			s_ret2 = ExpeditionEngineScript.tick_active_expedition()
-		var loot2: Dictionary = s_ret2.get("loot", {})
-		var post_fl: int = int(gs.get("bunker_items")["flashlight"]["count"])
-		var post_map: int = int(gs.get("bunker_items")["map"]["count"])
-		if loot2.has("flashlight"):
-			sub2_rolled_carried_dup = true
-			if post_fl != pre_fl + int(loot2["flashlight"]):
-				sub2_preserved_all = false
-		elif post_fl != pre_fl:
-			sub2_preserved_all = false
-		if loot2.has("map"):
-			sub2_rolled_carried_dup = true
-			if post_map != pre_map + int(loot2["map"]):
-				sub2_preserved_all = false
-		elif post_map != pre_map:
-			sub2_preserved_all = false
-
+	var swallowed: int = 0
+	var trips_done: int = 0
+	for _t in range(26):
+		var mg: Dictionary = shg.members[0]
+		mg["loc"] = "shelter"
+		mg["alive"] = true
+		mg["tired_until"] = 0
+		var gear: Array = []
+		for g in ["suitcase", "flashlight", "map", "gas_mask"]:
+			if shg.has(g):
+				gear.append(g)
+		var pre: Dictionary = {}
+		for g in ["suitcase", "flashlight", "map", "gas_mask"]:
+			pre[g] = shg.count(g) + shg.broken_count(g)
+		shg.receipt = []
+		if ShelterTrips.launch(shg, mg, school_idx, gear) != "":
+			continue
+		for t_v in shg.trips:
+			(t_v as Dictionary)["p_day"] = 0.0
+		var g3: int = 0
+		while str(mg.get("loc", "")) == "away" and g3 < 12:
+			ShelterTrips.tick(shg)
+			shg.day += 1
+			g3 += 1
+		trips_done += 1
+		for g in gear:
+			var lost: int = 0
+			var found: int = 0
+			for l_v in shg.receipt:
+				var tx: String = str((l_v as Dictionary).get("text", ""))
+				if tx.begins_with(ShelterData.item_name(str(g)) + " was lost"):
+					lost += 1
+				if (l_v as Dictionary).get("kind", "") == "return" and tx.find(ShelterData.item_name(str(g))) != -1:
+					found += 1
+			var post: int = shg.count(str(g)) + shg.broken_count(str(g))
+			if post < int(pre[g]) - lost:
+				swallowed += 1
 	_assert_cond(
-		sub1_ok and sub2_rolled_carried_dup and sub2_preserved_all,
-		"Checked-out durable gear (suitcase, flashlight, map, gas_mask) comes home on return: 0 swallowed or overwritten durables across 26 trips",
-		"Checked-out durable gear bug persisted (sub1_ok=%s, sub2_rolled_dup=%s, sub2_preserved=%s)" % [
-			str(sub1_ok), str(sub2_rolled_carried_dup), str(sub2_preserved_all)
-		]
+		trips_done >= 20 and swallowed == 0,
+		"Carried gear (suitcase, flashlight, map, gas mask) comes home unless a receipt says it broke or was lost: 0 swallowed across %d trips" % trips_done,
+		"Carried gear went missing without a receipt (%d cases over %d trips)" % [swallowed, trips_done]
 	)
 
 
@@ -843,7 +802,7 @@ func _audit_3_floorplan_reachability(gs: Node, all_real_houses: Array) -> void:
 		var gear_n: int = 0
 		for it_v in items:
 			var iid: String = str((it_v as Dictionary).get("item_id", ""))
-			if iid == "soup":
+			if iid == "food":
 				soup_n += 1
 			elif iid == "water":
 				water_n += 1
@@ -855,7 +814,19 @@ func _audit_3_floorplan_reachability(gs: Node, all_real_houses: Array) -> void:
 		for r_v in rooms:
 			if not bool((r_v as Dictionary).get("sealed", false)):
 				open_rooms += 1
-		if soup_n < 5 or water_n < 5 or gear_n < 10 or fam_spawns.size() != family.size() - 1 or open_rooms < 2:
+		# M1: the house stock comes from data/loot_weights.csv ("home"): at least the table's minimum
+		# food and water, every always-present item, and a handful of the chance items.
+		var home_tbl: Dictionary = ShelterData.loot_for("home")
+		var sure_missing: int = 0
+		for k in home_tbl.keys():
+			if float((home_tbl[k] as Dictionary).get("chance", 1.0)) >= 1.0 and str(k) != "food" and str(k) != "water":
+				var found_k: bool = false
+				for it2 in items:
+					if str((it2 as Dictionary).get("item_id", "")) == str(k):
+						found_k = true
+				if not found_k:
+					sure_missing += 1
+		if soup_n < int((home_tbl["food"] as Dictionary)["min"]) or water_n < int((home_tbl["water"] as Dictionary)["min"]) or sure_missing > 0 or gear_n < 8 or fam_spawns.size() != family.size() - 1 or open_rooms < 2:
 			missing_manifest_houses += 1
 			print("    manifest #%d %.0fm2: soup=%d water=%d gear=%d fam=%d/%d open_rooms=%d" % [idx, float(h.get("area_sqm", 0.0)), soup_n, water_n, gear_n, fam_spawns.size(), family.size() - 1, open_rooms])
 
@@ -922,7 +893,7 @@ func _audit_3_floorplan_reachability(gs: Node, all_real_houses: Array) -> void:
 
 	_assert_cond(
 		missing_manifest_houses == 0,
-		"All %d real OSM houses spawned >=2 open rooms, >=5 Soup, >=5 Water, >=10 Gear items, and every non-leader Family Member" % houses_tested,
+		"All %d real OSM houses spawned >=2 open rooms, the table's minimum food and water, every always-present item, >=8 gear, and every non-leader family member" % houses_tested,
 		"%d/%d houses had incomplete room/item/family manifests" % [missing_manifest_houses, houses_tested]
 	)
 
@@ -1307,9 +1278,11 @@ func _audit_4_nuke_physics_and_propagation(gs: Node) -> void:
 	scav_win.queue_free()
 	await _wait_frames(2)
 
+	# M1 (section 3): the recon look-around follows the difficulty (Story 20 s, Normal 10 s, Hard 3 s),
+	# not the strike zone; the tremor still follows the strike.
 	_assert_cond(
-		is_equal_approx(gz_scout_sec, 6.0) and is_equal_approx(win_scout_sec, 12.0) and gz_cam_offset_max > win_cam_offset_max * 4.0,
-		"ScavengeScene propagation verified: GZ scout=%.1fs (tremor offset=%.2fpx) vs Nuclear Winter scout=%.1fs (tremor offset=%.2fpx)" % [
+		is_equal_approx(gz_scout_sec, float(gs.call("recon_seconds"))) and is_equal_approx(win_scout_sec, float(gs.call("recon_seconds"))) and gz_cam_offset_max > win_cam_offset_max * 4.0,
+		"ScavengeScene: recon follows difficulty (GZ %.1fs, tremor %.2fpx; winter %.1fs, tremor %.2fpx)" % [
 			gz_scout_sec, gz_cam_offset_max, win_scout_sec, win_cam_offset_max
 		],
 		"ScavengeScene failed to apply scout_seconds or tremor_intensity (gz_scout=%.1f, win_scout=%.1f, gz_shake=%.2f, win_shake=%.2f)" % [
@@ -1354,7 +1327,7 @@ func _audit_4_nuke_physics_and_propagation(gs: Node) -> void:
 		BunkerSimScript.advance_day({}, "")
 	var gz_m0: Dictionary = gs.get("family_members")[0]
 	var gz_thirst_3d: int = int(gz_m0.get("thirst", 0))
-	var gz_dww_3d: int = int(gz_m0.get("days_without_water", 0))
+	var gz_dww_3d: int = int(gz_m0.get("dww", 0))
 	var gz_day4_sv: float = float(gs.get("surface_radiation_sv"))
 
 	# Run 2: +25.0 C Warm Metro Bunker — advance 3 dry days
@@ -1369,7 +1342,7 @@ func _audit_4_nuke_physics_and_propagation(gs: Node) -> void:
 		BunkerSimScript.advance_day({}, "")
 	var warm_m0: Dictionary = gs.get("family_members")[0]
 	var warm_thirst_3d: int = int(warm_m0.get("thirst", 0))
-	var warm_dww_3d: int = int(warm_m0.get("days_without_water", 0))
+	var warm_dww_3d: int = int(warm_m0.get("dww", 0))
 
 	# Run 3: Cool Regional Fallout (+11.0 C, 2.6 Sv/hr) — advance 3 dry days with identical seed
 	gs.call("reset_to_defaults")
@@ -1383,7 +1356,7 @@ func _audit_4_nuke_physics_and_propagation(gs: Node) -> void:
 		BunkerSimScript.advance_day({}, "")
 	var reg_m0: Dictionary = gs.get("family_members")[0]
 	var reg_thirst_3d: int = int(reg_m0.get("thirst", 0))
-	var reg_dww_3d: int = int(reg_m0.get("days_without_water", 0))
+	var reg_dww_3d: int = int(reg_m0.get("dww", 0))
 
 	_assert_cond(
 		gz_thirst_3d > reg_thirst_3d and gz_dww_3d > reg_dww_3d
@@ -1408,13 +1381,14 @@ func _audit_4_nuke_physics_and_propagation(gs: Node) -> void:
 	gs.get("rng").seed = 77777
 	var cold_sickness_triggered: bool = false
 	for _d in range(6):
-		gs.set("water_quarters", 20)
-		var rplan: Dictionary = {
-			"member_0": {"water_q": 1, "soup_q": 0},
-			"member_1": {"water_q": 1, "soup_q": 0},
-			"member_2": {"water_q": 1, "soup_q": 0},
-			"member_3": {"water_q": 1, "soup_q": 0}
-		}
+		var sh: ShelterState = gs.get("shelter")
+		sh.add("water", maxi(0, 20 - sh.water()))
+		var rplan: Dictionary = {"rations": {
+			"member_0": {"water": true, "food": false},
+			"member_1": {"water": true, "food": false},
+			"member_2": {"water": true, "food": false},
+			"member_3": {"water": true, "food": false}
+		}, "treat": {}, "jobs": {}}
 		BunkerSimScript.advance_day(rplan, "")
 		for m in gs.get("family_members"):
 			if int((m as Dictionary).get("sickness", 0)) >= 1:

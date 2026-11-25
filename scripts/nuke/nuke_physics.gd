@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Global & Regional Nuclear Detonation Impact Physics Engine for "The End Is Near".
 ## Computes great-circle Haversine distance, forward azimuth bearings, cube-root scaled blast &
-## thermal overpressure radii, downwind fallout plume alignment, and the 4 Civil Defense survival zones.
+## thermal overpressure radii, downwind fallout plume alignment, and the 4 survival zones.
 
 const EARTH_RADIUS_KM: float = 6371.0
 const PLUME_HALF_ANGLE_DEG: float = 35.0
@@ -293,6 +293,7 @@ static func compute_impact(
 	var structural_damage: float = 0.2
 	var fallout_days: int = 10
 	var raider_aggression: float = 0.5
+	# Legacy per-zone lead times; the grab now takes its timers from GameState.recon_seconds()/grab_seconds().
 	var scout_seconds: float = 8.0
 	var scavenge_seconds: float = 60.0
 	var summary: String = ""
@@ -338,8 +339,8 @@ static func compute_impact(
 			bullets.append("SCORCHING BUNKER (%+.1f C): Intense thermal heat drives faster family thirst." % bunker_temp_c)
 			bullets.append("EXTREME FALLOUT (%s at H+1): Deadly surface ash for %d days; Gas Mask vital." % [DoseFormat.rate(initial_sv_hr * 1000.0), fallout_days])
 		bullets.append("VIOLENT SHOCKWAVE (%d%%): Maximum tremor & %d%% hull loss (%d%% shelter integrity)." % [tremor_pct, hull_loss_pct, hull_integrity_pct])
-		bullets.append("FLASH SIREN (%.1fs Recon + %.1fs Grab): Minimal radar warning before impact!" % [scout_seconds, scavenge_seconds])
-		bullets.append("INNER-RING PANIC (%d%% Raiders): Desperate looters target intact shelters." % raider_pct)
+		bullets.append("WIRELESS EMERGENCY ALERT: Every phone screams at once. Then the flash.")
+		bullets.append("RAIDERS (%d%%): Intact shelters this close draw a lot of attention." % raider_pct)
 	elif distance_km <= 35.0 * scale:
 		zone = "near_blast"
 		zone_title = "NEAR-BLAST METRO STRIKE"
@@ -364,8 +365,8 @@ static func compute_impact(
 			bullets.append("HEAVY FALLOUT (%s at H+1): Dangerous radiation persists for %d days outside." % [DoseFormat.rate(initial_sv_hr * 1000.0), fallout_days])
 		bullets.append("WARM BUNKER (%+.1f C): Residual blast warmth raises daily water demand." % bunker_temp_c)
 		bullets.append("METRO SHOCKWAVE (%d%%): Heavy house tremors & %d%% hull loss (%d%% shelter integrity)." % [tremor_pct, hull_loss_pct, hull_integrity_pct])
-		bullets.append("CONELRAD ALERT (%.1fs Recon + %.1fs Grab): Classic Civil Defense scavenge run." % [scout_seconds, scavenge_seconds])
-		bullets.append("URBAN MARAUDERS (%d%% Raiders): Secure bunker door with Padlock, Axe, or Rifle." % raider_pct)
+		bullets.append("EMERGENCY ALERT SYSTEM: The TV, the radio and your phone all agree, for once.")
+		bullets.append("RAIDERS (%d%%): A padlock, an axe or a rifle keeps the hatch yours." % raider_pct)
 	elif distance_km <= 350.0:
 		zone = "regional_fallout"
 		zone_title = "REGIONAL FALLOUT CLOUD"
@@ -390,8 +391,8 @@ static func compute_impact(
 			bullets.append("MODERATE FALLOUT (%s at H+1): Clears over %d days for earlier neighborhood scouting." % [DoseFormat.rate(initial_sv_hr * 1000.0), fallout_days])
 		bullets.append("NUCLEAR DUSK (%+.1f C): Chilly shelter air; steady rations prevent sickness." % bunker_temp_c)
 		bullets.append("DISTANT SHOCKWAVE (%d%%): Light ground roll & %d%% hull loss (%d%% shelter integrity)." % [tremor_pct, hull_loss_pct, hull_integrity_pct])
-		bullets.append("REGIONAL RADAR (%.1fs Recon + %.1fs Grab): Extra seconds to plan your route!" % [scout_seconds, scavenge_seconds])
-		bullets.append("HIGHWAY SCAVENGERS (%d%% Raiders): Evacuee gangs sweep suburban streets." % raider_pct)
+		bullets.append("NOAA ALERT: The weather radio gets there before the shockwave does.")
+		bullets.append("ROAMING RAIDERS (%d%%): Armed groups work through the side streets." % raider_pct)
 	else:
 		zone = "nuclear_winter"
 		tremor_intensity = 0.05
@@ -418,8 +419,8 @@ static func compute_impact(
 			bullets.append("FREEZING WINTER (%+.1f C): Bitter bunker cold causes sickness unless heated & fed!" % bunker_temp_c)
 			bullets.append("LOW EARLY FALLOUT (%s at H+1): Safe early scavenging across intact neighbors!" % DoseFormat.rate(initial_sv_hr * 1000.0))
 			bullets.append("FAINT SEISMIC WAVE (%d%%): Virtually no tremor (%d%% hull loss, %d%% shelter integrity)." % [tremor_pct, hull_loss_pct, hull_integrity_pct])
-			bullets.append("BMEWS EARLY WARNING (%.1fs Recon + %.1fs Grab): Maximum scout preparation time!" % [scout_seconds, scavenge_seconds])
-			bullets.append("FAMINE BANDITS (%d%% Raiders): Starving winter militias relentlessly hunt food." % raider_pct)
+			bullets.append("EARLY WARNING: Sirens, alerts and a long news ticker. Time to look around.")
+			bullets.append("WINTER RAIDERS (%d%%): Armed groups go door to door for food." % raider_pct)
 		elif safe_yield_kt >= 100:
 			zone_title = "GLOBAL NUCLEAR AUTUMN"
 			if safe_yield_kt <= 250:
@@ -447,26 +448,26 @@ static func compute_impact(
 			bullets.append("NUCLEAR AUTUMN (%+.1f C): Frosty bunker chill raises sickness risk without warm rations." % bunker_temp_c)
 			bullets.append("LOW EARLY FALLOUT (%s at H+1): Minimal local ash allows safe early scouting." % DoseFormat.rate(initial_sv_hr * 1000.0))
 			bullets.append("FAINT SEISMIC WAVE (%d%%): Virtually no tremor (%d%% hull loss, %d%% shelter integrity)." % [tremor_pct, hull_loss_pct, hull_integrity_pct])
-			bullets.append("BMEWS EARLY WARNING (%.1fs Recon + %.1fs Grab): Maximum scout preparation time!" % [scout_seconds, scavenge_seconds])
-			bullets.append("RATION HOARDERS (%d%% Raiders): Panic-buying militias raid stocked shelters." % raider_pct)
+			bullets.append("EARLY WARNING: Sirens, alerts and a long news ticker. Time to look around.")
+			bullets.append("HOARDERS (%d%%): The people who bought all the bottled water want yours too." % raider_pct)
 		else:
 			var low_t: float = clampf(
 				(log(float(safe_yield_kt)) - log(15.0)) / (log(100.0) - log(15.0)),
 				0.0,
 				1.0
 			)
-			zone_title = "GLOBAL CIVIL DEFENSE DUSK"
+			zone_title = "DISTANT STRIKE HAZE"
 			bunker_temp_c = snappedf(lerpf(11.0, 6.5, low_t) - absf(house_lat) * 0.04, 0.1)
 			initial_sv_hr = snappedf(lerpf(0.25, 0.32, low_t), 0.01)
 			fallout_days = 3
 			raider_aggression = snappedf(lerpf(0.45, 0.52, low_t), 0.01)
 			raider_pct = int(round(raider_aggression * 100.0))
-			summary = "Distant tactical detonation (%s, %d kt). High-altitude haze cools skies into a Global Civil Defense Dusk." % [dist_label, safe_yield_kt]
-			bullets.append("CIVIL DEFENSE DUSK (%+.1f C): Cool shelter air without severe stratospheric freeze." % bunker_temp_c)
+			summary = "Distant tactical detonation (%s, %d kt). High-altitude haze dims and cools the sky." % [dist_label, safe_yield_kt]
+			bullets.append("HAZY SKIES (%+.1f C): Cool shelter air, but no deep freeze." % bunker_temp_c)
 			bullets.append("TRACE GLOBAL FALLOUT (%s at H+1): Negligible local ash; safe early scavenging!" % DoseFormat.rate(initial_sv_hr * 1000.0))
 			bullets.append("FAINT SEISMIC WAVE (%d%%): Virtually no tremor (%d%% hull loss, %d%% shelter integrity)." % [tremor_pct, hull_loss_pct, hull_integrity_pct])
-			bullets.append("BMEWS EARLY WARNING (%.1fs Recon + %.1fs Grab): Maximum scout preparation time!" % [scout_seconds, scavenge_seconds])
-			bullets.append("CIVIL UNREST (%d%% Raiders): Moderate blackout looting across intact blocks." % raider_pct)
+			bullets.append("EARLY WARNING: Sirens, alerts and a long news ticker. Time to look around.")
+			bullets.append("BLACKOUT (%d%% Raiders): The power is out and some neighbours are less neighbourly." % raider_pct)
 
 	summary = summary.replace("%%", "%")
 	for b_idx in range(bullets.size()):

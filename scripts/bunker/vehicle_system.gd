@@ -7,6 +7,9 @@ extends RefCounted
 ## places (fuel stations, auto/hardware shops, neighbours' driveways), carried home, stored on
 ## the shelter rack, then installed BY HAND by a survivor (radiation exposure in the garage).
 ## When the car runs and has fuel for the route, the household can drive out crosswind, away from ground zero.
+##
+## Disabled: GameState.FEATURE_CAR_ESCAPE is false, so the run starts with no vehicle and every
+## entry point below reports "no car". The code is kept compiling for a later return.
 
 const NEEDED_FUEL_L: float = 25.0
 const L_PER_KM: float = 0.11
@@ -14,7 +17,18 @@ const INSTALL_HOURS: Dictionary = {"car_battery": 0.6, "spark_plugs": 1.0, "fan_
 const GARAGE_PF: float = 2.0
 
 
+## Tests switch the disabled car escape on to keep its logic covered.
+static var test_override: bool = false
+
+
+static func enabled() -> bool:
+	return GameState.FEATURE_CAR_ESCAPE or test_override
+
+
 static func init_for_run() -> void:
+	if not enabled():
+		GameState.vehicle = {}
+		return
 	var nuke: Dictionary = GameState.nuke_config
 	var dmg: float = clampf(float(nuke.get("structural_damage", 0.25)), 0.0, 1.0)
 	var dist_km: float = float(nuke.get("distance_km", 5.0))
@@ -38,6 +52,8 @@ static func init_for_run() -> void:
 
 
 static func is_ready() -> bool:
+	if not enabled() or GameState.vehicle.is_empty():
+		return false
 	return missing_parts().is_empty() and not bool(GameState.vehicle.get("wrecked", false))
 
 
@@ -45,7 +61,7 @@ static func is_ready() -> bool:
 static func missing_parts() -> Array:
 	var v: Dictionary = GameState.vehicle
 	var out: Array = []
-	if v.is_empty() or bool(v.get("wrecked", false)):
+	if not enabled() or v.is_empty() or bool(v.get("wrecked", false)):
 		return out
 	if not bool(v.get("battery_installed", false)):
 		out.append("car_battery")
@@ -66,7 +82,7 @@ static func part_in_storage(part: String) -> bool:
 	return int(GameState.parts.get(part, 0)) > 0
 
 
-static func needs_toolbox(part: String) -> bool:
+static func needs_tools(part: String) -> bool:
 	return part == "spark_plugs" or part == "fan_belt"
 
 
@@ -76,19 +92,21 @@ static func pick_worker() -> Dictionary:
 
 
 static func can_install(part: String) -> Dictionary:
-	if GameState.vehicle.is_empty() or bool(GameState.vehicle.get("wrecked", false)):
+	if not enabled() or GameState.vehicle.is_empty():
+		return {"ok": false, "why": "No car this time."}
+	if bool(GameState.vehicle.get("wrecked", false)):
 		return {"ok": false, "why": "The car is wrecked."}
 	if not missing_parts().has(part):
 		return {"ok": false, "why": "Not needed."}
 	if not part_in_storage(part):
 		return {"ok": false, "why": "None in storage — scavenge one first."}
-	if needs_toolbox(part) and not GameState.has_working_item("toolbox"):
+	if needs_tools(part):
 		var handy: bool = false
 		for m_v in GameState.get_living_bunker_members():
 			if str((m_v as Dictionary).get("trait", "")) == "handy":
 				handy = true
 		if not handy:
-			return {"ok": false, "why": "Needs a working toolbox (or a handy mechanic)."}
+			return {"ok": false, "why": "Needs someone handy with tools."}
 	var worker: Dictionary = pick_worker()
 	if worker.is_empty():
 		return {"ok": false, "why": "Nobody fit to work on the car right now."}
@@ -131,8 +149,7 @@ static func install(part: String) -> Dictionary:
 	var hours: float = float(INSTALL_HOURS.get(part, 1.0))
 	var start_h: float = RadiationModel.hours_since_detonation(GameState.day) + 10.0
 	var dose: float = RadiationModel.outdoor_dose_msv(h_lat, h_lon, start_h, hours, GameState.day) / GARAGE_PF
-	if not bool(worker.get("is_mutant", false)):
-		RadiationModel.add_dose(worker, dose, GameState.day)
+	RadiationModel.add_dose(worker, dose, GameState.day)
 	text += " (%s in the garage: %s)" % [_hours_label(hours), RadiationModel.format_dose(dose)]
 	(v["history"] as Array).append("Day %d: %s" % [GameState.day, text])
 	GameState.daily_log_entries.append({"day": GameState.day, "title": "DAY %d — WORK ON THE CAR" % GameState.day, "lines": [text]})
@@ -147,7 +164,7 @@ static func _hours_label(h: float) -> String:
 
 
 ## Upwind escape: away from the fallout plume, toward the verified landmark/area in that direction.
-## Escape crosswind (civil-defence advice: leave at right angles to the plume), on the side that
+## Escape crosswind (emergency-management advice: leave at right angles to the plume), on the side that
 ## points away from ground zero — never "upwind", which from a downwind house means toward GZ.
 static func escape_plan() -> Dictionary:
 	var downwind: float = LocationText.downwind_bearing()
@@ -168,15 +185,15 @@ static func escape_plan() -> Dictionary:
 static func status_lines() -> Array[String]:
 	var v: Dictionary = GameState.vehicle
 	var out: Array[String] = []
-	if v.is_empty():
+	if not enabled() or v.is_empty():
 		out.append("No vehicle.")
 		return out
 	if bool(v.get("wrecked", false)):
 		out.append("Crushed by blast debris — beyond repair.")
 		return out
 	out.append("Battery: %s" % ("installed" if bool(v.get("battery_installed", false)) else "MISSING (blast cracked the old one)"))
-	out.append("Spark plugs: %s" % ("good" if bool(v.get("plugs_ok", true)) else "fouled — need new plugs + toolbox"))
-	out.append("Fan belt: %s" % ("good" if bool(v.get("belt_ok", true)) else "snapped — need a belt + toolbox"))
+	out.append("Spark plugs: %s" % ("good" if bool(v.get("plugs_ok", true)) else "fouled — need new plugs and someone handy"))
+	out.append("Fan belt: %s" % ("good" if bool(v.get("belt_ok", true)) else "snapped — need a belt and someone handy"))
 	out.append("Tires: %s" % ("inflated" if bool(v.get("tires_ok", true)) else "flat — need a patch kit"))
 	out.append("Fuel: %.0f / %.0f L needed" % [float(v.get("fuel_l", 0.0)), NEEDED_FUEL_L])
 	return out
@@ -196,7 +213,7 @@ static func part_sources(part: String) -> Array:
 
 static func route_available() -> bool:
 	var v: Dictionary = GameState.vehicle
-	if v.is_empty() or bool(v.get("wrecked", false)):
+	if not enabled() or v.is_empty() or bool(v.get("wrecked", false)):
 		return false
 	for part in missing_parts():
 		if part_in_storage(str(part)):
@@ -208,6 +225,8 @@ static func route_available() -> bool:
 
 ## Drives out. Requires everyone in the shelter (nobody left behind on an expedition).
 static func drive_out() -> Dictionary:
+	if not enabled():
+		return {"ok": false, "text": "No car this time."}
 	if not is_ready():
 		return {"ok": false, "text": "The car is not ready."}
 	if not GameState.active_expedition.is_empty():
@@ -223,8 +242,7 @@ static func drive_out() -> Dictionary:
 	var names: Array[String] = []
 	for m_v in GameState.get_living_bunker_members():
 		var m: Dictionary = m_v
-		if not bool(m.get("is_mutant", false)):
-			RadiationModel.add_dose(m, drive_dose, GameState.day)
+		RadiationModel.add_dose(m, drive_dose, GameState.day)
 		names.append(str(m.get("name", "")))
 	GameState.vehicle["fuel_l"] = fuel - float(plan["fuel_needed_l"])
 	GameState.vehicle["escaped"] = true

@@ -251,97 +251,64 @@ func _run_audit() -> void:
 		m["sickness"] = 0
 		m["injury"] = 0
 
-	gs.set("soup_quarters", 22) # 5.5 cans (tests fractional gauge + multiple cans!)
-	gs.set("water_quarters", 25) # 6.25 bottles
-	gs.set("medkit_count", 2)
-	gs.set("bug_spray_count", 1)
-	gs.set("ammo_count", 6)
-	gs.set("padlock_active", true)
-	gs.set("has_cat_sharikov", true)
-	gs.set("has_dog_pancake", true)
-	gs.set("bunker_structural_integrity", 82.0)
-	gs.set("rescue_chains", {"military": 2, "sanctuary": 1, "scientist": 0})
-
-	var b_items: Dictionary = gs.get("bunker_items")
-	for gid in ["gas_mask", "radio", "rifle", "map", "book", "suitcase", "cards", "toolbox"]:
-		if b_items.has(gid):
-			b_items[gid] = {"owned": true, "broken": false, "count": 1}
-	if b_items.has("flashlight"):
-		b_items["flashlight"] = {"owned": true, "broken": true, "count": 1} # Test broken item icon too!
-	if b_items.has("axe"):
-		b_items["axe"] = {"owned": false, "broken": false, "count": 0} # Test unowned item state too!
-
+	# M1: the shelter is built from the grab haul when the hatch closes; the day is one screen.
+	gs.set("shelter", null)
+	for pair in [["food", 5], ["water", 6], ["medkit", 2], ["bug_spray", 1], ["ammo", 3], ["padlock", 1],
+			["gas_mask", 1], ["radio", 1], ["rifle", 1], ["map", 1], ["manual", 1], ["suitcase", 1], ["cards", 1], ["flashlight", 1]]:
+		gs.call("add_scavenged_item", pair[0], pair[1])
 	gs.call("request_screen", "bunker")
 	await _settle_screen(main_inst, 20)
 	var bunker_scr: Control = main_inst.get("_active_node")
 	if is_instance_valid(bunker_scr):
-		bunker_scr.call("set_notebook_visible", false)
+		var sh: ShelterState = gs.get("shelter")
+		sh.pets["dog"] = {"since": 1}
+		sh.pets["cat"] = {"since": 1}
+		sh.break_one("flashlight")   # a broken item on the shelf
+		(sh.members[1] as Dictionary)["dww"] = 3
+		(sh.members[2] as Dictionary)["sick"] = true
+		bunker_scr.call("_refresh_all")
 		await _wait_frames(15)
 		await _snap(out_dir + "/audit_08_bunker_full_interior.png")
-
-		# ---------------------------------------------------------------------
-		# 9. BUNKER NOTEBOOK TAB 1 (DAILY LOG) -> audit_09_bunker_tab1_log.png
-		# ---------------------------------------------------------------------
-		bunker_scr.call("set_notebook_visible", true)
-		bunker_scr.call("set_active_tab", 0)
+		# 9. the morning receipt + dilemma card + ration row on one screen
+		if sh.today_event.is_empty() or not _has_item_option(sh):
+			var ev: Dictionary = ShelterEvents._prepare(sh, ShelterData.event("signature_required"))
+			sh.today_event = ev
+			sh.today_resolved = false
+			sh.today_options = ShelterEvents.options_for(sh, ev)
+			bunker_scr.call("_refresh_all")
 		await _wait_frames(12)
-		await _snap(out_dir + "/audit_09_bunker_tab1_log.png")
-
-		# ---------------------------------------------------------------------
-		# 10. BUNKER NOTEBOOK TAB 2 (RATIONS & CARE) -> audit_10_bunker_tab2_rations.png
-		# Show active rations, hungry/thirsty/sick pills, [Use Medkit], and disabled buttons
-		# ---------------------------------------------------------------------
-		if b_members.size() >= 3:
-			b_members[1]["hunger"] = 1
-			b_members[1]["thirst"] = 2
-			b_members[2]["sickness"] = 1
-		bunker_scr.call("set_active_tab", 1)
-		bunker_scr.call("_adjust_member_ration", "member_0", "soup_q", 1)
-		bunker_scr.call("_adjust_member_ration", "member_1", "water_q", 2)
+		await _snap(out_dir + "/audit_09_bunker_day_screen.png")
+		# 10. ration row with Give/Skip toggles and tomorrow's preview
+		bunker_scr.call("_toggle_ration", str((sh.members[0] as Dictionary)["id"]), "food")
+		bunker_scr.call("_toggle_ration", str((sh.members[1] as Dictionary)["id"]), "water")
 		await _wait_frames(12)
-		await _snap(out_dir + "/audit_10_bunker_tab2_rations.png")
-
-		# ---------------------------------------------------------------------
-		# 11. BUNKER NOTEBOOK TAB 3 (DAY 2+ EVENT DILEMMA) -> audit_11_bunker_tab3_dilemma.png
-		# Advance to Day 2, ensure an event with item icon choices is displayed
-		# ---------------------------------------------------------------------
-		bunker_scr.call("_on_end_day_pressed")
-		var guard_frames: int = 0
-		while bool(bunker_scr.get("_in_day_transition")) and guard_frames < 180:
+		await _snap(out_dir + "/audit_10_bunker_rations.png")
+		# 11. the dilemma answered: outcome and "Used:" receipt
+		var pick: String = ""
+		for o_v in sh.today_options:
+			if bool((o_v as Dictionary).get("available", false)) and (pick == "" or str((o_v as Dictionary).get("item", "")) != ""):
+				pick = str((o_v as Dictionary)["id"])
+		bunker_scr.call("_choose", pick)
+		await _wait_frames(30)
+		var cine: Node = bunker_scr.get("_cinematic")
+		for _i in range(200):
+			if not bool(bunker_scr.get("_busy")):
+				break
+			if cine.has_method("_on_continue"):
+				cine.set("_t", 99.0)
+				cine.call("_on_continue")
 			await process_frame
-			guard_frames += 1
 		await _wait_frames(10)
-
-		# Ensure Day 2+ has an event with item icon choices (both available & missing/broken if possible)
-		var ev: Dictionary = bunker_scr.get("_current_event")
-		var has_item_opt: bool = _event_has_item_choice(ev)
-		var tries: int = 0
-		var event_deck_script: Script = load("res://scripts/events/event_deck.gd")
-		while not has_item_opt and tries < 25:
-			ev = event_deck_script.call("draw_daily_event", int(gs.get("day")), gs.get("rng"))
-			has_item_opt = _event_has_item_choice(ev)
-			tries += 1
-		if has_item_opt:
-			bunker_scr.set("_current_event", ev)
-			bunker_scr.set("_has_unresolved_dilemma", true)
-			var opts: Array = bunker_scr.call("_get_event_options", ev)
-			for o_v in opts:
-				if o_v is Dictionary and bunker_scr.call("_is_event_option_available", o_v):
-					bunker_scr.set("_selected_event_choice_id", str(o_v.get("id", "")))
-					break
-		bunker_scr.call("set_active_tab", 2)
+		await _snap(out_dir + "/audit_11_bunker_dilemma_answered.png")
+		# 12. the expedition planner with the risk preview
+		bunker_scr.call("_open_planner", str((sh.members[0] as Dictionary)["id"]), false)
+		await _wait_frames(15)
+		var tp: Node = bunker_scr.get("_planner")
+		if tp != null:
+			tp.call("_select", 0)
 		await _wait_frames(12)
-		await _snap(out_dir + "/audit_11_bunker_tab3_dilemma.png")
-
-		# ---------------------------------------------------------------------
-		# 12. BUNKER NOTEBOOK TAB 4 (OSM EXPEDITION MAP) -> audit_12_bunker_tab4_expedition.png
-		# ---------------------------------------------------------------------
-		bunker_scr.call("set_active_tab", 3)
-		var gear_sel: Array[String] = ["gas_mask", "suitcase"]
-		bunker_scr.set("_selected_gear_ids", gear_sel)
-		bunker_scr.call("_rebuild_tab_expedition")
-		await _wait_frames(12)
-		await _snap(out_dir + "/audit_12_bunker_tab4_expedition.png")
+		await _snap(out_dir + "/audit_12_bunker_trip_planner.png")
+		bunker_scr.call("_close_planner")
 
 	# -------------------------------------------------------------------------
 	# 13. SUMMARY SCREEN (VICTORY) -> audit_13_summary_victory.png
@@ -350,8 +317,8 @@ func _run_audit() -> void:
 	gs.set("victory", true)
 	gs.set("game_over", true)
 	gs.set("scavenge_stats", {"items_collected": 14, "family_saved": 4})
-	gs.set("ending_title", "RESCUED BY NEIGHBORHOOD SANCTUARY!")
-	gs.set("ending_description", "Guided by their OpenStreetMap survey chart and CONELRAD radio, the family linked up with survivors at First Parish Sanctuary in Concord and rebuilt a thriving community.")
+	gs.set("ending_title", "The Neighbourhood Shelter")
+	gs.set("ending_description", "The people at First Parish in Concord sent an escort. There is soup there, and a rota for the dishes.")
 	gs.call("request_screen", "summary")
 	await _settle_screen(main_inst, 28)
 	await _snap(out_dir + "/audit_13_summary_victory.png")
@@ -372,19 +339,24 @@ func _run_audit() -> void:
 		p_members[3]["in_bunker"] = false
 		p_members[3]["death_reason"] = ""
 	gs.set("day", 11)
-	gs.set("soup_quarters", 0)
-	gs.set("water_quarters", 0)
 	gs.set("bunker_structural_integrity", 24.0)
 	gs.set("victory", false)
 	gs.set("game_over", true)
-	gs.set("ending_title", "SHELTER PROTOCOL TERMINATED — LOST IN THE FALLOUT")
-	gs.set("ending_description", "Radio contact ceased from the fallout shelter beneath the residence after water reserves ran dry. Civil Defense recovery teams logged this dossier as final record of their stand.")
+	gs.set("ending_title", "The Shelter Went Quiet")
+	gs.set("ending_description", "Nobody is left to write in the journal.")
 	gs.call("request_screen", "summary")
 	await _settle_screen(main_inst, 28)
 	await _snap(out_dir + "/audit_14_summary_perished.png")
 
 	print("CRITIC_VISUAL_AUDIT_COMPLETE")
 	quit(0)
+
+func _has_item_option(sh: ShelterState) -> bool:
+	for o_v in sh.today_options:
+		if str((o_v as Dictionary).get("item", "")) != "":
+			return true
+	return false
+
 
 func _event_has_item_choice(ev: Dictionary) -> bool:
 	var opts: Variant = ev.get("options", ev.get("choices", []))

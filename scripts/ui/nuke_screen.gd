@@ -1,35 +1,43 @@
 class_name NukeScreen
 extends Control
 
-## Global & Regional Nuclear Detonation Selector and Civil Defense Forecast Screen (1280x720).
-## Features dual-mode tactical map (Regional Metro Radar 0-60 km + Global World Strike Map),
-## Warhead Yield & Wind Vector controls, live Civil Defense Condition Forecast dossier,
-## and automated demo showcase support.
+## Strike setup screen (1280x720): pick where the warhead lands, how big it is and which way
+## the wind blows, on a local map (0-60 km) or a world map. A live strike forecast card shows
+## what it means for the house, and the difficulty selector (Story / Normal / Hard) sits next
+## to the start button. Also drives the automated demo.
 
 signal strike_updated(nuke_config: Dictionary)
 
 const MODE_REGIONAL: String = "regional"
 const MODE_GLOBAL: String = "global"
 
-# Mid-century 1950s CONELRAD Civil Defense palette
-const COL_BG_DARK := Color("#191c19")
-const COL_PANEL_OLIVE := Color("#232824")
-const COL_PANEL_LIGHT := Color("#2e352f")
-const COL_PARCHMENT := Color("#f2e6ce")
-const COL_PARCHMENT_DARK := Color("#dccba6")
-const COL_INK := Color("#1b1917")
-const COL_YELLOW := Color("#f5be2e")
-const COL_ORANGE := Color("#e05a2b")
-const COL_RED := Color("#c93824")
-const COL_GREEN := Color("#7ec850")
-const COL_CYAN := Color("#3b8ec2")
-const COL_MUTED := Color("#9aa396")
+# Emergency-alert / phone palette (see ThemeHelper)
+const COL_BG_DARK := Color("#0f1115")
+const COL_PANEL := Color("#1a1e24")
+const COL_PANEL_LIGHT := Color("#262c34")
+const COL_BORDER := Color("#39414b")
+const COL_TEXT := Color("#e8eaed")
+const COL_TEXT_MUTED := Color("#9aa3ad")
+const COL_INK := Color("#0f1115")
+const COL_YELLOW := Color("#ffb020")
+const COL_ORANGE := Color("#ff4d4f")
+const COL_RED := Color("#ff4d4f")
+const COL_GREEN := Color("#4cc38a")
+const COL_CYAN := Color("#4aa3ff")
+const COL_MUTED := Color("#9aa3ad")
+
+const DIFFICULTY_ORDER: Array[String] = ["story", "normal", "hard"]
+const DIFFICULTY_BLURB: Dictionary = {
+	"story": "Generous stock and exact odds on every choice. 20 s look-around.",
+	"normal": "The intended balance: 10 s look-around, 60 s grab.",
+	"hard": "30 s grab, 3 s look-around, faster stock drain, smarter raiders.",
+}
 
 const YIELD_OPTIONS: Array[Dictionary] = [
 	{"kt": 15, "label": "15 kt Tactical"},
 	{"kt": 250, "label": "250 kt Urban"},
 	{"kt": 800, "label": "800 kt ICBM"},
-	{"kt": 50000, "label": "50,000 kt Tsar Bomba"}
+	{"kt": 50000, "label": "50 Mt (largest ever tested)"}
 ]
 
 const WIND_OPTIONS: Array[Dictionary] = [
@@ -69,7 +77,8 @@ var _wind_status_lbl: Label
 var _forecast_panel: _ForecastPanelControl
 var _back_btn: Button
 var _launch_btn: _HazardSirenButton
-var _difficulty_btn: Button
+var _difficulty_buttons: Dictionary = {}
+var _difficulty_desc_lbl: Label
 
 # Animation & Demo state
 var _anim_time: float = 0.0
@@ -293,7 +302,7 @@ func _build_ui() -> void:
 	add_child(tab_row)
 
 	_tab_regional_btn = Button.new()
-	_tab_regional_btn.text = "[ REGIONAL METRO RADAR (0-60 km) ]"
+	_tab_regional_btn.text = "LOCAL MAP (0-60 km)"
 	_tab_regional_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tab_regional_btn.custom_minimum_size = Vector2(390.0, 34.0)
 	_tab_regional_btn.focus_mode = Control.FOCUS_NONE
@@ -304,7 +313,7 @@ func _build_ui() -> void:
 	tab_row.add_child(_tab_regional_btn)
 
 	_tab_global_btn = Button.new()
-	_tab_global_btn.text = "[ GLOBAL WORLD STRIKE MAP ]"
+	_tab_global_btn.text = "WORLD MAP"
 	_tab_global_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tab_global_btn.custom_minimum_size = Vector2(390.0, 34.0)
 	_tab_global_btn.focus_mode = Control.FOCUS_NONE
@@ -348,11 +357,11 @@ func _build_ui() -> void:
 	var yield_panel := Panel.new()
 	yield_panel.position = Vector2(16.0, 536.0)
 	yield_panel.size = Vector2(436.0, 112.0)
-	yield_panel.add_theme_stylebox_override("panel", _make_box_style(COL_PANEL_OLIVE, COL_INK, 2, 4))
+	yield_panel.add_theme_stylebox_override("panel", _make_box_style(COL_PANEL, COL_BORDER, 1, 10))
 	add_child(yield_panel)
 
 	var yield_hdr := Label.new()
-	yield_hdr.text = "WARHEAD YIELD SELECTOR"
+	yield_hdr.text = "WARHEAD YIELD"
 	yield_hdr.position = Vector2(10.0, 5.0)
 	yield_hdr.size = Vector2(240.0, 18.0)
 	yield_hdr.add_theme_font_size_override("font_size", 12)
@@ -364,7 +373,7 @@ func _build_ui() -> void:
 	_yield_info_lbl.size = Vector2(232.0, 18.0)
 	_yield_info_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_yield_info_lbl.add_theme_font_size_override("font_size", 11)
-	_yield_info_lbl.add_theme_color_override("font_color", COL_PARCHMENT_DARK)
+	_yield_info_lbl.add_theme_color_override("font_color", COL_TEXT_MUTED)
 	yield_panel.add_child(_yield_info_lbl)
 
 	var yield_grid := GridContainer.new()
@@ -396,11 +405,11 @@ func _build_ui() -> void:
 	var wind_panel := Panel.new()
 	wind_panel.position = Vector2(460.0, 536.0)
 	wind_panel.size = Vector2(356.0, 112.0)
-	wind_panel.add_theme_stylebox_override("panel", _make_box_style(COL_PANEL_OLIVE, COL_INK, 2, 4))
+	wind_panel.add_theme_stylebox_override("panel", _make_box_style(COL_PANEL, COL_BORDER, 1, 10))
 	add_child(wind_panel)
 
 	var wind_hdr := Label.new()
-	wind_hdr.text = "WIND & FALLOUT VECTOR"
+	wind_hdr.text = "WIND & FALLOUT"
 	wind_hdr.position = Vector2(10.0, 5.0)
 	wind_hdr.size = Vector2(190.0, 18.0)
 	wind_hdr.add_theme_font_size_override("font_size", 12)
@@ -447,7 +456,7 @@ func _build_ui() -> void:
 		wind_grid.add_child(wbtn)
 		_wind_buttons[dir_code] = wbtn
 
-	# 5. Right-Hand Civil Defense Condition Forecast Dossier (x=828..1264, y=60..648 -> 436x588)
+	# 5. Right-hand strike forecast card (x=828..1264, y=60..648 -> 436x588)
 	_forecast_panel = _ForecastPanelControl.new()
 	_forecast_panel.position = Vector2(828.0, 60.0)
 	_forecast_panel.size = Vector2(436.0, 588.0)
@@ -455,7 +464,7 @@ func _build_ui() -> void:
 
 	# 6. Bottom Navigation & Launch Bar (y=658..708)
 	_back_btn = Button.new()
-	_back_btn.text = "[ < CHANGE HOUSE ]"
+	_back_btn.text = "< CHANGE HOUSE"
 	_back_btn.position = Vector2(16.0, 658.0)
 	_back_btn.size = Vector2(220.0, 48.0)
 	_back_btn.focus_mode = Control.FOCUS_NONE
@@ -467,21 +476,39 @@ func _build_ui() -> void:
 	)
 	add_child(_back_btn)
 
-	_difficulty_btn = Button.new()
-	_difficulty_btn.position = Vector2(252.0, 658.0)
-	_difficulty_btn.size = Vector2(464.0, 48.0)
-	_difficulty_btn.focus_mode = Control.FOCUS_NONE
-	_difficulty_btn.add_theme_font_size_override("font_size", 14)
-	_apply_tactical_button_style(_difficulty_btn, false, false)
-	_difficulty_btn.pressed.connect(func() -> void:
-		_play_sfx("button_click")
-		GameState.difficulty = "normal" if GameState.difficulty == "hard" else "hard"
-		_refresh_difficulty_labels()
-	)
-	add_child(_difficulty_btn)
+	# Difficulty: a three-way segmented control with a one-line description underneath
+	var diff_row := HBoxContainer.new()
+	diff_row.position = Vector2(254.0, 656.0)
+	diff_row.size = Vector2(460.0, 28.0)
+	diff_row.add_theme_constant_override("separation", 4)
+	add_child(diff_row)
+	for d_id in DIFFICULTY_ORDER:
+		var dbtn := Button.new()
+		dbtn.text = d_id.to_upper()
+		dbtn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		dbtn.custom_minimum_size = Vector2(150.0, 28.0)
+		dbtn.focus_mode = Control.FOCUS_NONE
+		dbtn.add_theme_font_size_override("font_size", 13)
+		var cap_id: String = d_id
+		dbtn.pressed.connect(func() -> void:
+			_play_sfx("button_click")
+			GameState.difficulty = cap_id
+			_refresh_difficulty_labels()
+		)
+		diff_row.add_child(dbtn)
+		_difficulty_buttons[d_id] = dbtn
+
+	_difficulty_desc_lbl = Label.new()
+	_difficulty_desc_lbl.position = Vector2(254.0, 686.0)
+	_difficulty_desc_lbl.size = Vector2(460.0, 20.0)
+	_difficulty_desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_difficulty_desc_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_difficulty_desc_lbl.add_theme_font_size_override("font_size", 11)
+	_difficulty_desc_lbl.add_theme_color_override("font_color", COL_TEXT_MUTED)
+	add_child(_difficulty_desc_lbl)
 
 	_launch_btn = _HazardSirenButton.new()
-	_launch_btn.text = "[ SOUND THE SIREN — BEGIN %d SECONDS! > ]" % (30 if GameState.difficulty == "hard" else 60)
+	_launch_btn.text = "TAKE SHELTER — START THE %d-SECOND GRAB" % int(round(GameState.grab_seconds()))
 	_launch_btn.position = Vector2(732.0, 658.0)
 	_launch_btn.size = Vector2(532.0, 48.0)
 	_launch_btn.focus_mode = Control.FOCUS_NONE
@@ -495,11 +522,16 @@ func _build_ui() -> void:
 
 
 func _refresh_difficulty_labels() -> void:
-	var hard: bool = GameState.difficulty == "hard"
-	if _difficulty_btn != null:
-		_difficulty_btn.text = "DIFFICULTY: HARD — 30 s SCAVENGE  [click to change]" if hard else "DIFFICULTY: NORMAL — 60 s SCAVENGE  [click to change]"
+	var cur: String = GameState.difficulty if DIFFICULTY_BLURB.has(GameState.difficulty) else "normal"
+	for d_key in _difficulty_buttons.keys():
+		var dbtn: Button = _difficulty_buttons[d_key]
+		_apply_tactical_button_style(dbtn, str(d_key) == cur, true)
+	if _difficulty_desc_lbl != null:
+		_difficulty_desc_lbl.text = "%s: %s" % [cur.capitalize(), str(DIFFICULTY_BLURB[cur])]
 	if _launch_btn != null:
-		_launch_btn.text = "[ SOUND THE SIREN — BEGIN %d SECONDS! > ]" % (30 if hard else 60)
+		_launch_btn.text = "TAKE SHELTER — START THE %d-SECOND GRAB" % int(round(GameState.grab_seconds()))
+	if _forecast_panel != null:
+		_forecast_panel.queue_redraw()
 	queue_redraw()
 
 
@@ -585,7 +617,7 @@ func _update_wind_button_styles() -> void:
 			_wind_status_lbl.add_theme_color_override("font_color", COL_GREEN)
 
 
-static func _make_box_style(bg: Color, border: Color, border_w: int = 2, corner: int = 4) -> StyleBoxFlat:
+static func _make_box_style(bg: Color, border: Color, border_w: int = 1, corner: int = 8) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = border
@@ -600,20 +632,19 @@ static func _make_box_style(bg: Color, border: Color, border_w: int = 2, corner:
 
 func _apply_tactical_button_style(btn: Button, active: bool, is_tab: bool) -> void:
 	if active:
-		var bg_act: Color = COL_YELLOW if is_tab else Color("#e6ad27")
-		btn.add_theme_stylebox_override("normal", _make_box_style(bg_act, COL_INK, 2, 4))
-		btn.add_theme_stylebox_override("hover", _make_box_style(bg_act.lightened(0.10), COL_INK, 2, 4))
-		btn.add_theme_stylebox_override("pressed", _make_box_style(COL_ORANGE, COL_INK, 2, 4))
+		btn.add_theme_stylebox_override("normal", _make_box_style(COL_YELLOW, COL_YELLOW, 1, 8))
+		btn.add_theme_stylebox_override("hover", _make_box_style(COL_YELLOW.lightened(0.15), COL_YELLOW.lightened(0.15), 1, 8))
+		btn.add_theme_stylebox_override("pressed", _make_box_style(COL_YELLOW.darkened(0.12), COL_YELLOW.darkened(0.12), 1, 8))
 		btn.add_theme_color_override("font_color", COL_INK)
 		btn.add_theme_color_override("font_hover_color", COL_INK)
-		btn.add_theme_color_override("font_pressed_color", COL_PARCHMENT)
+		btn.add_theme_color_override("font_pressed_color", COL_INK)
 	else:
-		var bg_idle: Color = Color("#282f29") if is_tab else Color("#2d352e")
-		btn.add_theme_stylebox_override("normal", _make_box_style(bg_idle, COL_INK, 2, 4))
-		btn.add_theme_stylebox_override("hover", _make_box_style(Color("#3a443b"), COL_YELLOW, 2, 4))
-		btn.add_theme_stylebox_override("pressed", _make_box_style(COL_YELLOW, COL_INK, 2, 4))
-		btn.add_theme_color_override("font_color", COL_PARCHMENT)
-		btn.add_theme_color_override("font_hover_color", COL_YELLOW)
+		var bg_idle: Color = COL_PANEL if is_tab else COL_PANEL_LIGHT
+		btn.add_theme_stylebox_override("normal", _make_box_style(bg_idle, COL_BORDER, 1, 8))
+		btn.add_theme_stylebox_override("hover", _make_box_style(Color("#2f3640"), COL_YELLOW, 1, 8))
+		btn.add_theme_stylebox_override("pressed", _make_box_style(COL_YELLOW, COL_YELLOW, 1, 8))
+		btn.add_theme_color_override("font_color", COL_TEXT)
+		btn.add_theme_color_override("font_hover_color", Color("#ffffff"))
 		btn.add_theme_color_override("font_pressed_color", COL_INK)
 
 
@@ -628,42 +659,40 @@ func _draw() -> void:
 	var view_size := Vector2(maxf(size.x, 1280.0), maxf(size.y, 720.0))
 	var full_rect := Rect2(Vector2.ZERO, view_size)
 
-	# Bunker steel background with subtle grid
+	# Night background with a faint map grid
 	draw_rect(full_rect, COL_BG_DARK, true)
 	for gx in range(0, int(view_size.x), 32):
-		draw_line(Vector2(float(gx), 0.0), Vector2(float(gx), view_size.y), Color(1.0, 1.0, 1.0, 0.02), 1.0)
+		draw_line(Vector2(float(gx), 0.0), Vector2(float(gx), view_size.y), Color(1.0, 1.0, 1.0, 0.018), 1.0)
 	for gy in range(0, int(view_size.y), 32):
-		draw_line(Vector2(0.0, float(gy)), Vector2(view_size.x, float(gy)), Color(1.0, 1.0, 1.0, 0.02), 1.0)
+		draw_line(Vector2(0.0, float(gy)), Vector2(view_size.x, float(gy)), Color(1.0, 1.0, 1.0, 0.018), 1.0)
 
-	# Top Strategic Command Header Bar (16..1264, y=8..52)
+	# Header bar (16..1264, y=8..52), styled like an alert notification
 	var hdr_rect := Rect2(16.0, 8.0, 1248.0, 46.0)
-	draw_rect(hdr_rect, COL_PANEL_OLIVE, true)
-	draw_rect(hdr_rect, COL_INK, false, 2.0)
-	draw_line(Vector2(18.0, 52.0), Vector2(1262.0, 52.0), COL_YELLOW, 2.0)
+	draw_style_box(_make_box_style(COL_PANEL, COL_BORDER, 1, 12), hdr_rect)
 
-	# Civil Defense CD Emblem at left of header
+	# Alert glyph at the left of the header
 	var cd_center := Vector2(42.0, 31.0)
 	draw_circle(cd_center, 16.0, COL_RED)
-	draw_circle(cd_center, 13.5, COL_PARCHMENT)
 	var tri := PackedVector2Array([
-		cd_center + Vector2(0.0, -11.0),
-		cd_center + Vector2(10.0, 7.0),
-		cd_center + Vector2(-10.0, 7.0)
+		cd_center + Vector2(0.0, -10.0),
+		cd_center + Vector2(9.5, 7.0),
+		cd_center + Vector2(-9.5, 7.0)
 	])
-	draw_colored_polygon(tri, COL_CYAN.darkened(0.25))
-	draw_arc(cd_center, 16.0, 0.0, TAU, 28, COL_INK, 2.0)
+	draw_colored_polygon(tri, Color("#ffffff"))
+	draw_line(cd_center + Vector2(0.0, -5.0), cd_center + Vector2(0.0, 2.0), COL_RED, 2.0)
+	draw_circle(cd_center + Vector2(0.0, 4.6), 1.2, COL_RED)
 
-	# Header Title & Selected Bunker House Subtitle
+	# Header title & the house it's about
 	draw_string(
 		font,
 		Vector2(68.0, 25.0),
-		"CONELRAD NORAD STRATEGIC DETONATION & IMPACT SELECTOR",
+		"STRIKE SETUP  •  WHERE IT LANDS, HOW BIG, WHICH WAY THE WIND BLOWS",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		760.0,
 		16,
-		COL_YELLOW
+		COL_TEXT
 	)
-	var house_coord_str: String = "HOME BUNKER: %s (%.3f, %.3f)" % [_house_label, _house_lat, _house_lon]
+	var house_coord_str: String = "HOME: %s (%.3f, %.3f)" % [_house_label, _house_lat, _house_lon]
 	draw_string(
 		font,
 		Vector2(68.0, 44.0),
@@ -671,50 +700,20 @@ func _draw() -> void:
 		HORIZONTAL_ALIGNMENT_LEFT,
 		780.0,
 		12,
-		COL_PARCHMENT
+		COL_TEXT_MUTED
 	)
 
-	# Right side DEFCON 1 pulsing alert lamp & GZ telemetry
-	var defcon_box := Rect2(950.0, 14.0, 304.0, 34.0)
-	draw_rect(defcon_box, Color("#141714"), true)
-	draw_rect(defcon_box, COL_ORANGE, false, 1.5)
+	# Right side: pulsing alert dot & ground-zero readout
+	var alert_box := Rect2(950.0, 14.0, 304.0, 34.0)
+	draw_style_box(_make_box_style(COL_BG_DARK, COL_BORDER, 1, 17), alert_box)
 	var pulse: float = 0.55 + 0.45 * sin(_anim_time * 6.0)
-	draw_circle(Vector2(968.0, 31.0), 6.5, Color(COL_ORANGE.r, COL_ORANGE.g, COL_ORANGE.b, pulse))
-	draw_arc(Vector2(968.0, 31.0), 6.5, 0.0, TAU, 16, COL_YELLOW, 1.2)
-	var gz_txt: String = "DEFCON 1 | GZ %.2f, %.2f | %s kt" % [_nuke_lat, _nuke_lon, str(_yield_kt)]
-	draw_string(font, Vector2(982.0, 36.0), gz_txt, HORIZONTAL_ALIGNMENT_LEFT, 266.0, 12, COL_PARCHMENT)
+	draw_circle(Vector2(968.0, 31.0), 6.0, Color(COL_RED.r, COL_RED.g, COL_RED.b, pulse))
+	var gz_txt: String = "ALERT | GZ %.2f, %.2f | %s kt" % [_nuke_lat, _nuke_lon, str(_yield_kt)]
+	draw_string(font, Vector2(982.0, 36.0), gz_txt, HORIZONTAL_ALIGNMENT_LEFT, 266.0, 12, COL_TEXT)
 
-	# Bottom CONELRAD Emergency Broadcast Ticker Box (between Back and Siren buttons)
-	var ticker_rect := Rect2(246.0, 658.0, 476.0, 48.0)
-	draw_rect(ticker_rect, Color("#141814"), true)
-	draw_rect(ticker_rect, COL_INK, false, 2.0)
-	# Subtle hazard bar at top of ticker
-	_draw_hazard_stripes(Rect2(248.0, 660.0, 472.0, 5.0), 10.0)
-
-	var ticker_line1: String = "CONELRAD 640 / 1240 kHz CIVIL DEFENSE DIRECTIVE:"
-	var ticker_line2: String = "Click any radar block or world continent to test warhead impact!"
-	if GameState.demo_mode:
-		ticker_line1 = "CONELRAD AUTOMATED TACTICAL SHOWCASE ACTIVE:"
-		ticker_line2 = "Comparing distant Global Nuclear Winter vs 3.2 km Metro Strike."
-
-	draw_string(
-		font,
-		Vector2(258.0, 680.0),
-		ticker_line1,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		454.0,
-		10,
-		COL_YELLOW
-	)
-	draw_string(
-		font,
-		Vector2(258.0, 696.0),
-		ticker_line2,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		454.0,
-		10,
-		COL_PARCHMENT if GameState.demo_mode else COL_PARCHMENT_DARK
-	)
+	# Panel behind the difficulty selector (between Back and Start)
+	var diff_rect := Rect2(246.0, 652.0, 476.0, 58.0)
+	draw_style_box(_make_box_style(COL_PANEL, COL_BORDER, 1, 10), diff_rect)
 
 
 func _draw_hazard_stripes(rect: Rect2, stripe_w: float) -> void:
@@ -892,16 +891,13 @@ class _StrikeMapCanvas extends Control:
 		else:
 			_draw_global_world_map(font, rect)
 
-		# Steel NORAD CRT Bezel & Corner Rivets
-		draw_rect(rect, Color("#1b1917"), false, 3.0)
-		draw_rect(rect.grow(-2.0), Color("#465046"), false, 1.5)
-		for corner in [Vector2(8, 8), Vector2(size.x - 8, 8), Vector2(8, size.y - 8), Vector2(size.x - 8, size.y - 8)]:
-			draw_circle(corner, 3.0, Color("#6b756a"))
-			draw_arc(corner, 3.0, 0.0, TAU, 10, Color("#1b1917"), 1.0)
+		# Thin frame
+		draw_rect(rect, Color("#0f1115"), false, 3.0)
+		draw_rect(rect.grow(-2.0), Color("#39414b"), false, 1.0)
 
 	func _draw_regional_radar(font: Font, rect: Rect2) -> void:
-		# Deep phosphor CRT green-black radar scope
-		draw_rect(rect, Color("#0c150f"), true)
+		# Dark map background
+		draw_rect(rect, Color("#0d1014"), true)
 
 		var center: Vector2 = size * 0.5
 		var px_per_km: float = _get_radar_px_per_km()
@@ -915,26 +911,26 @@ class _StrikeMapCanvas extends Control:
 
 		for gx in range(-max_steps_x, max_steps_x + 1):
 			var x_pos: float = center.x + float(gx) * grid_step_px
-			var col_g := Color(0.28, 0.58, 0.34, 0.16 if gx != 0 else 0.36)
+			var col_g := Color(0.55, 0.62, 0.70, 0.16 if gx != 0 else 0.36)
 			draw_line(Vector2(x_pos, 0.0), Vector2(x_pos, size.y), col_g, 1.0)
 		for gy in range(-max_steps_y, max_steps_y + 1):
 			var y_pos: float = center.y + float(gy) * grid_step_px
-			var col_gy := Color(0.28, 0.58, 0.34, 0.16 if gy != 0 else 0.36)
+			var col_gy := Color(0.55, 0.62, 0.70, 0.16 if gy != 0 else 0.36)
 			draw_line(Vector2(0.0, y_pos), Vector2(size.x, y_pos), col_gy, 1.0)
 
 		# Diagonal metro arterial highways + stylized local river/bay channel for urban context
-		draw_line(center + Vector2(-380.0, 140.0), center + Vector2(380.0, -135.0), Color(0.35, 0.65, 0.40, 0.14), 2.0)
-		draw_line(center + Vector2(-240.0, -180.0), center + Vector2(220.0, 180.0), Color(0.35, 0.65, 0.40, 0.12), 1.5)
+		draw_line(center + Vector2(-380.0, 140.0), center + Vector2(380.0, -135.0), Color(0.55, 0.62, 0.70, 0.14), 2.0)
+		draw_line(center + Vector2(-240.0, -180.0), center + Vector2(220.0, 180.0), Color(0.55, 0.62, 0.70, 0.12), 1.5)
 
-		# Rotating NORAD phosphor radar sweep wedge
+		# Slow scan wedge
 		var sweep_ang: float = fposmod(_time * 1.15, TAU)
 		var sweep_pts := PackedVector2Array([center])
 		for s_i in range(9):
 			var a: float = sweep_ang - float(s_i) * 0.045
 			sweep_pts.append(center + Vector2(cos(a), sin(a)) * scope_r)
 		if sweep_pts.size() >= 3:
-			draw_colored_polygon(sweep_pts, Color(0.35, 0.88, 0.45, 0.07))
-		draw_line(center, center + Vector2(cos(sweep_ang), sin(sweep_ang)) * scope_r, Color(0.49, 0.92, 0.52, 0.35), 1.5)
+			draw_colored_polygon(sweep_pts, Color(0.60, 0.66, 0.74, 0.05))
+		draw_line(center, center + Vector2(cos(sweep_ang), sin(sweep_ang)) * scope_r, Color(0.70, 0.76, 0.84, 0.25), 1.5)
 
 		# Concentric kilometer range rings
 		var rings_km: Array[float] = [1.0, 5.0, 15.0, 30.0, 45.0, 60.0, 90.0]
@@ -948,7 +944,7 @@ class _StrikeMapCanvas extends Control:
 			if r_px < 5.0:
 				continue
 			var ring_alpha: float = 0.42 if is_equal_approx(r_km, _radar_range_km) else 0.25
-			draw_arc(center, r_px, 0.0, TAU, 64, Color(0.48, 0.85, 0.46, ring_alpha), 1.2)
+			draw_arc(center, r_px, 0.0, TAU, 64, Color(0.60, 0.66, 0.74, ring_alpha), 1.2)
 			if r_px >= 30.0:
 				draw_string(
 					font,
@@ -957,7 +953,7 @@ class _StrikeMapCanvas extends Control:
 					HORIZONTAL_ALIGNMENT_LEFT,
 					60.0,
 					10,
-					Color(0.62, 0.92, 0.60, 0.75)
+					Color(0.70, 0.76, 0.84, 0.80)
 				)
 
 		# Degree azimuth ticks around outer radar ring
@@ -967,15 +963,15 @@ class _StrikeMapCanvas extends Control:
 			draw_line(
 				center + Vector2(cos(rad_i), sin(rad_i)) * inner_k,
 				center + Vector2(cos(rad_i), sin(rad_i)) * scope_r,
-				Color(0.55, 0.88, 0.55, 0.45),
+				Color(0.60, 0.66, 0.74, 0.45),
 				1.2
 			)
 
 		# Cardinal N / E / S / W markers
-		draw_string(font, Vector2(center.x - 5.0, center.y - scope_r - 5.0), "N", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 12, Color("#f5be2e"))
-		draw_string(font, Vector2(center.x - 5.0, center.y + scope_r + 14.0), "S", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 12, Color("#9aa396"))
-		draw_string(font, Vector2(center.x + scope_r + 6.0, center.y + 4.0), "E", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 12, Color("#9aa396"))
-		draw_string(font, Vector2(center.x - scope_r - 16.0, center.y + 4.0), "W", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 12, Color("#9aa396"))
+		draw_string(font, Vector2(center.x - 5.0, center.y - scope_r - 5.0), "N", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 12, Color("#ffb020"))
+		draw_string(font, Vector2(center.x - 5.0, center.y + scope_r + 14.0), "S", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 12, Color("#9aa3ad"))
+		draw_string(font, Vector2(center.x + scope_r + 6.0, center.y + 4.0), "E", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 12, Color("#9aa3ad"))
+		draw_string(font, Vector2(center.x - scope_r - 16.0, center.y + 4.0), "W", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 12, Color("#9aa3ad"))
 
 		# Real nearby OSM POIs around center (if loaded)
 		for poi in _pois:
@@ -986,7 +982,7 @@ class _StrikeMapCanvas extends Control:
 				var local_v: Vector2 = NukePhysics.latlon_to_local_km(_house_lat, _house_lon, plat, plon)
 				var poi_px := Vector2(center.x + local_v.x * px_per_km, center.y - local_v.y * px_per_km)
 				if rect.has_point(poi_px):
-					draw_circle(poi_px, 2.5, Color("#7ec850"))
+					draw_circle(poi_px, 2.5, Color("#4cc38a"))
 
 		# Compute Ground Zero position on Regional Radar
 		var nlat: float = float(_impact.get("lat", _house_lat))
@@ -1002,19 +998,19 @@ class _StrikeMapCanvas extends Control:
 			# Distant global strike indicator arrow pointing toward remote Ground Zero
 			var dir_vec: Vector2 = (gz_px - center).normalized()
 			var edge_pt: Vector2 = center + dir_vec * (scope_r - 12.0)
-			draw_line(center, edge_pt, Color(0.88, 0.35, 0.17, 0.65), 2.0)
-			draw_circle(edge_pt, 6.0, Color("#e05a2b"))
+			draw_line(center, edge_pt, Color(1.0, 0.30, 0.31, 0.65), 2.0)
+			draw_circle(edge_pt, 6.0, Color("#ff4d4f"))
 			var warn_box := Rect2(center.x - 195.0, size.y - 36.0, 390.0, 24.0)
-			draw_rect(warn_box, Color(0.1, 0.12, 0.1, 0.90), true)
-			draw_rect(warn_box, Color("#f5be2e"), false, 1.5)
+			draw_rect(warn_box, Color(0.06, 0.07, 0.08, 0.90), true)
+			draw_rect(warn_box, Color("#ffb020"), false, 1.5)
 			draw_string(
 				font,
 				Vector2(warn_box.position.x + 8.0, warn_box.position.y + 16.0),
-				"DISTANT STRIKE (%d km) - CLICK RADAR FOR LOCAL OR VIEW GLOBAL TAB" % int(round(dist_km)),
+				"DISTANT STRIKE (%d km) - CLICK THE MAP FOR A LOCAL ONE, OR OPEN THE WORLD MAP" % int(round(dist_km)),
 				HORIZONTAL_ALIGNMENT_LEFT,
 				376.0,
 				10,
-				Color("#f5be2e")
+				Color("#ffb020")
 			)
 
 		# Draw Player's OSM House Bunker Icon at Radar Center
@@ -1022,13 +1018,13 @@ class _StrikeMapCanvas extends Control:
 
 		# Left Legend Box (Blast Rings Key)
 		var leg_r := Rect2(12.0, 12.0, 168.0, 86.0)
-		draw_rect(leg_r, Color(0.08, 0.11, 0.09, 0.86), true)
-		draw_rect(leg_r, Color("#3a483b"), false, 1.0)
-		draw_string(font, Vector2(18.0, 26.0), "OVERPRESSURE & PLUME", HORIZONTAL_ALIGNMENT_LEFT, 155.0, 10, Color("#f5be2e"))
+		draw_rect(leg_r, Color(0.06, 0.07, 0.08, 0.88), true)
+		draw_rect(leg_r, Color("#39414b"), false, 1.0)
+		draw_string(font, Vector2(18.0, 26.0), "OVERPRESSURE & PLUME", HORIZONTAL_ALIGNMENT_LEFT, 155.0, 10, Color("#ffb020"))
 		_draw_legend_item(font, Vector2(18.0, 40.0), Color("#fff099"), "Fireball Core")
-		_draw_legend_item(font, Vector2(18.0, 54.0), Color("#e05a2b"), "5-psi Severe Blast")
-		_draw_legend_item(font, Vector2(18.0, 68.0), Color("#f5be2e"), "Thermal 3rd-Deg Burn")
-		_draw_legend_item(font, Vector2(18.0, 82.0), Color("#7ec850"), "Downwind Fallout Cone")
+		_draw_legend_item(font, Vector2(18.0, 54.0), Color("#ff4d4f"), "5-psi Severe Blast")
+		_draw_legend_item(font, Vector2(18.0, 68.0), Color("#ffb020"), "Thermal 3rd-Deg Burn")
+		_draw_legend_item(font, Vector2(18.0, 82.0), Color("#4cc38a"), "Downwind Fallout Cone")
 
 		# Right Pinpoint Strike Quick Pills (1 km, 5 km, 30 km + Zoom toggle)
 		_quick_ring_rects.clear()
@@ -1036,14 +1032,14 @@ class _StrikeMapCanvas extends Control:
 			{"label": "Pinpoint 1 km Strike", "short": "Pin 1 km", "km": 1.0, "action": "pin"},
 			{"label": "Metro 5 km Strike", "short": "Pin 5 km", "km": 5.0, "action": "pin"},
 			{"label": "Suburban 30 km Strike", "short": "Pin 30 km", "km": 30.0, "action": "pin"},
-			{"label": "Toggle Zoom", "short": "Scope: %d km" % int(round(_radar_range_km)), "km": 0.0, "action": "zoom_toggle"}
+			{"label": "Toggle Zoom", "short": "Zoom: %d km" % int(round(_radar_range_km)), "km": 0.0, "action": "zoom_toggle"}
 		]
 		for p_i in range(pills.size()):
 			var p_entry: Dictionary = pills[p_i]
 			var pr := Rect2(size.x - 108.0, 12.0 + float(p_i) * 26.0, 96.0, 22.0)
 			var hovered: bool = pr.has_point(_hover_pos)
-			draw_rect(pr, Color("#2c382d") if not hovered else Color("#f5be2e"), true)
-			draw_rect(pr, Color("#7ec850") if not hovered else Color("#1b1917"), false, 1.2)
+			draw_rect(pr, Color("#262c34") if not hovered else Color("#ffb020"), true)
+			draw_rect(pr, Color("#4cc38a") if not hovered else Color("#0f1115"), false, 1.2)
 			draw_string(
 				font,
 				Vector2(pr.position.x + 6.0, pr.position.y + 15.0),
@@ -1051,7 +1047,7 @@ class _StrikeMapCanvas extends Control:
 				HORIZONTAL_ALIGNMENT_LEFT,
 				86.0,
 				10,
-				Color("#f2e6ce") if not hovered else Color("#1b1917")
+				Color("#e8eaed") if not hovered else Color("#0f1115")
 			)
 			_quick_ring_rects.append({
 				"rect": pr,
@@ -1085,17 +1081,17 @@ class _StrikeMapCanvas extends Control:
 			draw_colored_polygon(outer_cone, Color(0.49, 0.78, 0.31, 0.22))
 			draw_polyline(outer_cone, Color(0.49, 0.78, 0.31, 0.55), 1.4)
 		if inner_cone.size() >= 3:
-			draw_colored_polygon(inner_cone, Color(0.96, 0.75, 0.18, 0.20))
+			draw_colored_polygon(inner_cone, Color(1.0, 0.69, 0.13, 0.20))
 
 		# Thermal Burn Radius Ring
 		var therm_px: float = maxf(8.0, float(_impact.get("thermal_radius_km", 7.8)) * px_per_km)
-		draw_circle(gz_px, therm_px, Color(0.96, 0.75, 0.18, 0.08))
-		_draw_dashed_circle(gz_px, therm_px, Color("#f5be2e"), 1.6, 36)
+		draw_circle(gz_px, therm_px, Color(1.0, 0.69, 0.13, 0.08))
+		_draw_dashed_circle(gz_px, therm_px, Color("#ffb020"), 1.6, 36)
 
 		# 5-psi Blast Overpressure Ring
 		var blast_px: float = maxf(5.0, float(_impact.get("blast_5psi_radius_km", 4.6)) * px_per_km)
-		draw_circle(gz_px, blast_px, Color(0.88, 0.35, 0.17, 0.16))
-		draw_arc(gz_px, blast_px, 0.0, TAU, 48, Color("#e05a2b"), 2.2)
+		draw_circle(gz_px, blast_px, Color(1.0, 0.30, 0.31, 0.16))
+		draw_arc(gz_px, blast_px, 0.0, TAU, 48, Color("#ff4d4f"), 2.2)
 
 		# Fireball Core
 		var fire_px: float = maxf(3.5, float(_impact.get("fireball_radius_km", 0.6)) * px_per_km)
@@ -1110,7 +1106,7 @@ class _StrikeMapCanvas extends Control:
 				draw_arc(gz_px, sw_r, 0.0, TAU, 48, Color(1.0, 0.78, 0.32, sw_a), 2.0)
 
 		# Vector measurement line from Ground Zero to House & Ground Zero Reticle
-		draw_line(gz_px, house_px, Color(0.96, 0.75, 0.18, 0.65), 1.5)
+		draw_line(gz_px, house_px, Color(1.0, 0.69, 0.13, 0.65), 1.5)
 		_draw_gz_reticle(gz_px)
 
 		# Position yellow distance tag away from HOME BUNKER and GZ reticle so zero text overlaps
@@ -1126,12 +1122,12 @@ class _StrikeMapCanvas extends Control:
 				var tx: float = clampf(gz_px.x - 29.0, 14.0, size.x - 72.0)
 				var ty: float = clampf(maxf(gz_px.y + 18.0, house_px.y + 18.0), 14.0, size.y - 26.0)
 				tag_box = Rect2(tx, ty, 58.0, 16.0)
-				draw_line(gz_px + Vector2(0.0, 14.0), Vector2(tag_box.get_center().x, tag_box.position.y), Color(0.96, 0.75, 0.18, 0.55), 1.0)
+				draw_line(gz_px + Vector2(0.0, 14.0), Vector2(tag_box.get_center().x, tag_box.position.y), Color(1.0, 0.69, 0.13, 0.55), 1.0)
 			else:
 				var tx_n: float = clampf(minf(gz_px.x, house_px.x) - 76.0, 14.0, size.x - 72.0)
 				var ty_n: float = clampf(gz_px.y - 8.0, 14.0, size.y - 26.0)
 				tag_box = Rect2(tx_n, ty_n, 58.0, 16.0)
-				draw_line(gz_px + Vector2(-14.0, 0.0), Vector2(tag_box.end.x, tag_box.get_center().y), Color(0.96, 0.75, 0.18, 0.55), 1.0)
+				draw_line(gz_px + Vector2(-14.0, 0.0), Vector2(tag_box.end.x, tag_box.get_center().y), Color(1.0, 0.69, 0.13, 0.55), 1.0)
 		else:
 			var mid_pt: Vector2 = (gz_px + house_px) * 0.5
 			var seg_dir: Vector2 = (gz_px - house_px).normalized()
@@ -1148,15 +1144,15 @@ class _StrikeMapCanvas extends Control:
 			if tag_box.intersects(home_excl) or tag_box.intersects(gz_excl):
 				tag_box.position.y = clampf(maxf(home_excl.end.y, gz_excl.end.y) + 4.0, 14.0, size.y - 26.0)
 
-		draw_rect(tag_box, Color(0.08, 0.09, 0.08, 0.90), true)
-		draw_rect(tag_box, Color("#f5be2e"), false, 1.0)
-		draw_string(font, Vector2(tag_box.position.x + 4.0, tag_box.position.y + 12.0), tag_str, HORIZONTAL_ALIGNMENT_CENTER, 50.0, 10, Color("#f5be2e"))
+		draw_rect(tag_box, Color(0.06, 0.07, 0.08, 0.90), true)
+		draw_rect(tag_box, Color("#ffb020"), false, 1.0)
+		draw_string(font, Vector2(tag_box.position.x + 4.0, tag_box.position.y + 12.0), tag_str, HORIZONTAL_ALIGNMENT_CENTER, 50.0, 10, Color("#ffb020"))
 
 	func _draw_global_world_map(font: Font, rect: Rect2) -> void:
-		# Deep NORAD ocean background
-		draw_rect(rect, Color("#0d171e"), true)
+		# Ocean background
+		draw_rect(rect, Color("#0b0e12"), true)
 		var map_r: Rect2 = _get_world_map_rect()
-		draw_rect(map_r, Color("#11212b"), true)
+		draw_rect(map_r, Color("#121821"), true)
 
 		# Lat/Lon 30-degree graticule
 		for lon_i in range(-150, 180, 30):
@@ -1188,11 +1184,11 @@ class _StrikeMapCanvas extends Control:
 			if pts.size() >= 3:
 				var tri_idx: PackedInt32Array = Geometry2D.triangulate_polygon(pts)
 				if not tri_idx.is_empty():
-					draw_colored_polygon(pts, Color("#2d3d2f"))
+					draw_colored_polygon(pts, Color("#222a33"))
 				pts.append(pts[0])
-				draw_polyline(pts, Color("#62825e"), 1.3)
+				draw_polyline(pts, Color("#4b5866"), 1.3)
 
-		draw_rect(map_r, Color("#3d5a66"), false, 1.2)
+		draw_rect(map_r, Color("#39414b"), false, 1.2)
 
 		var house_px: Vector2 = _latlon_to_world_px(_house_lat, _house_lon, map_r)
 		var nlat: float = float(_impact.get("lat", _house_lat))
@@ -1208,7 +1204,7 @@ class _StrikeMapCanvas extends Control:
 			var dist_home: float = c_px.distance_to(house_px)
 			var dist_gz: float = c_px.distance_to(gz_px)
 			if dist_home >= 20.0 and dist_gz >= 20.0:
-				draw_circle(c_px, 2.2, Color("#dccba6"))
+				draw_circle(c_px, 2.2, Color("#9aa3ad"))
 			var city_lbl_r := Rect2(c_px.x + 4.0, c_px.y - 7.0, 46.0, 12.0)
 			if dist_home >= 36.0 and dist_gz >= 36.0 and not city_lbl_r.intersects(home_badge_r.grow(4.0)):
 				draw_string(
@@ -1218,7 +1214,7 @@ class _StrikeMapCanvas extends Control:
 					HORIZONTAL_ALIGNMENT_LEFT,
 					90.0,
 					9,
-					Color(0.92, 0.88, 0.76, 0.72)
+					Color(0.91, 0.92, 0.93, 0.72)
 				)
 
 		# Downwind regional/synoptic fallout plume indicator from GZ on World Map
@@ -1240,16 +1236,16 @@ class _StrikeMapCanvas extends Control:
 			var ll: Vector2 = geo_ll[g_i]
 			if g_i > 0 and absf(ll.x - prev_lon) > 170.0:
 				if current_seg.size() >= 2:
-					draw_polyline(current_seg, Color(0.96, 0.75, 0.18, 0.82), 1.8)
+					draw_polyline(current_seg, Color(1.0, 0.69, 0.13, 0.82), 1.8)
 				current_seg = PackedVector2Array()
 			current_seg.append(_latlon_to_world_px(ll.y, ll.x, map_r))
 			prev_lon = ll.x
 		if current_seg.size() >= 2:
-			draw_polyline(current_seg, Color(0.96, 0.75, 0.18, 0.82), 1.8)
+			draw_polyline(current_seg, Color(1.0, 0.69, 0.13, 0.82), 1.8)
 
 		# Global Nuclear Winter vs Regional Zone tint ring around GZ
 		var zone_id: String = str(_impact.get("zone", ""))
-		var ring_col: Color = Color("#3b8ec2") if zone_id == "nuclear_winter" else Color("#e05a2b")
+		var ring_col: Color = Color("#4aa3ff") if zone_id == "nuclear_winter" else Color("#ff4d4f")
 		for sw in _shockwaves:
 			if sw >= 0.0 and sw <= 1.2:
 				var r_w: float = lerpf(4.0, 56.0, clampf(sw, 0.0, 1.0))
@@ -1271,39 +1267,39 @@ class _StrikeMapCanvas extends Control:
 			HORIZONTAL_ALIGNMENT_LEFT,
 			204.0,
 			10,
-			Color("#f2e6ce")
+			Color("#e8eaed")
 		)
 
 	func _draw_house_bunker_marker(font: Font, pos: Vector2, show_full_label: bool) -> void:
 		var pulse_r: float = 11.0 + 4.0 * (0.5 + 0.5 * sin(_time * 4.5))
 		draw_arc(pos, pulse_r, 0.0, TAU, 24, Color(0.49, 0.78, 0.31, 0.55), 1.5)
-		draw_circle(pos, 7.5, Color("#1b1917"))
-		draw_circle(pos, 6.0, Color("#7ec850"))
+		draw_circle(pos, 7.5, Color("#0f1115"))
+		draw_circle(pos, 6.0, Color("#4cc38a"))
 		# Tiny house roof + bunker base silhouette inside marker
 		var roof := PackedVector2Array([
 			pos + Vector2(0.0, -4.2),
 			pos + Vector2(4.2, -0.5),
 			pos + Vector2(-4.2, -0.5)
 		])
-		draw_colored_polygon(roof, Color("#1b1917"))
-		draw_rect(Rect2(pos.x - 2.8, pos.y - 0.5, 5.6, 4.0), Color("#1b1917"), true)
+		draw_colored_polygon(roof, Color("#0f1115"))
+		draw_rect(Rect2(pos.x - 2.8, pos.y - 0.5, 5.6, 4.0), Color("#0f1115"), true)
 
-		var lbl: String = "HOME BUNKER" if show_full_label else "HOME"
+		var lbl: String = "YOUR HOUSE" if show_full_label else "HOME"
 		var lbox := Rect2(pos.x + 10.0, pos.y - 9.0, 78.0 if show_full_label else 42.0, 16.0)
 		if lbox.end.x > size.x - 10.0:
 			lbox.position.x = pos.x - lbox.size.x - 10.0
-		draw_rect(lbox, Color(0.08, 0.14, 0.08, 0.90), true)
-		draw_rect(lbox, Color("#7ec850"), false, 1.0)
-		draw_string(font, Vector2(lbox.position.x + 4.0, lbox.position.y + 12.0), lbl, HORIZONTAL_ALIGNMENT_LEFT, lbox.size.x - 6.0, 9, Color("#7ec850"))
+		draw_rect(lbox, Color(0.06, 0.10, 0.08, 0.90), true)
+		draw_rect(lbox, Color("#4cc38a"), false, 1.0)
+		draw_string(font, Vector2(lbox.position.x + 4.0, lbox.position.y + 12.0), lbl, HORIZONTAL_ALIGNMENT_LEFT, lbox.size.x - 6.0, 9, Color("#4cc38a"))
 
 	func _draw_gz_reticle(pos: Vector2) -> void:
-		draw_arc(pos, 10.0, 0.0, TAU, 24, Color("#1b1917"), 3.2)
-		draw_arc(pos, 10.0, 0.0, TAU, 24, Color("#e05a2b"), 1.8)
-		draw_line(pos + Vector2(-15.0, 0.0), pos + Vector2(-5.0, 0.0), Color("#f5be2e"), 2.0)
-		draw_line(pos + Vector2(5.0, 0.0), pos + Vector2(15.0, 0.0), Color("#f5be2e"), 2.0)
-		draw_line(pos + Vector2(0.0, -15.0), pos + Vector2(0.0, -5.0), Color("#f5be2e"), 2.0)
-		draw_line(pos + Vector2(0.0, 5.0), pos + Vector2(0.0, 15.0), Color("#f5be2e"), 2.0)
-		draw_circle(pos, 2.8, Color("#f5be2e"))
+		draw_arc(pos, 10.0, 0.0, TAU, 24, Color("#0f1115"), 3.2)
+		draw_arc(pos, 10.0, 0.0, TAU, 24, Color("#ff4d4f"), 1.8)
+		draw_line(pos + Vector2(-15.0, 0.0), pos + Vector2(-5.0, 0.0), Color("#ffb020"), 2.0)
+		draw_line(pos + Vector2(5.0, 0.0), pos + Vector2(15.0, 0.0), Color("#ffb020"), 2.0)
+		draw_line(pos + Vector2(0.0, -15.0), pos + Vector2(0.0, -5.0), Color("#ffb020"), 2.0)
+		draw_line(pos + Vector2(0.0, 5.0), pos + Vector2(0.0, 15.0), Color("#ffb020"), 2.0)
+		draw_circle(pos, 2.8, Color("#ffb020"))
 
 	func _draw_dashed_circle(center: Vector2, radius: float, col: Color, width: float, segs: int) -> void:
 		var step: float = TAU / float(segs)
@@ -1314,8 +1310,8 @@ class _StrikeMapCanvas extends Control:
 
 	func _draw_legend_item(font: Font, pos: Vector2, col: Color, text: String) -> void:
 		draw_rect(Rect2(pos.x, pos.y - 8.0, 9.0, 9.0), col, true)
-		draw_rect(Rect2(pos.x, pos.y - 8.0, 9.0, 9.0), Color("#1b1917"), false, 1.0)
-		draw_string(font, Vector2(pos.x + 14.0, pos.y), text, HORIZONTAL_ALIGNMENT_LEFT, 138.0, 10, Color("#f2e6ce"))
+		draw_rect(Rect2(pos.x, pos.y - 8.0, 9.0, 9.0), Color("#0f1115"), false, 1.0)
+		draw_string(font, Vector2(pos.x + 14.0, pos.y), text, HORIZONTAL_ALIGNMENT_LEFT, 138.0, 10, Color("#e8eaed"))
 
 	func _init_world_geometry() -> void:
 		# Accurate multi-point continent & island silhouettes (each [lon, lat] loop verified simple)
@@ -1477,8 +1473,8 @@ class _WindDialControl extends Control:
 		var c: Vector2 = size * 0.5
 		var r: float = minf(size.x, size.y) * 0.5 - 4.0
 
-		draw_circle(c, r, Color("#121713"))
-		draw_arc(c, r, 0.0, TAU, 32, Color("#4c594d"), 2.0)
+		draw_circle(c, r, Color("#0f1115"))
+		draw_arc(c, r, 0.0, TAU, 32, Color("#39414b"), 2.0)
 
 		# Plume cone sector
 		var w_rad: float = deg_to_rad(_wind_deg - 90.0)
@@ -1487,30 +1483,41 @@ class _WindDialControl extends Control:
 		for i in range(9):
 			var a: float = w_rad - half_p + (float(i) / 8.0) * (2.0 * half_p)
 			cone.append(c + Vector2(cos(a), sin(a)) * (r - 3.0))
-		var cone_col: Color = Color(0.88, 0.35, 0.17, 0.38) if _in_plume else Color(0.49, 0.78, 0.31, 0.28)
+		var cone_col: Color = Color(1.0, 0.30, 0.31, 0.38) if _in_plume else Color(0.49, 0.78, 0.31, 0.28)
 		draw_colored_polygon(cone, cone_col)
 
 		# House bearing dot on compass rim
 		var h_rad: float = deg_to_rad(_house_bearing_deg - 90.0)
 		var h_pt: Vector2 = c + Vector2(cos(h_rad), sin(h_rad)) * (r - 6.0)
-		draw_circle(h_pt, 3.5, Color("#7ec850"))
+		draw_circle(h_pt, 3.5, Color("#4cc38a"))
 
 		# Wind vector arrow
 		var tip: Vector2 = c + Vector2(cos(w_rad), sin(w_rad)) * (r - 5.0)
 		var tail: Vector2 = c - Vector2(cos(w_rad), sin(w_rad)) * (r * 0.45)
-		draw_line(tail, tip, Color("#f5be2e"), 2.4)
+		draw_line(tail, tip, Color("#ffb020"), 2.4)
 		var left_w: Vector2 = tip - Vector2(cos(w_rad - 0.5), sin(w_rad - 0.5)) * 8.0
 		var right_w: Vector2 = tip - Vector2(cos(w_rad + 0.5), sin(w_rad + 0.5)) * 8.0
-		draw_colored_polygon(PackedVector2Array([tip, left_w, right_w]), Color("#f5be2e"))
-		draw_circle(c, 3.0, Color("#e05a2b"))
+		draw_colored_polygon(PackedVector2Array([tip, left_w, right_w]), Color("#ffb020"))
+		draw_circle(c, 3.0, Color("#ff4d4f"))
 
-		draw_string(font, Vector2(c.x - 4.0, c.y - r + 10.0), "N", HORIZONTAL_ALIGNMENT_LEFT, 14.0, 9, Color("#f2e6ce"))
+		draw_string(font, Vector2(c.x - 4.0, c.y - r + 10.0), "N", HORIZONTAL_ALIGNMENT_LEFT, 14.0, 9, Color("#e8eaed"))
 
 
 # ==============================================================================
-# INNER CLASS 3: CIVIL DEFENSE CONDITION FORECAST DOSSIER PANEL
+# INNER CLASS 3: STRIKE FORECAST PANEL (alert-detail card)
 # ==============================================================================
 class _ForecastPanelControl extends Control:
+	const BG := Color("#0f1115")
+	const PANEL := Color("#1a1e24")
+	const RAISED := Color("#262c34")
+	const BORDER := Color("#39414b")
+	const TEXT := Color("#e8eaed")
+	const MUTED := Color("#9aa3ad")
+	const AMBER := Color("#ffb020")
+	const RED := Color("#ff4d4f")
+	const GREEN := Color("#4cc38a")
+	const BLUE := Color("#4aa3ff")
+
 	var _impact: Dictionary = {}
 	var _disp_tremor: float = 0.0
 	var _disp_struct: float = 0.0
@@ -1529,51 +1536,51 @@ class _ForecastPanelControl extends Control:
 		_disp_rad = lerpf(_disp_rad, clampf(float(_impact.get("initial_sv_hr", 4.5)) / 10.0, 0.0, 1.0), k)
 		queue_redraw()
 
+	func _round_box(r: Rect2, fill: Color, border: Color, radius: int, border_w: int = 1) -> void:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = fill
+		sb.border_color = border
+		sb.set_border_width_all(border_w)
+		sb.set_corner_radius_all(radius)
+		sb.anti_aliasing = true
+		draw_style_box(sb, r)
+
 	func _draw() -> void:
 		var font: Font = get_theme_default_font()
 		var full := Rect2(Vector2.ZERO, size)
 
-		# Steel outer clipboard & warm CONELRAD parchment sheet
-		draw_rect(full, Color("#232824"), true)
-		draw_rect(full, Color("#1b1917"), false, 3.0)
+		# The alert card
+		_round_box(full, PANEL, BORDER, 12)
 
-		var sheet := Rect2(8.0, 8.0, size.x - 16.0, size.y - 16.0)
-		draw_rect(sheet, Color("#f2e6ce"), true)
-		draw_rect(sheet, Color("#1b1917"), false, 2.0)
-
-		# Aged paper header band
-		var hdr_band := Rect2(10.0, 10.0, size.x - 20.0, 44.0)
-		draw_rect(hdr_band, Color("#dccba6"), true)
-		draw_line(Vector2(10.0, 54.0), Vector2(size.x - 10.0, 54.0), Color("#1b1917"), 2.0)
-
+		# Header: alert label + target
+		draw_circle(Vector2(24.0, 27.0), 5.0, RED)
 		draw_string(
 			font,
-			Vector2(18.0, 29.0),
-			"CIVIL DEFENSE CONDITION FORECAST",
+			Vector2(36.0, 32.0),
+			"STRIKE FORECAST",
 			HORIZONTAL_ALIGNMENT_LEFT,
-			size.x - 36.0,
+			size.x - 54.0,
 			15,
-			Color("#1b1917")
+			TEXT
 		)
 		var tgt_str: String = "TARGET: " + str(_impact.get("target_name", "Strategic Detonation"))
 		draw_string(
 			font,
-			Vector2(18.0, 47.0),
+			Vector2(18.0, 49.0),
 			tgt_str,
 			HORIZONTAL_ALIGNMENT_LEFT,
 			size.x - 36.0,
 			11,
-			Color("#473f35")
+			MUTED
 		)
+		draw_line(Vector2(12.0, 56.0), Vector2(size.x - 12.0, 56.0), BORDER, 1.0)
 
-		# Zone Classification Badge (y=62..96)
+		# Zone badge (y=62..96)
 		var zone_id: String = str(_impact.get("zone", "near_blast"))
 		var zone_title: String = str(_impact.get("zone_title", "METRO STRIKE ZONE"))
 		var zone_col: Color = _get_zone_color(zone_id)
 		var badge_r := Rect2(16.0, 62.0, size.x - 32.0, 34.0)
-		draw_rect(badge_r, zone_col, true)
-		draw_rect(badge_r, Color("#1b1917"), false, 2.0)
-		var zone_fg: Color = Color("#1b1917") if zone_id == "near_blast" else Color("#f2e6ce")
+		_round_box(badge_r, Color(zone_col.r, zone_col.g, zone_col.b, 0.16), zone_col, 8)
 		draw_string(
 			font,
 			Vector2(badge_r.position.x + 8.0, badge_r.position.y + 23.0),
@@ -1581,10 +1588,10 @@ class _ForecastPanelControl extends Control:
 			HORIZONTAL_ALIGNMENT_CENTER,
 			badge_r.size.x - 16.0,
 			14,
-			zone_fg
+			zone_col.lightened(0.15)
 		)
 
-		# 2x2 Telemetry Readout Cards (y=104..220)
+		# 2x2 readout cards (y=104..220)
 		var card_w: float = (size.x - 40.0) * 0.5
 		var card_h: float = 54.0
 		var dist_km: float = float(_impact.get("distance_km", 0.0))
@@ -1593,14 +1600,14 @@ class _ForecastPanelControl extends Control:
 
 		var sv_hr: float = float(_impact.get("initial_sv_hr", 4.5))
 		var in_plume: bool = bool(_impact.get("in_fallout_plume", false))
-		var rad_sub: String = "DOWNWIND PLUME!" if (in_plume and zone_id != "nuclear_winter") else ("%d-day decay" % int(_impact.get("fallout_days", 10)))
+		var rad_sub: String = "DOWNWIND PLUME" if (in_plume and zone_id != "nuclear_winter") else ("%d-day decay" % int(_impact.get("fallout_days", 10)))
 
 		var temp_c: float = float(_impact.get("bunker_temp_c", 20.0))
 		var temp_txt: String = "%+.1f °C" % temp_c
-		var temp_sub: String = "SCORCHING HEAT" if temp_c >= 30.0 else ("FREEZING WINTER!" if temp_c <= -3.0 else ("NUCLEAR AUTUMN" if temp_c <= 4.5 else ("CHILLY DUSK" if temp_c <= 14.0 else "BLAST WARMTH")))
+		var temp_sub: String = "HOT" if temp_c >= 30.0 else ("FREEZING" if temp_c <= -3.0 else ("COLD" if temp_c <= 4.5 else ("CHILLY" if temp_c <= 14.0 else "WARM")))
 
-		var scout_s: float = float(_impact.get("scout_seconds", 8.0))
-		var scav_s: float = 30.0 if GameState.difficulty == "hard" else 60.0
+		var recon_s: float = GameState.recon_seconds()
+		var grab_s: float = GameState.grab_seconds()
 
 		_draw_telemetry_card(
 			font,
@@ -1608,7 +1615,7 @@ class _ForecastPanelControl extends Control:
 			"GROUND ZERO RANGE",
 			dist_txt,
 			"Bearing: %s from home" % brng_str,
-			Color("#1b1917")
+			TEXT
 		)
 		_draw_telemetry_card(
 			font,
@@ -1616,35 +1623,34 @@ class _ForecastPanelControl extends Control:
 			"SURFACE RADIATION",
 			RadiationModel.format_rate(sv_hr * 1000.0) + " @H+1",
 			rad_sub,
-			Color("#b5331d") if sv_hr >= 5.0 else Color("#2f6b28")
+			RED if sv_hr >= 5.0 else GREEN
 		)
 		_draw_telemetry_card(
 			font,
 			Rect2(16.0, 164.0, card_w, card_h),
-			"BUNKER TEMPERATURE",
+			"SHELTER TEMPERATURE",
 			temp_txt,
 			temp_sub,
-			Color("#c93824") if temp_c >= 28.0 else (Color("#23689b") if temp_c <= 2.0 else Color("#1b1917"))
+			RED if temp_c >= 28.0 else (BLUE if temp_c <= 2.0 else TEXT)
 		)
 		_draw_telemetry_card(
 			font,
 			Rect2(24.0 + card_w, 164.0, card_w, card_h),
-			"WARNING + GRAB TIMER",
-			"%.0fs + %.0fs" % [scout_s, scav_s],
-			"%.0fs Recon / %.0fs Scavenge (%s)" % [scout_s, scav_s, GameState.difficulty.to_upper()],
-			Color("#1b1917")
+			"LOOK-AROUND + GRAB",
+			"%.0f s + %.0f s" % [recon_s, grab_s],
+			"Difficulty: %s" % GameState.difficulty.capitalize(),
+			TEXT
 		)
 
-		# Shockwave Tremor & Hazard Bars Box (y=226..322)
+		# Tremor & hazard bars (y=226..322)
 		var gauge_box := Rect2(16.0, 226.0, size.x - 32.0, 94.0)
-		draw_rect(gauge_box, Color("#e5d7b8"), true)
-		draw_rect(gauge_box, Color("#1b1917"), false, 1.5)
+		_round_box(gauge_box, RAISED, BORDER, 8)
 
 		var trem_pct: int = int(round(float(_impact.get("tremor_intensity", 0.5)) * 100.0))
-		draw_string(font, Vector2(24.0, 243.0), "SHOCKWAVE TREMOR INTENSITY", HORIZONTAL_ALIGNMENT_LEFT, 260.0, 11, Color("#1b1917"))
-		draw_string(font, Vector2(gauge_box.end.x - 68.0, 243.0), "%d%%" % trem_pct, HORIZONTAL_ALIGNMENT_RIGHT, 60.0, 12, Color("#b5331d") if trem_pct >= 65 else Color("#1b1917"))
+		draw_string(font, Vector2(24.0, 243.0), "SHOCKWAVE TREMOR", HORIZONTAL_ALIGNMENT_LEFT, 260.0, 11, MUTED)
+		draw_string(font, Vector2(gauge_box.end.x - 68.0, 243.0), "%d%%" % trem_pct, HORIZONTAL_ALIGNMENT_RIGHT, 60.0, 12, RED if trem_pct >= 65 else TEXT)
 
-		# Segmented seismograph tremor bar
+		# Segmented signal-strength style tremor bar
 		var seg_count: int = 16
 		var bar_x: float = 24.0
 		var bar_w: float = gauge_box.size.x - 16.0
@@ -1653,30 +1659,29 @@ class _ForecastPanelControl extends Control:
 			var thresh: float = float(s_i + 1) / float(seg_count)
 			var sr := Rect2(bar_x + float(s_i) * (seg_w + 3.0), 248.0, seg_w, 14.0)
 			var active_seg: bool = _disp_tremor >= (thresh - 0.03)
-			var scol := Color("#c8b896")
+			var scol := BORDER
 			if active_seg:
-				scol = Color("#c93824") if s_i >= 11 else (Color("#e07b24") if s_i >= 6 else Color("#629632"))
+				scol = RED if s_i >= 11 else (AMBER if s_i >= 6 else GREEN)
 			draw_rect(sr, scol, true)
-			draw_rect(sr, Color("#1b1917"), false, 1.0)
 
-		# Three secondary mini-gauges: Hull Loss (aligned to BunkerSim), Fallout Duration, Raider Threat
+		# Hull loss (matches the shelter sim), fallout duration, raider threat
 		var mini_w: float = (bar_w - 16.0) / 3.0
 		var struct_raw: float = clampf(float(_impact.get("structural_damage", 0.2)), 0.0, 1.0)
 		var hull_integ_pct: int = int(round(clampf(100.0 - struct_raw * 45.0, 25.0, 100.0)))
 		var hull_loss_pct: int = int(_impact.get("hull_loss_pct", 100 - hull_integ_pct))
-		_draw_mini_bar(font, Rect2(24.0, 272.0, mini_w, 40.0), "HULL LOSS", "%d%%" % hull_loss_pct, _disp_struct, Color("#d9532b"))
+		_draw_mini_bar(font, Rect2(24.0, 272.0, mini_w, 40.0), "HULL LOSS", "%d%%" % hull_loss_pct, _disp_struct, RED)
 		var f_days: int = int(_impact.get("fallout_days", 10))
-		_draw_mini_bar(font, Rect2(24.0 + mini_w + 8.0, 272.0, mini_w, 40.0), "FALLOUT", "%d DAYS" % f_days, clampf(float(f_days) / 20.0, 0.0, 1.0), Color("#6a9a3b"))
-		_draw_mini_bar(font, Rect2(24.0 + (mini_w + 8.0) * 2.0, 272.0, mini_w, 40.0), "RAIDERS", "%d%%" % int(round(float(_impact.get("raider_aggression", 0.5)) * 100.0)), _disp_raider, Color("#b5331d"))
+		_draw_mini_bar(font, Rect2(24.0 + mini_w + 8.0, 272.0, mini_w, 40.0), "FALLOUT", "%d DAYS" % f_days, clampf(float(f_days) / 20.0, 0.0, 1.0), AMBER)
+		_draw_mini_bar(font, Rect2(24.0 + (mini_w + 8.0) * 2.0, 272.0, mini_w, 40.0), "RAIDERS", "%d%%" % int(round(float(_impact.get("raider_aggression", 0.5)) * 100.0)), _disp_raider, RED)
 
-		# Survival Consequences Section (y=328..574)
-		draw_string(font, Vector2(18.0, 344.0), "SURVIVAL CONSEQUENCES & DOCTRINE:", HORIZONTAL_ALIGNMENT_LEFT, size.x - 36.0, 12, Color("#1b1917"))
-		draw_line(Vector2(18.0, 349.0), Vector2(size.x - 18.0, 349.0), Color("#8c7b62"), 1.0)
+		# What it means (y=328..574)
+		draw_string(font, Vector2(18.0, 344.0), "WHAT THIS MEANS FOR YOU", HORIZONTAL_ALIGNMENT_LEFT, size.x - 36.0, 12, TEXT)
+		draw_line(Vector2(18.0, 349.0), Vector2(size.x - 18.0, 349.0), BORDER, 1.0)
 
 		var cur_y: float = 365.0
 		var max_text_w: float = size.x - 42.0
 		var summary_str: String = str(_impact.get("summary", ""))
-		cur_y = _draw_wrapped_text(font, summary_str, Vector2(18.0, cur_y), max_text_w, 11, 14.0, Color("#3a3229")) + 6.0
+		cur_y = _draw_wrapped_text(font, summary_str, Vector2(18.0, cur_y), max_text_w, 11, 14.0, MUTED) + 6.0
 
 		var raw_bullets: Variant = _impact.get("condition_bullets", [])
 		if raw_bullets is Array:
@@ -1685,28 +1690,22 @@ class _ForecastPanelControl extends Control:
 				if cur_y > size.y - 22.0:
 					break
 				var b_str: String = str(b_item)
-				# Hazard bullet diamond
-				var d_pt := Vector2(22.0, cur_y - 4.0)
-				draw_colored_polygon(PackedVector2Array([
-					d_pt + Vector2(0, -4), d_pt + Vector2(4, 0), d_pt + Vector2(0, 4), d_pt + Vector2(-4, 0)
-				]), zone_col)
-				cur_y = _draw_wrapped_text(font, b_str, Vector2(31.0, cur_y), max_text_w - 13.0, 11, 13.5, Color("#1b1917")) + 5.0
+				draw_circle(Vector2(22.0, cur_y - 4.0), 3.0, zone_col)
+				cur_y = _draw_wrapped_text(font, b_str, Vector2(31.0, cur_y), max_text_w - 13.0, 11, 13.5, TEXT) + 5.0
 
 	func _draw_telemetry_card(font: Font, r: Rect2, title: String, big_val: String, sub: String, val_col: Color) -> void:
-		draw_rect(r, Color("#faf2e1"), true)
-		draw_rect(r, Color("#1b1917"), false, 1.5)
-		draw_string(font, Vector2(r.position.x + 7.0, r.position.y + 13.0), title, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12.0, 9, Color("#5c5245"))
+		_round_box(r, RAISED, BORDER, 8)
+		draw_string(font, Vector2(r.position.x + 7.0, r.position.y + 13.0), title, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12.0, 9, MUTED)
 		draw_string(font, Vector2(r.position.x + 7.0, r.position.y + 34.0), big_val, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12.0, 16, val_col)
-		draw_string(font, Vector2(r.position.x + 7.0, r.position.y + 48.0), sub, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12.0, 9, Color("#4a4237"))
+		draw_string(font, Vector2(r.position.x + 7.0, r.position.y + 48.0), sub, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12.0, 9, MUTED)
 
 	func _draw_mini_bar(font: Font, r: Rect2, label: String, val_txt: String, ratio: float, fill_col: Color) -> void:
-		draw_string(font, Vector2(r.position.x, r.position.y + 12.0), label + ": " + val_txt, HORIZONTAL_ALIGNMENT_LEFT, r.size.x, 9, Color("#1b1917"))
-		var bar_r := Rect2(r.position.x, r.position.y + 17.0, r.size.x, 10.0)
-		draw_rect(bar_r, Color("#c8b896"), true)
+		draw_string(font, Vector2(r.position.x, r.position.y + 12.0), label + ": " + val_txt, HORIZONTAL_ALIGNMENT_LEFT, r.size.x, 9, MUTED)
+		var bar_r := Rect2(r.position.x, r.position.y + 17.0, r.size.x, 8.0)
+		_round_box(bar_r, BG, BG, 4, 0)
 		var fill_w: float = clampf(ratio, 0.0, 1.0) * bar_r.size.x
 		if fill_w > 1.0:
-			draw_rect(Rect2(bar_r.position.x, bar_r.position.y, fill_w, bar_r.size.y), fill_col, true)
-		draw_rect(bar_r, Color("#1b1917"), false, 1.0)
+			_round_box(Rect2(bar_r.position.x, bar_r.position.y, fill_w, bar_r.size.y), fill_col, fill_col, 4, 0)
 
 	func _draw_wrapped_text(font: Font, text: String, pos: Vector2, max_w: float, font_size: int, line_h: float, col: Color) -> float:
 		var words: PackedStringArray = text.split(" ", false)
@@ -1729,18 +1728,18 @@ class _ForecastPanelControl extends Control:
 	func _get_zone_color(zone_id: String) -> Color:
 		match zone_id:
 			"ground_zero_edge":
-				return Color("#c93824")
+				return RED
 			"near_blast":
-				return Color("#f5be2e")
+				return AMBER
 			"regional_fallout":
-				return Color("#4e7a32")
+				return GREEN
 			"nuclear_winter":
-				return Color("#2b6f9e")
-		return Color("#e05a2b")
+				return BLUE
+		return RED
 
 
 # ==============================================================================
-# INNER CLASS 4: PULSING HAZARD SIREN LAUNCH BUTTON
+# INNER CLASS 4: PULSING "TAKE SHELTER" START BUTTON
 # ==============================================================================
 class _HazardSirenButton extends Button:
 	var _t: float = 0.0
@@ -1758,39 +1757,31 @@ class _HazardSirenButton extends Button:
 		var pulse: float = 0.5 + 0.5 * sin(_t * 6.5)
 		var hovered: bool = is_hovered()
 
-		var base_col: Color = Color("#c93824").lerp(Color("#e85d2a"), pulse * 0.65)
+		var base_col: Color = Color("#ff4d4f").lerp(Color("#ff6b6d"), pulse * 0.55)
 		if hovered:
-			base_col = base_col.lightened(0.12)
-		draw_rect(r, base_col, true)
+			base_col = base_col.lightened(0.10)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = base_col
+		sb.set_corner_radius_all(10)
+		sb.anti_aliasing = true
+		sb.shadow_color = Color(1.0, 0.30, 0.31, 0.18 + 0.20 * pulse)
+		sb.shadow_size = 8
+		draw_style_box(sb, r)
 
-		# Left & right CONELRAD yellow/black hazard stripe end-caps
-		for side_x in [0.0, size.x - 28.0]:
-			var cap := Rect2(side_x, 0.0, 28.0, size.y)
-			draw_rect(cap, Color("#1b1917"), true)
-			for sy in range(0, int(size.y), 12):
-				draw_rect(Rect2(side_x, float(sy), 28.0, 6.0), Color("#f5be2e"), true)
-
-		var border_col: Color = Color("#f5be2e").lerp(Color("#fff5c0"), pulse)
-		draw_rect(r, Color("#1b1917"), false, 3.0)
-		draw_rect(r.grow(-3.0), border_col, false, 2.0)
+		# Alert glyph (triangle with an exclamation mark) on the left
+		var gc := Vector2(26.0, size.y * 0.5)
+		draw_colored_polygon(PackedVector2Array([gc + Vector2(0.0, -11.0), gc + Vector2(11.0, 8.0), gc + Vector2(-11.0, 8.0)]), Color("#ffffff"))
+		draw_line(gc + Vector2(0.0, -5.0), gc + Vector2(0.0, 2.0), Color("#ff4d4f"), 2.2)
+		draw_circle(gc + Vector2(0.0, 5.0), 1.3, Color("#ff4d4f"))
 
 		var ascent: float = font.get_ascent(16)
 		var text_y: float = (size.y - font.get_height(16)) * 0.5 + ascent
 		draw_string(
 			font,
-			Vector2(34.0, text_y + 1.0),
+			Vector2(44.0, text_y),
 			text,
 			HORIZONTAL_ALIGNMENT_CENTER,
-			size.x - 68.0,
+			size.x - 60.0,
 			16,
-			Color("#1b1917")
-		)
-		draw_string(
-			font,
-			Vector2(33.0, text_y),
-			text,
-			HORIZONTAL_ALIGNMENT_CENTER,
-			size.x - 68.0,
-			16,
-			Color("#fff6dc")
+			Color("#ffffff")
 		)

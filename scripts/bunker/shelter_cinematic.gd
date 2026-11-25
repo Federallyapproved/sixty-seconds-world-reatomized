@@ -6,7 +6,8 @@ extends Control
 ##  * the animated outcome of that choice (camera moves, lighting, sound, props, expressions,
 ##    injuries, gunfire, repairs, celebrations),
 ##  * expedition returns (survivor climbs down, recovered items go onto the storage rack),
-##  * garage work (installing a part into the car) and the drive-out escape.
+##  * garage work (installing a part into the car) and the drive-out escape (both disabled while
+##    GameState.FEATURE_CAR_ESCAPE is false; the scene owner never calls them).
 ## Every outcome keeps a concise text explanation; the scene owner records it in the journal.
 
 signal choice_made(choice_id: String)
@@ -73,15 +74,15 @@ func _ready() -> void:
 	_fx = _Painter.new()
 	_fx.cb = _paint_fx
 	add_child(_fx)
-	_title_lbl = _mk_label(20, Color("#f2b82e"))
+	_title_lbl = _mk_label(20, Color("#ffb020"))
 	_title_lbl.position = Vector2(40, 572)
 	_title_lbl.size = Vector2(1000, 28)
 	add_child(_title_lbl)
-	_meta_lbl = _mk_label(13, Color("#9fb59a"))
+	_meta_lbl = _mk_label(13, Color("#9aa3ad"))
 	_meta_lbl.position = Vector2(40, 600)
 	_meta_lbl.size = Vector2(1000, 20)
 	add_child(_meta_lbl)
-	_body_lbl = _mk_label(15, Color("#efe3c8"))
+	_body_lbl = _mk_label(15, Color("#e8eaed"))
 	_body_lbl.position = Vector2(40, 622)
 	_body_lbl.size = Vector2(1000, 92)
 	_body_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -91,7 +92,7 @@ func _ready() -> void:
 	_continue_btn.position = Vector2(1070, 660)
 	_continue_btn.size = Vector2(180, 40)
 	_continue_btn.focus_mode = Control.FOCUS_NONE
-	_style_btn(_continue_btn, Color("#d94c2a"), Color("#fff3db"))
+	_style_btn(_continue_btn, Color("#ffb020"), Color("#0f1115"))
 	_continue_btn.pressed.connect(_on_continue)
 	_continue_btn.visible = false
 	add_child(_continue_btn)
@@ -108,9 +109,9 @@ func _mk_label(fs: int, col: Color) -> Label:
 func _style_btn(b: Button, bg: Color, fg: Color) -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
-	sb.border_color = Color("#1d1a16")
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(4)
+	sb.border_color = bg.lightened(0.12)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(8)
 	sb.content_margin_left = 10
 	sb.content_margin_right = 10
 	var sbh: StyleBoxFlat = sb.duplicate()
@@ -209,7 +210,7 @@ func play_drive_out(text: String) -> void:
 const SCENARIO_DURATIONS: Dictionary = {
 	"combat": 4.2, "attack": 4.2, "repair": 4.0, "radio": 3.8, "give": 3.8, "gain": 3.8, "medical": 3.8,
 	"celebrate": 3.6, "gloom": 3.4, "sickness": 3.6, "hazard": 4.0, "signal": 4.0, "victory": 4.8,
-	"doom": 4.0, "shrug": 3.0, "pet": 3.6, "mutant": 3.8,
+	"doom": 4.0, "shrug": 3.0, "pet": 3.6,
 }
 
 
@@ -223,7 +224,7 @@ static func scenario_for(outcome: Dictionary, ev: Dictionary) -> String:
 	if tags.has("gameover"):
 		return "doom"
 	if tags.has("raid"):
-		if item in ["rifle", "axe"] or choice in ["use_rifle", "use_axe", "use_dog", "use_mutant"]:
+		if item in ["rifle", "axe"] or choice in ["use_rifle", "use_axe", "use_dog"]:
 			return "combat"
 		return "attack"
 	if tags.has("injured"):
@@ -236,11 +237,9 @@ static func scenario_for(outcome: Dictionary, ev: Dictionary) -> String:
 		return "hazard"
 	if tags.has("healed") or item == "medkit":
 		return "medical"
-	if tags.has("mutant"):
-		return "mutant"
 	if tags.has("companion") or item in ["cat", "dog"]:
 		return "pet"
-	if tags.has("item_repaired") or item == "toolbox":
+	if tags.has("item_repaired"):
 		return "repair"
 	if tags.has("rescue_progress"):
 		return "radio" if item == "radio" else "signal"
@@ -250,7 +249,7 @@ static func scenario_for(outcome: Dictionary, ev: Dictionary) -> String:
 		return "give"
 	if tags.has("item_gained"):
 		return "gain"
-	if item in ["harmonica", "cards", "checkers", "book"] and tags.has("morale_up"):
+	if item in ["cards", "console", "manual"] and tags.has("morale_up"):
 		return "celebrate"
 	if item in ["flashlight", "map"]:
 		return "signal"
@@ -374,10 +373,10 @@ func _build_card(ev: Dictionary, options: Array, actor: Dictionary) -> void:
 	_clear_card()
 	_card = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#efe3c8")
-	sb.border_color = Color("#1d1a16")
-	sb.set_border_width_all(3)
-	sb.set_corner_radius_all(6)
+	sb.bg_color = Color("#1a1e24")
+	sb.border_color = Color("#39414b")
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(14)
 	sb.content_margin_left = 18
 	sb.content_margin_right = 18
 	sb.content_margin_top = 12
@@ -394,20 +393,20 @@ func _build_card(ev: Dictionary, options: Array, actor: Dictionary) -> void:
 	var hdr := Label.new()
 	hdr.text = "DAY %d — %s" % [GameState.day, str(ev.get("title", "Dilemma")).replace("**", "").to_upper()]
 	hdr.add_theme_font_size_override("font_size", 20)
-	hdr.add_theme_color_override("font_color", Color("#b8321e"))
+	hdr.add_theme_color_override("font_color", Color("#ffb020"))
 	_card_vbox.add_child(hdr)
 	var desc := Label.new()
 	desc.text = str(ev.get("description", "")).replace("**", "")
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.custom_minimum_size = Vector2(900, 0)
 	desc.add_theme_font_size_override("font_size", 15)
-	desc.add_theme_color_override("font_color", Color("#1d1a16"))
+	desc.add_theme_color_override("font_color", Color("#e8eaed"))
 	_card_vbox.add_child(desc)
 	var who := Label.new()
 	var lead_txt: String = "leader" if bool(actor.get("is_leader", false)) else "oldest able survivor — the leader cannot act"
 	who.text = "%s (%s) will carry out the decision. Choose before the day goes on:" % [str(actor.get("name", "Someone")), lead_txt]
 	who.add_theme_font_size_override("font_size", 12)
-	who.add_theme_color_override("font_color", Color("#544c3f"))
+	who.add_theme_color_override("font_color", Color("#9aa3ad"))
 	_card_vbox.add_child(who)
 	var n: int = 0
 	for o_v in options:
@@ -422,7 +421,7 @@ func _build_card(ev: Dictionary, options: Array, actor: Dictionary) -> void:
 		b.custom_minimum_size = Vector2(760, 34)
 		b.focus_mode = Control.FOCUS_NONE
 		b.disabled = not bool(o.get("available", false))
-		_style_btn(b, Color("#2c322d") if not b.disabled else Color("#8a8478"), Color("#f2e6ce"))
+		_style_btn(b, Color("#262c34") if not b.disabled else Color("#1a1e24"), Color("#e8eaed"))
 		var cid: String = str(o.get("id", ""))
 		b.pressed.connect(func() -> void:
 			SoundManager.play_sfx("button_click")
@@ -432,7 +431,7 @@ func _build_card(ev: Dictionary, options: Array, actor: Dictionary) -> void:
 		var st := Label.new()
 		st.text = str(o.get("status", ""))
 		st.add_theme_font_size_override("font_size", 12)
-		st.add_theme_color_override("font_color", Color("#4f8f32") if not b.disabled else Color("#b8321e"))
+		st.add_theme_color_override("font_color", Color("#4cc38a") if not b.disabled else Color("#ff4d4f"))
 		row.add_child(st)
 
 
@@ -524,9 +523,6 @@ func _fire_scenario_events() -> void:
 		"pet":
 			if _beat("pet", 0.6):
 				SoundManager.play_sfx("pickup", -2.0, 1.4)
-		"mutant":
-			if _beat("glow", 0.8):
-				SoundManager.play_sfx("sparks")
 		"return":
 			if _beat("hatch", 0.2):
 				SoundManager.play_sfx("knock")
@@ -616,7 +612,7 @@ func _camera() -> Array:
 		"give", "gain", "signal", "victory", "celebrate", "pet", "drive":
 			z = 1.0
 			fx = 600.0
-		"medical", "sickness", "mutant":
+		"medical", "sickness":
 			z = lerpf(1.0, 1.3, _seg(t, 0.0, 1.0))
 			fx = SOLO_X + 160.0
 		"hazard":
@@ -640,7 +636,7 @@ func _camera() -> Array:
 
 func _draw() -> void:
 	if visible:
-		draw_rect(Rect2(Vector2.ZERO, size), Color("#0d0f0d"))
+		draw_rect(Rect2(Vector2.ZERO, size), Color("#0d0e0f"))
 
 
 func _paint_stage(c: CanvasItem) -> void:
@@ -689,7 +685,7 @@ func _draw_lighting() -> void:
 			_c.draw_rect(Rect2(Vector2.ZERO, size), Color(0.8, 0.08, 0.04, a * (1.0 - _seg(t, 2.6, 3.6))))
 		"gloom", "doom":
 			_c.draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.45 * _seg(t, 0.0, 1.5)))
-		"hazard", "sickness", "mutant":
+		"hazard", "sickness":
 			_c.draw_rect(Rect2(Vector2.ZERO, size), Color(0.3, 0.7, 0.1, 0.10 + 0.06 * sin(t * 4.0)))
 		"victory":
 			_c.draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 0.97, 0.85, 0.35 * _seg(t, 0.3, 1.2) * (1.0 - _seg(t, 3.0, 4.6))))
@@ -706,33 +702,33 @@ func _draw_lighting() -> void:
 
 func _draw_shelter_scene(font: Font) -> void:
 	# walls & floor
-	_c.draw_rect(Rect2(-200, 0, 1700, FLOOR_Y), Color("#2a302b"))
+	_c.draw_rect(Rect2(-200, 0, 1700, FLOOR_Y), Color("#2a2d30"))
 	for x in range(-200, 1500, 96):
-		_c.draw_line(Vector2(x, 40), Vector2(x, FLOOR_Y), Color("#232823"), 3.0)
+		_c.draw_line(Vector2(x, 40), Vector2(x, FLOOR_Y), Color("#232528"), 3.0)
 	for y in range(80, int(FLOOR_Y), 64):
-		_c.draw_line(Vector2(-200, y), Vector2(1500, y), Color("#262b26"), 2.0)
-	_c.draw_rect(Rect2(-200, FLOOR_Y, 1700, 260), Color("#1b1e1a"))
-	_c.draw_line(Vector2(-200, FLOOR_Y), Vector2(1500, FLOOR_Y), Color("#3a423b"), 3.0)
+		_c.draw_line(Vector2(-200, y), Vector2(1500, y), Color("#26282b"), 2.0)
+	_c.draw_rect(Rect2(-200, FLOOR_Y, 1700, 260), Color("#1a1c1e"))
+	_c.draw_line(Vector2(-200, FLOOR_Y), Vector2(1500, FLOOR_Y), Color("#3a3e42"), 3.0)
 	# ceiling lamp
 	var sway: float = sin(_t * 1.3) * (6.0 if _scenario in ["tension", "gloom", "attack", "combat"] else 2.0)
 	var lamp := Vector2(640 + sway, 120)
 	_c.draw_line(Vector2(640, 40), lamp, Color("#111"), 2.0)
-	_c.draw_colored_polygon(PackedVector2Array([lamp + Vector2(-22, 0), lamp + Vector2(22, 0), lamp + Vector2(12, -12), lamp + Vector2(-12, -12)]), Color("#3b423d"))
+	_c.draw_colored_polygon(PackedVector2Array([lamp + Vector2(-22, 0), lamp + Vector2(22, 0), lamp + Vector2(12, -12), lamp + Vector2(-12, -12)]), Color("#3b3e42"))
 	var flick: float = 1.0 if _scenario != "gloom" else (0.6 + 0.4 * absf(sin(_t * 17.0)))
 	_c.draw_colored_polygon(PackedVector2Array([lamp + Vector2(-18, 2), lamp + Vector2(18, 2), lamp + Vector2(220, FLOOR_Y - 120), lamp + Vector2(-220, FLOOR_Y - 120)]), Color(1.0, 0.86, 0.5, 0.07 * flick))
 	_c.draw_circle(lamp + Vector2(0, 4), 7.0, Color(1.0, 0.9, 0.6, 0.9 * flick))
 	# vent
-	_c.draw_rect(Rect2(VENT_POS - Vector2(36, 18), Vector2(72, 36)), Color("#3b423d"))
+	_c.draw_rect(Rect2(VENT_POS - Vector2(36, 18), Vector2(72, 36)), Color("#3b3e42"))
 	for i in range(5):
-		_c.draw_line(VENT_POS + Vector2(-30, -12 + i * 6), VENT_POS + Vector2(30, -12 + i * 6), Color("#1b1e1a"), 2.0)
-	_c.draw_line(VENT_POS + Vector2(0, -18), VENT_POS + Vector2(0, -60), Color("#3b423d"), 14.0)
+		_c.draw_line(VENT_POS + Vector2(-30, -12 + i * 6), VENT_POS + Vector2(30, -12 + i * 6), Color("#1a1c1e"), 2.0)
+	_c.draw_line(VENT_POS + Vector2(0, -18), VENT_POS + Vector2(0, -60), Color("#3b3e42"), 14.0)
 	# hatch + ladder
 	var open_amt: float = _hatch_open()
-	_c.draw_circle(Vector2(LADDER_X, HATCH_Y), 46.0, Color("#3b423d"))
-	_c.draw_circle(Vector2(LADDER_X, HATCH_Y), 40.0, Color(0.9, 0.9, 0.75, 0.9) if open_amt > 0.05 else Color("#232823"))
+	_c.draw_circle(Vector2(LADDER_X, HATCH_Y), 46.0, Color("#3b3e42"))
+	_c.draw_circle(Vector2(LADDER_X, HATCH_Y), 40.0, Color(0.9, 0.9, 0.75, 0.9) if open_amt > 0.05 else Color("#232528"))
 	if open_amt > 0.05:
 		_c.draw_colored_polygon(PackedVector2Array([Vector2(LADDER_X - 38, HATCH_Y), Vector2(LADDER_X + 38, HATCH_Y), Vector2(LADDER_X + 150, FLOOR_Y), Vector2(LADDER_X - 150, FLOOR_Y)]), Color(1.0, 0.95, 0.75, 0.16 * open_amt))
-	_c.draw_rect(Rect2(LADDER_X - 46 + 92.0 * open_amt * 0.0, HATCH_Y - 8, 92.0 * (1.0 - open_amt), 16), Color("#555e57"))
+	_c.draw_rect(Rect2(LADDER_X - 46 + 92.0 * open_amt * 0.0, HATCH_Y - 8, 92.0 * (1.0 - open_amt), 16), Color("#55595e"))
 	for side in [-1.0, 1.0]:
 		_c.draw_line(Vector2(LADDER_X + side * 22.0, HATCH_Y + 30), Vector2(LADDER_X + side * 22.0, FLOOR_Y), Color("#6e7982"), 5.0)
 	for ry in range(int(HATCH_Y) + 50, int(FLOOR_Y), 34):
@@ -768,36 +764,37 @@ func _hatch_open() -> float:
 
 
 func _draw_rack(font: Font) -> void:
-	_c.draw_rect(Rect2(RACK_X0, 150, RACK_X1 - RACK_X0, FLOOR_Y - 150), Color("#1b1f1c"))
+	_c.draw_rect(Rect2(RACK_X0, 150, RACK_X1 - RACK_X0, FLOOR_Y - 150), Color("#1b1d1f"))
 	for sy in SHELF_YS:
 		_c.draw_rect(Rect2(RACK_X0, sy, RACK_X1 - RACK_X0, 10), Color("#4c3e2e"))
-	_c.draw_rect(Rect2(RACK_X0, 150, 8, FLOOR_Y - 150), Color("#3b423d"))
-	_c.draw_rect(Rect2(RACK_X1 - 8, 150, 8, FLOOR_Y - 150), Color("#3b423d"))
+	_c.draw_rect(Rect2(RACK_X0, 150, 8, FLOOR_Y - 150), Color("#3b3e42"))
+	_c.draw_rect(Rect2(RACK_X1 - 8, 150, 8, FLOOR_Y - 150), Color("#3b3e42"))
 	# food & water
 	var soup: int = mini(8, int(ceil(float(GameState.soup_quarters) / 4.0)))
 	for i in range(soup):
-		ItemDB.draw_item_icon(_c, "soup", Vector2(RACK_X0 + 26 + i * 28, SHELF_YS[0] - 16), 26.0, false)
+		ItemDB.draw_item_icon(_c, "food", Vector2(RACK_X0 + 26 + i * 28, SHELF_YS[0] - 16), 26.0, false)
 	var water: int = mini(8, int(ceil(float(GameState.water_quarters) / 4.0)))
 	for j in range(water):
 		ItemDB.draw_item_icon(_c, "water", Vector2(RACK_X0 + 26 + j * 28, SHELF_YS[1] - 16), 26.0, false)
 	# gear
 	var gx: float = RACK_X0 + 26
-	for gid in ["medkit", "gas_mask", "radio", "toolbox", "map", "flashlight", "rifle", "axe"]:
+	for gid in ["medkit", "gas_mask", "radio", "manual", "map", "flashlight", "rifle", "axe"]:
 		if GameState.has_working_item(gid) and gx < RACK_X1 - 20:
 			ItemDB.draw_item_icon(_c, gid, Vector2(gx, SHELF_YS[2] - 16), 28.0, false)
 			gx += 32
-	# vehicle parts on the floor shelf
+	# vehicle parts on the floor shelf (only with the car escape switched on)
 	var px: float = RACK_X0 + 30
-	for part in ["car_battery", "spark_plugs", "fan_belt", "tire_patch"]:
+	var part_ids: Array = ["car_battery", "spark_plugs", "fan_belt", "tire_patch"] if GameState.FEATURE_CAR_ESCAPE else []
+	for part in part_ids:
 		var n: int = int(GameState.parts.get(part, 0))
 		for _k in range(mini(n, 2)):
 			ItemDB.draw_item_icon(_c, part, Vector2(px, FLOOR_Y - 18), 30.0, false)
 			px += 34
-	var cans: int = int(float(GameState.parts.get("fuel_l", 0.0)) / 10.0)
+	var cans: int = int(float(GameState.parts.get("fuel_l", 0.0)) / 10.0) if GameState.FEATURE_CAR_ESCAPE else 0
 	for _k2 in range(mini(cans, 3)):
 		ItemDB.draw_item_icon(_c, "fuel_can", Vector2(px, FLOOR_Y - 18), 32.0, false)
 		px += 34
-	_c.draw_string(font, Vector2(RACK_X0 + 10, 168), "STORAGE", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#f2b82e"))
+	_c.draw_string(font, Vector2(RACK_X0 + 10, 168), "STORAGE", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#ffb020"))
 
 
 func _bench_members() -> Array:
@@ -870,7 +867,7 @@ func _draw_scenario_action(font: Font, members: Array) -> void:
 				if flee < 0.98:
 					ActorArtist.draw_silhouette(_c, feet, 1.1, Color(0.06, 0.06, 0.06, 1.0 - flee), true, t)
 			if item in ["dog", "cat"] or str(_params.get("item", "")) == "":
-				if GameState.has_dog_pancake:
+				if GameState.has_dog:
 					ItemDB.draw_item_icon(_c, "dog", Vector2(lerpf(560, 320, _seg(t, 0.8, 1.6)), FLOOR_Y - 18 - absf(sin(t * 12.0)) * 10.0), 40.0, false)
 		"attack":
 			var come: float = _seg(t, 0.4, 1.3)
@@ -886,7 +883,7 @@ func _draw_scenario_action(font: Font, members: Array) -> void:
 			# a crate of supplies is dragged off
 			if t > 2.0:
 				var crate: Vector2 = Vector2(RACK_X0 - 40.0, FLOOR_Y - 20.0).lerp(Vector2(LADDER_X, HATCH_Y), _seg(t, 2.2, 3.4))
-				ItemDB.draw_item_icon(_c, "soup", crate, 34.0, false)
+				ItemDB.draw_item_icon(_c, "food", crate, 34.0, false)
 		"repair":
 			var w2: Array = _walk_pose(start, Vector2(LADDER_X + 70.0, FLOOR_Y), 0.2, 1.1)
 			ActorArtist.draw_standing(_c, w2[0], _actor, {"walk": t * 9.0, "moving": w2[1], "flip": true, "arms": "work" if t > 1.1 else "idle", "prop": "wrench" if t > 1.0 else "", "work_t": t, "expr": "happy" if t > 3.3 else "", "expr_t": t}, 1.15)
@@ -914,8 +911,8 @@ func _draw_scenario_action(font: Font, members: Array) -> void:
 		"gain":
 			# Found or made inside the shelter: the actor works at it, holds it up, shelves it.
 			var it_id: String = str(_params.get("item", ""))
-			if it_id == "" or it_id in ["cards", "checkers", "harmonica", "toolbox"]:
-				it_id = "water" if str(_caption_body).to_lower().contains("water") else "soup"
+			if it_id == "" or it_id in ["cards", "console"]:
+				it_id = "water" if str(_caption_body).to_lower().contains("water") else "food"
 			var w5: Array = _walk_pose(start, Vector2(520.0, FLOOR_Y), 0.2, 0.9)
 			var to_rack: Array = _walk_pose(Vector2(520.0, FLOOR_Y), Vector2(RACK_X0 - 40.0, FLOOR_Y), 2.3, 3.3)
 			var pos5: Vector2 = w5[0] if t < 2.3 else to_rack[0]
@@ -964,7 +961,7 @@ func _draw_scenario_action(font: Font, members: Array) -> void:
 				ActorArtist.draw_standing(_c, Vector2(440.0 + float(idx2) * 110.0, FLOOR_Y), m_v2 as Dictionary, {"arms": "cheer" if t > 0.8 else "idle", "work_t": t + float(idx2), "expr": "happy", "expr_t": t}, 1.05)
 				idx2 += 1
 			if _scenario == "pet":
-				var pet_id: String = "dog" if GameState.has_dog_pancake else "cat"
+				var pet_id: String = "dog" if GameState.has_dog else "cat"
 				ItemDB.draw_item_icon(_c, pet_id, Vector2(fmod(t * 160.0, 900.0) + 200.0, FLOOR_Y - 18.0 - absf(sin(t * 10.0)) * 14.0), 42.0, false)
 			else:
 				var note_item: String = str(_params.get("item", ""))
@@ -977,9 +974,6 @@ func _draw_scenario_action(font: Font, members: Array) -> void:
 					_c.draw_circle(np, 6.0, ncol)
 					_c.draw_line(np + Vector2(5, 0), np + Vector2(5, -20), ncol, 2.0)
 					_c.draw_line(np + Vector2(5, -20), np + Vector2(13, -14), ncol, 2.0)
-		"mutant":
-			ActorArtist.draw_standing(_c, Vector2(SOLO_X, FLOOR_Y), _subject, {"arms": "cheer", "work_t": t, "expr": "happy", "expr_t": t}, 1.15)
-			_c.draw_circle(Vector2(SOLO_X, FLOOR_Y - 70), 70.0 + sin(t * 5.0) * 8.0, Color(0.5, 1.0, 0.3, 0.12))
 		"gloom", "doom":
 			if not _actor.is_empty() and _scenario == "gloom":
 				ActorArtist.draw_standing(_c, Vector2(SOLO_X, FLOOR_Y), _actor, {"arms": "slump", "expr": "sad", "expr_t": t}, 1.15)
@@ -1006,7 +1000,7 @@ func _draw_scenario_action(font: Font, members: Array) -> void:
 				var arc: Vector2 = src.lerp(dest, k4) + Vector2(0, -sin(k4 * PI) * 70.0)
 				ItemDB.draw_item_icon(_c, str(it.get("item_id", "")), arc, 34.0, false)
 				if k4 >= 1.0:
-					_c.draw_string(font, dest + Vector2(-20, -24), "+%d" % int(it.get("count", 1)), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#7ec850"))
+					_c.draw_string(font, dest + Vector2(-20, -24), "+%d" % int(it.get("count", 1)), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#4cc38a"))
 		"shrug":
 			if not _actor.is_empty():
 				ActorArtist.draw_standing(_c, Vector2(SOLO_X, FLOOR_Y), _actor, {"arms": "point" if t > 0.8 and t < 1.8 else "idle", "expr": "", "expr_t": t}, 1.15)
@@ -1022,7 +1016,7 @@ func _with_injury(m: Dictionary, hurt: bool) -> Dictionary:
 
 func _rack_slot_for(item_id: String, i: int) -> Vector2:
 	match item_id:
-		"soup":
+		"food":
 			return Vector2(RACK_X0 + 30.0 + float(i % 6) * 30.0, SHELF_YS[0] - 16.0)
 		"water":
 			return Vector2(RACK_X0 + 30.0 + float(i % 6) * 30.0, SHELF_YS[1] - 16.0)
@@ -1033,7 +1027,7 @@ func _rack_slot_for(item_id: String, i: int) -> Vector2:
 
 
 func _check_mark(p: Vector2) -> void:
-	_c.draw_circle(p, 16.0, Color("#4f8f32"))
+	_c.draw_circle(p, 16.0, Color("#4cc38a"))
 	_c.draw_polyline(PackedVector2Array([p + Vector2(-8, 0), p + Vector2(-2, 7), p + Vector2(9, -7)]), Color.WHITE, 3.0)
 
 
@@ -1068,7 +1062,7 @@ func _draw_garage_scene(font: Font) -> void:
 		_c.draw_rect(Rect2(1120, door.end.y, 300, FLOOR_Y - door.end.y), Color(0.85, 0.83, 0.7, 0.35 * lift))
 	# workbench + parts rack (left)
 	_c.draw_rect(Rect2(40, 390, 260, 14), Color("#5a4632"))
-	_c.draw_rect(Rect2(60, 160, 220, 220), Color("#1b1f1c"))
+	_c.draw_rect(Rect2(60, 160, 220, 220), Color("#1b1d1f"))
 	for sy in [240.0, 320.0]:
 		_c.draw_rect(Rect2(60, sy, 220, 8), Color("#4c3e2e"))
 	var x3: float = 84.0
@@ -1079,7 +1073,7 @@ func _draw_garage_scene(font: Font) -> void:
 	var cans: int = int(float(GameState.parts.get("fuel_l", 0.0)) / 10.0)
 	for c in range(mini(4, cans)):
 		ItemDB.draw_item_icon(_c, "fuel_can", Vector2(90.0 + float(c) * 46.0, 300), 34.0, false)
-	_c.draw_string(font, Vector2(70, 182), "PARTS RACK", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#f2b82e"))
+	_c.draw_string(font, Vector2(70, 182), "PARTS RACK", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#ffb020"))
 	# the car
 	var car_x: float = 560.0
 	var state: Dictionary = GameState.vehicle.duplicate()
@@ -1105,7 +1099,7 @@ func _draw_garage_scene(font: Font) -> void:
 			_check_mark(Vector2(car_x + 520.0, FLOOR_Y - 200.0))
 
 
-## 1950s station wagon, side view. state: battery_installed, tires_ok, plugs_ok, belt_ok, fuel_l,
+## The family car (an ordinary hatchback), side view. state: battery_installed, tires_ok, plugs_ok, belt_ok, fuel_l,
 ## hood_open, lights (0..1), running, wrecked. Condition is visible on the body.
 static func draw_car(c: CanvasItem, base: Vector2, s: float, state: Dictionary, t: float) -> void:
 	var font: Font = ThemeDB.fallback_font
@@ -1128,7 +1122,7 @@ static func draw_car(c: CanvasItem, base: Vector2, s: float, state: Dictionary, 
 	])
 	c.draw_colored_polygon(body, body_col)
 	c.draw_polyline(body + PackedVector2Array([body[0]]), Color("#1d1a16"), 3.0 * s)
-	# chrome stripe + windows
+	# body crease + windows
 	c.draw_line(Vector2(b.x + 10 * s, y_body - 34 * s), Vector2(b.x + 455 * s, y_body - 34 * s), Color("#dde5ec"), 3.0 * s)
 	var win_col: Color = Color(0.55, 0.7, 0.78) if not wrecked else Color(0.25, 0.25, 0.25)
 	c.draw_colored_polygon(PackedVector2Array([Vector2(b.x + 160 * s, y_body - 110 * s), Vector2(b.x + 240 * s, y_body - 112 * s), Vector2(b.x + 240 * s, y_body - 72 * s), Vector2(b.x + 128 * s, y_body - 70 * s)]), win_col)
@@ -1189,10 +1183,10 @@ static func draw_car(c: CanvasItem, base: Vector2, s: float, state: Dictionary, 
 		var tg: Array = tags[i2]
 		var tp := Vector2(b.x + (20.0 + float(i2) * 88.0) * s, y_body - 170 * s)
 		var ok: bool = bool(tg[1])
-		c.draw_rect(Rect2(tp, Vector2(82, 22) * s), Color("#efe3c8"))
-		c.draw_rect(Rect2(tp, Vector2(82, 22) * s), Color("#4f8f32") if ok else Color("#b8321e"), false, 2.0)
-		c.draw_circle(tp + Vector2(10, 11) * s, 5.0 * s, Color("#4f8f32") if ok else Color("#b8321e"))
-		c.draw_string(font, tp + Vector2(19, 16) * s, str(tg[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(11 * s), Color("#1d1a16"))
+		c.draw_rect(Rect2(tp, Vector2(82, 22) * s), Color("#1a1e24"))
+		c.draw_rect(Rect2(tp, Vector2(82, 22) * s), Color("#4cc38a") if ok else Color("#ff4d4f"), false, 1.5)
+		c.draw_circle(tp + Vector2(10, 11) * s, 5.0 * s, Color("#4cc38a") if ok else Color("#ff4d4f"))
+		c.draw_string(font, tp + Vector2(19, 16) * s, str(tg[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(11 * s), Color("#e8eaed"))
 	# exhaust when running
 	if running:
 		for k in range(5):
