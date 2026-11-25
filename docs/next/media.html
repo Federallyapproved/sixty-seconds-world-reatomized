@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The End Is Near v3 — M3 preview</title>
+<title>The End Is Near v3 — M4 preview</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; background: #171a16; color: #efe3c8; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.45; }
@@ -23,10 +23,25 @@
 </head>
 <body>
 <main>
-  <h1>The End Is Near v3 — Milestone 3 preview: crafting and salvage</h1>
-  <p>Junk from the house, the stores and the neighbours' homes comes apart at the Bench into six parts. A survivor can spend the day at the workbench instead of going out: twelve recipes make makeshift things that are weaker than the real ones and wear out (a rag bandage closes a wound but does nothing for a fever; a phone torch can't signal a rescue). The manual's chapters, or pamphlets found on trips, unlock the rest. The Need toggle marks the junk worth carrying home. Quiet night thieves and dirty water add pressure the bench can answer. The live game at the site root is unchanged until the pull requests are merged.</p>
-  <a class="play" href="./">Play the M3 preview build</a>
-  <p class="cap">Grab: WASD/arrows move · SPACE grabs and drops your load at the hatch · Q / 1–7 select a carried slot · F climbs down · TAB ends the look-around. Shelter: 1–4 or click answers the day's dilemma · Give/Skip food and water per person · Treat · each person's job button: Rest, Trip…, Craft… or Study… · Bench (top right) takes junk apart · ENTER ends the day · SPACE skips an animation.</p>
+  <h1>The End Is Near v3 — Milestone 4 preview: the first-person grab</h1>
+  <p>The house grab is now first person, inside the building's real OpenStreetMap outline: generated rooms, doors and furniture, ceilings, windows, one light per room, and the shelter hatch as an opening in the floor with a ladder down. Aim at what you want and grab it; carry the family to the hatch; climb down before the timer runs out. The family stand in the house as 3D characters. Settings (top right of the title screen) has mouse sensitivity, invert-Y, field of view and the classic top-down grab. The live game at the site root is unchanged until the pull requests are merged.</p>
+  <a class="play" href="./">Play the M4 preview build</a>
+  <p class="cap">Grab: WASD moves · the mouse looks (click once to lock the pointer, ESC frees it, ← → also turn) · E, SPACE or a click grabs what the crosshair is on · E at the hatch drops everything down · right-click or G drops the selected thing · Q / 1–7 / wheel select · F climbs down · TAB ends the look-around · F3 shows frames per second. Shelter: 1–4 or click answers the day's dilemma · Give/Skip food and water per person · Treat · each person's job button: Rest, Trip…, Craft… or Study… · Bench (top right) takes junk apart · ENTER ends the day.</p>
+
+  <h2>Milestone 4</h2>
+  <div class="grid">
+    <div><video controls preload="metadata" src="media/m4_grab_first_person.mp4" poster="media/m4_grab_first_person.jpg"></video><div class="cap">Driven with simulated mouse motion, keys and clicks: the look-around, grabs by E and by click, the family carried down, hands full, a drop, the hatch, and the climb down.</div></div>
+    <img src="media/m4_before_after_grab.png" alt="The same house in the top-down grab and in first person">
+    <img src="media/m4_grab_after.png" alt="Aiming at pots and pans: its name, slot count and what it breaks into">
+    <img src="media/m4_look_around_hatch.png" alt="The look-around starts facing the shelter hatch">
+    <img src="media/m4_deposit_at_hatch.png" alt="Dropping a load down the hatch">
+    <img src="media/m4_hands_full.png" alt="Hands full: a family member needs three free slots">
+    <img src="media/m4_storage_room.png" alt="A storage room in a larger building">
+    <img src="media/m4_house_cutaway.png" alt="Cut-away from above: rooms, furniture and items on the real outline">
+    <img src="media/m4_family_lineup.png" alt="The family figures as built in the grab, every role">
+    <img src="media/m4_settings.png" alt="Settings: mouse sensitivity, field of view, invert-Y, the classic top-down grab">
+  </div>
+  <p class="cap">Draw calls while playing (1280×720): average 180, peak 266, none over 300. The web pack is 20.7 MB. Report: <a href="https://github.com/Federallyapproved/the-end-is-near/blob/v3-m4-firstperson/docs/M4_REPORT.md">docs/M4_REPORT.md</a>.</p>
 
   <h2>Milestone 3</h2>
   <div class="grid">
